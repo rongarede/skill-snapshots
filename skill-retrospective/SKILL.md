@@ -45,6 +45,22 @@ description: Use when user sends /skill复盘 or /迭代清单, or asks to revie
 
 ### 第四步：生成迭代清单
 
+### 第五步：自动快照（用户确认执行后）
+
+当用户确认并执行了 skill 更新后，**必须**自动执行快照：
+
+```bash
+# 1. 扫描技能状态
+bash ~/.claude/skills/skill-snapshot/scripts/scan.sh
+
+# 2. 对每个「未备份」或「已修改」的技能保存快照
+bash ~/.claude/skills/skill-snapshot/scripts/save.sh "<skill-name>" "<commit-message>"
+```
+
+**快照说明格式：**
+- 新建 skill：`初始版本：<功能简述>`
+- 更新 skill：`<修改内容简述>`
+
 ## 输出格式
 
 ```markdown
@@ -86,7 +102,23 @@ description: Use when user sends /skill复盘 or /迭代清单, or asks to revie
 
 ---
 
-确认后我会执行相应的更新。
+确认后我会执行相应的更新，并自动保存快照。
+```
+
+### 执行后追加输出
+
+当用户确认并完成 skill 更新后，追加输出快照结果：
+
+```markdown
+---
+
+## 快照结果
+
+| 技能 | 版本 | 说明 |
+|------|------|------|
+| [skill名] | v[n] | [快照说明] |
+
+所有变更已备份完成。
 ```
 
 ## 优先级判断
@@ -99,3 +131,4 @@ description: Use when user sends /skill复盘 or /迭代清单, or asks to revie
 2. 负反馈记录用户原话
 3. 迭代建议要具体可执行
 4. 新 skill 建议说明来源
+5. **执行更新后必须自动快照**：不需要用户额外确认，直接扫描并保存
