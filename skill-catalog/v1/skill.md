@@ -16,7 +16,7 @@ description: "汇总所有 Claude Code Skills 的目录与使用指南。触发�
 
 | 类别 | 数量 | 说明 |
 |------|------|------|
-| 📝 学术写作 | 3 | 论文映射、逆向工程、LaTeX 转换 |
+| 📝 学术写作 | 5 | 论文映射、逆向工程、段落分析、PDF转MD、LaTeX 转换 |
 | 📚 知识管理 | 5 | NotebookLM、Obsidian、日记 |
 | 🛠️ 开发工具 | 4 | Codex 集成、任务分派、规划 |
 | 🔧 技能管理 | 3 | 快照、复盘、目录 |
@@ -51,6 +51,31 @@ description: "汇总所有 Claude Code Skills 的目录与使用指南。触发�
 | 触发词 | `/readbook`、论文逆向、论文拆解 |
 | 输出 | 设计画布.md、逆向提纲.md、论证挖掘.md |
 | 核心功能 | 分层逆向拆解、图尔敏论证分析 |
+
+---
+
+### paragraph-move-analysis
+**段落写作动作分析工具**
+
+逐句拆解论文段落的说服动作，输出可迁移的仿写模板。
+
+| 项目 | 内容 |
+|------|------|
+| 触发词 | `/paragraph-analysis`、段落拆解、写作动作分析 |
+| 输出 | `{论文名}_{章节名}_提纲.md` |
+| 核心功能 | 逐句动作类型标注、写作心法揭秘、完形填空模板 |
+
+---
+
+### pdf2md-academic
+**学术 PDF 转 Markdown 工具**
+
+将含公式、图表、引用的学术论文 PDF 转换为排版整洁的 Markdown。
+
+| 项目 | 内容 |
+|------|------|
+| 触发词 | `/pdf2md`、PDF转Markdown、论文转MD |
+| 核心功能 | 公式转换、引用格式化、算法标准化、罗马数字列表 |
 
 ---
 
@@ -302,6 +327,8 @@ Makepad 开发的自改进技能系统，支持知识积累、错误自修正、
 |-----------|------------|
 | 分析论文结构 | paper-readbook |
 | 建立论文段落映射 | paper-mapping |
+| 逐句分析段落写作动作 | paragraph-move-analysis |
+| 学术 PDF 转 Markdown | pdf2md-academic |
 | 转换 Word 到 LaTeX | word-to-tex |
 | 查询 NotebookLM 知识库 | nb-query |
 | 生成播客 | notebooklm |
