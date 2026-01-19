@@ -1,209 +1,253 @@
 ---
 name: task-dispatcher
-description: Automatically route tasks between Claude and Codex based on task type. Use when starting any development task to determine the optimal execution strategy.
+description: "PROACTIVE: Automatically route tasks between Claude and Codex based on task type. MUST be invoked for ANY development task (implement, fix, refactor, test, review, optimize) to determine whether Claude or Codex should execute."
 ---
 
 # Task Dispatcher
 
-自动识别任务类型，路由到 Claude 或 Codex 执行。
+**自动**识别任务类型，路由到 Claude 或 Codex 执行。
 
-## 触发条件
+## 自动触发规则
 
-- 开始新的开发任务时
-- 需要决定由谁执行时
-- `/dispatch` 或 `/任务分派`
+<IMPORTANT>
+此 Skill 必须在以下情况**自动触发**，无需用户显式调用：
+
+1. 用户请求**实现/编写**任何代码
+2. 用户请求**修复/修改**任何代码
+3. 用户请求**重构/优化**任何代码
+4. 用户请求**测试/覆盖**任何代码
+5. 用户请求**审查/review**任何代码
+6. 用户请求**文档/注释**任何代码
+
+**识别关键词**（中/英文）：
+- 实现、implement、编写、write、创建、create
+- 修复、fix、修改、modify、更新、update
+- 重构、refactor、优化、optimize、简化、simplify
+- 测试、test、覆盖、coverage、mock
+- 审查、review、评审、audit
+- 文档、document、注释、comment
+</IMPORTANT>
+
+## 路由决策树
+
+```
+用户请求
+    │
+    ▼
+┌─────────────────────────────────────────┐
+│ 是否包含 Codex 关键词？                  │
+│ (实现/编写/修复/重构/测试/文档)          │
+└─────────────────────────────────────────┘
+    │                           │
+    ▼ 是                        ▼ 否
+┌─────────────┐          ┌─────────────┐
+│ 是否需要    │          │ Claude 执行  │
+│ 深度推理？  │          └─────────────┘
+└─────────────┘
+    │         │
+    ▼ 是      ▼ 否
+┌────────┐  ┌────────────────┐
+│ Claude │  │ 委托给 Codex   │
+│ 规划   │  │ codex-executor │
+│   ↓    │  └────────────────┘
+│ Codex  │
+│ 执行   │
+└────────┘
+```
 
 ## 路由规则
 
-### Claude 专属 (需要深度推理)
+### → Codex 执行（快速编码任务）
 
-| 关键词 | 任务类型 |
-|--------|----------|
-| 分析、理解、评估 | 需求分析 |
-| 设计、架构、方案 | 技术设计 |
-| 规划、拆分、优先级 | 任务规划 |
-| 决策、选择、权衡 | 技术决策 |
-| 调试、根因、诊断 | 复杂调试 |
-| 审查、验收、评审 | 代码审查 |
+**直接委托给 Codex**，Claude 仅做验收：
 
-### Codex 专属 (需要快速执行)
+| 任务类型 | 关键词 | 示例 |
+|----------|--------|------|
+| 代码生成 | 实现、编写、创建、添加 | "实现 login 函数" |
+| 代码修改 | 修复、修改、更新、改 | "修复这个 bug" |
+| 代码重构 | 重构、简化、提取、合并 | "重构这个类" |
+| 测试编写 | 测试、单测、覆盖、mock | "写单元测试" |
+| 文档生成 | 文档、注释、README | "添加注释" |
 
-| 关键词 | 任务类型 |
-|--------|----------|
-| 实现、编写、创建 | 代码生成 |
-| 修复、修改、更新 | 代码修改 |
-| 重构、优化、简化 | 代码重构 |
-| 测试、覆盖、mock | 测试编写 |
-| 文档、注释、README | 文档生成 |
-| 格式化、规范、lint | 代码规范 |
+**执行方式**：
+```bash
+# Claude 调用 codex-executor subagent
+Task(subagent_type="codex-executor", prompt="...")
+```
 
-### 双重验证 (Claude + Codex)
+### → Claude 执行（深度推理任务）
 
-| 关键词 | 任务类型 |
-|--------|----------|
-| 安全、审计、漏洞 | 安全审计 |
-| 性能、优化、瓶颈 | 性能优化 |
-| review、PR、合并 | 代码审查 |
+**Claude 直接处理**：
 
-## 工作流程
+| 任务类型 | 关键词 | 示例 |
+|----------|--------|------|
+| 需求分析 | 分析、理解、解释、为什么 | "分析这段代码" |
+| 技术设计 | 设计、架构、方案、如何 | "设计 API 结构" |
+| 任务规划 | 规划、拆分、步骤、计划 | "规划实现步骤" |
+| 复杂调试 | 调试、根因、诊断、排查 | "诊断性能问题" |
+| 技术决策 | 选择、比较、权衡、推荐 | "推荐技术方案" |
+
+### → 双重验证（Claude + Codex）
+
+**先 Claude 后 Codex**：
+
+| 任务类型 | 流程 |
+|----------|------|
+| 安全审计 | Claude 分析威胁模型 → Codex 扫描代码 |
+| 性能优化 | Claude 分析瓶颈 → Codex 实现优化 |
+| 代码审查 | Claude 审查逻辑 → Codex 审查风格 |
+
+## 自动执行流程
 
 ### 第一步：识别任务类型
 
-分析用户输入，提取关键词，匹配路由规则。
+```python
+# 伪代码
+def classify_task(user_input):
+    codex_keywords = ["实现", "编写", "修复", "重构", "测试", "文档",
+                      "implement", "write", "fix", "refactor", "test", "doc"]
+    claude_keywords = ["分析", "设计", "规划", "调试", "决策", "解释",
+                       "analyze", "design", "plan", "debug", "decide", "explain"]
 
-### 第二步：生成执行计划
+    if any(kw in user_input for kw in codex_keywords):
+        if needs_planning(user_input):  # 复杂任务
+            return "claude_then_codex"
+        return "codex"
+    return "claude"
+```
+
+### 第二步：显示分派结果
 
 ```markdown
-## 任务分派结果
+## 🔀 任务分派
 
-**任务**: {task_description}
-**类型**: {task_type}
-**执行者**: Claude / Codex / 双重验证
+| 项目 | 值 |
+|------|-----|
+| 任务 | {task} |
+| 类型 | {type} |
+| 执行 | **{executor}** |
 
-### 执行计划
-
-1. [Claude/Codex] {step_1}
-2. [Claude/Codex] {step_2}
-...
+{开始执行...}
 ```
 
-### 第三步：执行并协调
-
-#### Claude 执行模式
-直接在主会话中执行，输出详细推理过程。
+### 第三步：执行任务
 
 #### Codex 执行模式
-调用 codex-executor subagent：
-```bash
-codex exec --yolo --json "{task_prompt}"
+
+```
+[委托给 Codex]
+
+cd {project_dir} && codex exec --yolo --json "
+{task_description}
+
+工作目录: {cwd}
+目标文件: {files}
+要求: {requirements}
+"
 ```
 
-#### 双重验证模式
-1. Claude 先执行分析
-2. 调用 Codex 获取第二意见
-3. Claude 整合两方结果
+#### Claude 执行模式
+
+直接在主会话执行，输出详细推理。
+
+#### Claude → Codex 模式
+
+1. Claude 完成规划/分析
+2. 将具体实现委托给 Codex
+3. Claude 验收 Codex 结果
 
 ## 委托模板
 
-### 代码实现委托
+### 代码实现
 
 ```
-[委托给 Codex]
-
-任务: {task_description}
+任务: {description}
+目录: {project_path}
 文件: {target_files}
+
 规格:
-  - 输入: {input_spec}
-  - 输出: {output_spec}
-  - 约束: {constraints}
+- 功能: {function_spec}
+- 输入: {input}
+- 输出: {output}
+- 约束: {constraints}
 
-请实现并返回完整代码。
+请用中文回复，实现完整代码。
 ```
 
-### Bug 修复委托
+### Bug 修复
 
 ```
-[委托给 Codex]
-
 问题: {bug_description}
-位置: {file}:{line}
-根因: {root_cause} (Claude 已分析)
-修复方案: {fix_approach}
+文件: {file}:{line}
+根因: {root_cause}
+方案: {fix_approach}
 
 请实现修复并添加回归测试。
 ```
 
-### 代码审查委托
+### 代码重构
 
 ```
-[委托给 Codex]
+目标: {refactor_goal}
+范围: {files}
+约束:
+- 保持 API 兼容
+- 不改变行为
+- 添加必要测试
 
-审查范围: {files}
-关注点:
-  - 代码风格和最佳实践
-  - 性能优化机会
-  - 潜在的边界情况
-
-请返回结构化的审查意见。
-```
-
-## 输出格式
-
-```markdown
-## 任务分派
-
-| 项目 | 值 |
-|------|-----|
-| 任务 | {description} |
-| 类型 | {type} |
-| 路由 | {handler} |
-
-### 执行计划
-
-| 步骤 | 执行者 | 内容 |
-|------|--------|------|
-| 1 | Claude | {step} |
-| 2 | Codex | {step} |
-| ... | ... | ... |
-
-### 开始执行
-
-{execution_output}
+请执行重构。
 ```
 
 ## 示例
 
-### 示例 1: 新功能开发
+### 示例 1: 简单实现 → Codex
 
 ```
-用户: 实现用户登录功能
+用户: 实现一个计算斐波那契数列的函数
 
-分派结果:
-- 类型: 新功能开发
-- 路由: Claude 规划 + Codex 实现
+分派: → Codex
+原因: 简单编码任务，无需深度规划
 
-执行计划:
-1. [Claude] 设计 API 接口和认证流程
-2. [Codex] 实现 AuthService.login()
-3. [Codex] 编写单元测试
-4. [Claude] 代码审查
-5. [Codex] 修复问题
+执行:
+[调用 codex-executor]
+codex exec --yolo "实现 fibonacci 函数..."
 ```
 
-### 示例 2: Bug 修复
+### 示例 2: 复杂功能 → Claude + Codex
 
 ```
-用户: 修复登录时 token 过期的问题
+用户: 实现用户认证系统
 
-分派结果:
-- 类型: Bug 修复
-- 路由: Claude 分析 + Codex 修复
+分派: → Claude 规划 + Codex 实现
+原因: 需要架构设计
 
-执行计划:
-1. [Claude] 分析根因
-2. [Claude] 制定修复方案
-3. [Codex] 实现修复
-4. [Codex] 添加测试
+执行:
+1. [Claude] 设计认证流程、API 接口、数据模型
+2. [Codex] 实现 AuthService
+3. [Codex] 实现中间件
+4. [Codex] 编写测试
+5. [Claude] 验收审查
 ```
 
-### 示例 3: 代码审查
+### 示例 3: 分析任务 → Claude
 
 ```
-用户: 审查最近的提交
+用户: 分析这段代码为什么性能差
 
-分派结果:
-- 类型: 代码审查
-- 路由: 双重验证
+分派: → Claude
+原因: 需要深度推理
 
-执行计划:
-1. [Claude] 审查逻辑正确性
-2. [Codex] 审查风格和性能
-3. [Claude] 整合意见并决策
+执行:
+[Claude 直接分析]
+1. 阅读代码
+2. 识别瓶颈
+3. 给出优化建议
 ```
 
 ## 注意事项
 
-1. **明确边界**: 不确定时默认由 Claude 处理
-2. **保持协调**: Claude 始终作为协调者
-3. **验证结果**: Codex 输出需要 Claude 验收
-4. **记录过程**: 保留分派和执行记录
+1. **自动触发**: 检测到开发任务关键词时自动分派
+2. **显示分派**: 始终告知用户当前执行者
+3. **Claude 协调**: Claude 始终作为协调者和验收者
+4. **失败回退**: Codex 失败时由 Claude 接管
+5. **用户覆盖**: 用户可显式指定执行者
