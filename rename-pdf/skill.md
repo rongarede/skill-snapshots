@@ -13,37 +13,23 @@ description: "自动重命名PDF文件：提取PDF元数据标题，清理非法
 - 「重命名这个 PDF」
 - 「用标题重命名 PDF」
 
-## 执行流程
-
-### 1. 提取元数据
-获取目标 PDF 的 Title 字段。
+## 执行脚本
 
 ```bash
-# 使用 exiftool 提取标题
-exiftool -Title "<PDF文件>"
-
-# 或使用 pdfinfo
-pdfinfo "<PDF文件>" | grep "Title:"
+bash ~/.claude/skills/rename-pdf/scripts/rename.sh "<PDF文件路径>"
 ```
 
-### 2. 校验并清理
-- 如果标题不存在或为 "(null)"，停止任务并告知用户
-- 如果存在，将标题中的非法字符替换为 "-"：
-  - 非法字符：`/ \ : * ? " < > |`
+## 功能说明
 
-### 3. 静默重命名
-使用工具将文件重命名为 `标题.pdf`，保持在原目录。
+| 功能 | 说明 |
+|------|------|
+| 提取标题 | 从 PDF 元数据 Title 字段获取 |
+| 清理字符 | 将 `/ \ : * ? " < > |` 替换为 `-` |
+| 静默执行 | 直接重命名，仅输出结果 |
 
-```bash
-mv "<原文件>" "<目录>/标题.pdf"
-```
+## 依赖
 
-## 核心要求
-
-- **静默执行**：直接调用工具完成，不输出 Bash 代码或脚本
-- **错误处理**：仅在致命错误时向用户报告
-- **保持原位**：重命名后文件保持在原目录
-- **字符清理**：确保新文件名在所有操作系统上合法
+- `exiftool` 或 `pdfinfo`（二选一）
 
 ## 示例
 
@@ -51,11 +37,6 @@ mv "<原文件>" "<目录>/标题.pdf"
 ```
 /renamepdf /Users/bit/Downloads/paper.pdf
 ```
-
-**执行**：
-1. 提取 Title: "A Novel Approach to BFT Consensus"
-2. 清理字符（本例无需清理）
-3. 重命名为: `/Users/bit/Downloads/A Novel Approach to BFT Consensus.pdf`
 
 **输出**：
 ```
