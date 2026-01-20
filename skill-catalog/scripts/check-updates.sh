@@ -127,18 +127,27 @@ echo ""
 needs_update=false
 
 if [[ -f "$INSTALLED_FILE" && -f "$MARKETPLACES_FILE" ]]; then
-    # 检查 superpowers
+    # 检查 superpowers - 基于版本号对比，而非 commit hash
     if jq -e '.plugins["superpowers@superpowers-marketplace"]' "$INSTALLED_FILE" &>/dev/null; then
         local_version=$(jq -r '.plugins["superpowers@superpowers-marketplace"][0].version' "$INSTALLED_FILE")
-        local_sha=$(jq -r '.plugins["superpowers@superpowers-marketplace"][0].gitCommitSha[:8] // "N/A"' "$INSTALLED_FILE")
 
+        # 获取远程最新 tag 或从 commit message 提取版本
         remote_info=$(get_github_latest_commit "obra/superpowers-marketplace")
         IFS='|' read -r remote_sha msg date <<< "$remote_info"
 
-        if [[ "$local_sha" != "$remote_sha" && "$remote_sha" != "error" ]]; then
-            echo "  ⚠️  superpowers: 本地 $local_sha → 远程 $remote_sha"
+        # 从 commit message 提取版本号 (如 "Update superpowers to v4.0.3")
+        if [[ "$msg" =~ v([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+            remote_version="${BASH_REMATCH[1]}"
+        else
+            remote_version="$local_version"  # 无法提取则假设相同
+        fi
+
+        if [[ "$local_version" != "$remote_version" ]]; then
+            echo "  ⚠️  superpowers: 本地 v$local_version → 远程 v$remote_version"
             echo "      更新命令: /plugins update superpowers@superpowers-marketplace"
             needs_update=true
+        else
+            echo "  ✅ superpowers v$local_version 已是最新"
         fi
     fi
 
@@ -157,7 +166,8 @@ if [[ -f "$INSTALLED_FILE" && -f "$MARKETPLACES_FILE" ]]; then
 fi
 
 if [[ "$needs_update" == false ]]; then
-    echo "  ✅ 所有已安装 plugins 均为最新版本"
+    echo ""
+    echo "  所有已安装 plugins 均为最新版本"
 fi
 
 echo ""
