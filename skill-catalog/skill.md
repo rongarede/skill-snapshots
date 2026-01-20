@@ -1,15 +1,16 @@
 ---
 name: skill-catalog
-description: "汇总所有 Claude Code Skills 的目录与使用指南。触发词：/skills、技能目录、skill列表、有哪些技能"
+description: "汇总所有 Claude Code Skills 的目录与使用指南，支持检查 GitHub 更新。触发词：/skills、技能目录、skill列表、有哪些技能、检查更新"
 ---
 
 # Skill Catalog - 技能目录
 
-汇总当前所有可用的 Claude Code Skills，按类别分组，方便查找与使用。
+汇总当前所有可用的 Claude Code Skills，按类别分组，方便查找与使用。支持检查 GitHub plugins 更新。
 
 ## 触发方式
 
-- `/skills` 或 `/skill-catalog`
+- `/skills` 或 `/skill-catalog` - 显示技能目录
+- `/skills check` 或 `检查技能更新` - 检查 GitHub plugins 更新
 - 「有哪些技能」「技能目录」「skill 列表」
 
 ## 技能分类总览
@@ -258,14 +259,14 @@ OpenAI Codex CLI 非交互模式执行最佳实践。
 ---
 
 ### skill-catalog（本 Skill）
-**技能目录汇总**
+**技能目录与更新检查**
 
-汇总所有可用 Skills 的目录与使用指南。
+汇总所有可用 Skills 的目录与使用指南，支持检查 GitHub plugins 更新。
 
 | 项目 | 内容 |
 |------|------|
-| 触发词 | `/skills`、技能目录、有哪些技能 |
-| 核心功能 | 分类展示、快速查找 |
+| 触发词 | `/skills`、技能目录、有哪些技能、`/skills check`、检查技能更新 |
+| 核心功能 | 分类展示、快速查找、**检查 GitHub 更新** |
 
 ---
 
@@ -345,6 +346,74 @@ Makepad 开发的自改进技能系统，支持知识积累、错误自修正、
 | 重命名 PDF 文件 | rename-pdf |
 | 创建 Obsidian Canvas | json-canvas |
 | 编辑 Obsidian Bases | obsidian-bases |
+| **检查 skill/plugin 更新** | **skill-catalog** (`/skills check`) |
+
+---
+
+## 检查 GitHub 更新
+
+当触发 `/skills check` 或「检查技能更新」时，执行以下流程：
+
+### 已注册 Marketplaces
+
+| Marketplace | GitHub 仓库 | 说明 |
+|-------------|-------------|------|
+| claude-plugins-official | anthropics/claude-plugins-official | Anthropic 官方 plugins |
+| superpowers-marketplace | obra/superpowers-marketplace | Superpowers 技能集 |
+| anthropic-agent-skills | anthropics/skills | Anthropic 官方 agents |
+| claude-code-workflows | wshobson/agents | 社区 agents |
+
+### 已安装 Plugins
+
+| Plugin | 来源 | 配置路径 |
+|--------|------|----------|
+| superpowers | superpowers-marketplace | `~/.claude/plugins/installed_plugins.json` |
+| code-simplifier | claude-plugins-official | |
+| rust-analyzer-lsp | claude-plugins-official | |
+
+### 检查命令
+
+```bash
+# 设置代理（如需要）
+export https_proxy=http://127.0.0.1:7897
+
+# 检查 superpowers 最新版本
+curl -s https://api.github.com/repos/obra/superpowers-marketplace/commits/main | \
+  jq -r '"superpowers: \(.sha[:8]) - \(.commit.message | split("\n")[0])"'
+
+# 检查 claude-plugins-official
+curl -s https://api.github.com/repos/anthropics/claude-plugins-official/commits/main | \
+  jq -r '"claude-plugins: \(.sha[:8]) - \(.commit.message | split("\n")[0])"'
+
+# 检查 anthropics/skills
+curl -s https://api.github.com/repos/anthropics/skills/commits/main | \
+  jq -r '"anthropic-skills: \(.sha[:8]) - \(.commit.message | split("\n")[0])"'
+
+# 检查 wshobson/agents
+curl -s https://api.github.com/repos/wshobson/agents/commits/main | \
+  jq -r '"claude-workflows: \(.sha[:8]) - \(.commit.message | split("\n")[0])"'
+```
+
+### 更新 Plugin
+
+```bash
+# Claude Code 内置命令
+/plugins update superpowers@superpowers-marketplace
+/plugins update code-simplifier@claude-plugins-official
+```
+
+### 输出格式
+
+```markdown
+## 🔄 GitHub Skill 更新检查
+
+| 仓库 | 本地版本 | 远程最新 | 状态 |
+|------|----------|----------|------|
+| superpowers | v4.0.3 | v4.0.3 | ✅ 最新 |
+| claude-plugins | 1.0.0 | abc12345 | ⚠️ 有更新 |
+
+**建议操作**: [列出需要更新的 plugin]
+```
 
 ---
 
