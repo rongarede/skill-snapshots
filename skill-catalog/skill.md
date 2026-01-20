@@ -352,67 +352,61 @@ Makepad 开发的自改进技能系统，支持知识积累、错误自修正、
 
 ## 检查 GitHub 更新
 
-当触发 `/skills check` 或「检查技能更新」时，执行以下流程：
-
-### 已注册 Marketplaces
-
-| Marketplace | GitHub 仓库 | 说明 |
-|-------------|-------------|------|
-| claude-plugins-official | anthropics/claude-plugins-official | Anthropic 官方 plugins |
-| superpowers-marketplace | obra/superpowers-marketplace | Superpowers 技能集 |
-| anthropic-agent-skills | anthropics/skills | Anthropic 官方 agents |
-| claude-code-workflows | wshobson/agents | 社区 agents |
-
-### 已安装 Plugins
-
-| Plugin | 来源 | 配置路径 |
-|--------|------|----------|
-| superpowers | superpowers-marketplace | `~/.claude/plugins/installed_plugins.json` |
-| code-simplifier | claude-plugins-official | |
-| rust-analyzer-lsp | claude-plugins-official | |
-
-### 检查命令
+当触发 `/skills check` 或「检查技能更新」时，执行脚本：
 
 ```bash
-# 设置代理（如需要）
-export https_proxy=http://127.0.0.1:7897
-
-# 检查 superpowers 最新版本
-curl -s https://api.github.com/repos/obra/superpowers-marketplace/commits/main | \
-  jq -r '"superpowers: \(.sha[:8]) - \(.commit.message | split("\n")[0])"'
-
-# 检查 claude-plugins-official
-curl -s https://api.github.com/repos/anthropics/claude-plugins-official/commits/main | \
-  jq -r '"claude-plugins: \(.sha[:8]) - \(.commit.message | split("\n")[0])"'
-
-# 检查 anthropics/skills
-curl -s https://api.github.com/repos/anthropics/skills/commits/main | \
-  jq -r '"anthropic-skills: \(.sha[:8]) - \(.commit.message | split("\n")[0])"'
-
-# 检查 wshobson/agents
-curl -s https://api.github.com/repos/wshobson/agents/commits/main | \
-  jq -r '"claude-workflows: \(.sha[:8]) - \(.commit.message | split("\n")[0])"'
+bash ~/.claude/skills/skill-catalog/scripts/check-updates.sh
 ```
 
-### 更新 Plugin
+### 脚本功能
+
+| 功能 | 说明 |
+|------|------|
+| 已安装 Plugins | 读取 `~/.claude/plugins/installed_plugins.json`，显示版本和 commit |
+| Marketplaces 状态 | 读取 `~/.claude/plugins/known_marketplaces.json`，查询 GitHub API |
+| 版本对比 | 对比本地 commit 与远程最新 commit |
+| 更新建议 | 列出需要更新的 plugin 及命令 |
+
+### 输出示例
+
+```
+=== 🔄 GitHub Skill/Plugin 更新检查 ===
+
+【已安装 Plugins】
+
+Plugin                              本地版本     安装日期     Commit
+----------------------------------- ------------ ------------ --------
+superpowers@superpowers-marketplace 4.0.3        2026-01-10   b9e16498
+code-simplifier@claude-plugins-off  1.0.0        2026-01-10   N/A
+
+【Marketplaces 远程状态】
+
+Marketplace               GitHub 仓库                         最新 Commit 更新日期     说明
+------------------------- ----------------------------------- ---------- ------------ --------------------
+claude-plugins-official   anthropics/claude-plugins-official  96276205   2026-01-15   Add plugin directory...
+superpowers-marketplace   obra/superpowers-marketplace        d466ee35   2025-12-27   Update superpowers t...
+
+【更新建议】
+
+  ✅ 所有已安装 plugins 均为最新版本
+
+=== 检查完成 ===
+```
+
+### 手动更新命令
 
 ```bash
-# Claude Code 内置命令
 /plugins update superpowers@superpowers-marketplace
 /plugins update code-simplifier@claude-plugins-official
 ```
 
-### 输出格式
+### 代理配置
 
-```markdown
-## 🔄 GitHub Skill 更新检查
+脚本自动检测 `https_proxy` 环境变量。如需代理：
 
-| 仓库 | 本地版本 | 远程最新 | 状态 |
-|------|----------|----------|------|
-| superpowers | v4.0.3 | v4.0.3 | ✅ 最新 |
-| claude-plugins | 1.0.0 | abc12345 | ⚠️ 有更新 |
-
-**建议操作**: [列出需要更新的 plugin]
+```bash
+export https_proxy=http://127.0.0.1:7897
+bash ~/.claude/skills/skill-catalog/scripts/check-updates.sh
 ```
 
 ---
