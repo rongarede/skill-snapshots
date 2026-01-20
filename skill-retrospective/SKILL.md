@@ -132,3 +132,138 @@ bash ~/.claude/skills/skill-snapshot/scripts/save.sh "<skill-name>" "<commit-mes
 3. 迭代建议要具体可执行
 4. 新 skill 建议说明来源
 5. **执行更新后必须自动快照**：不需要用户额外确认，直接扫描并保存
+
+---
+
+## Skill 编写准则
+
+执行 skill 更新或新建时，必须遵循以下准则：
+
+### 核心原则
+
+| 原则 | 说明 |
+|------|------|
+| 脚本优先 | 功能实现优先使用脚本（sh/python），而非内联代码 |
+| 可执行性 | Skill 应该是可直接执行的，而非仅仅是文档 |
+| 可测试性 | 每个脚本必须可独立运行和验证 |
+| 可维护性 | 脚本与文档分离，便于独立更新 |
+
+### 实现优先级
+
+```
+1. Bash 脚本 (.sh)  → 系统操作、文件处理、API 调用、流程自动化
+2. Python 脚本 (.py) → 复杂逻辑、数据处理、需要第三方库
+3. 内联代码         → 仅当逻辑极简且不可复用时
+```
+
+### 目录结构
+
+```
+skill-name/
+├── skill.md          # 触发词、工作流程、使用说明
+├── scripts/          # 脚本目录
+│   ├── main.sh       # 主脚本
+│   └── helper.py     # 辅助脚本
+└── templates/        # 模板文件（可选）
+```
+
+### 脚本规范
+
+**Bash 脚本模板：**
+```bash
+#!/bin/bash
+# ============================================================
+# skill-name: 功能描述
+# ============================================================
+
+set -e  # 遇错即停
+
+# ==================== 配置 ====================
+CONFIG_VAR="value"
+
+# ==================== 工具函数 ====================
+check_dependencies() {
+    if ! command -v jq &> /dev/null; then
+        echo "错误: 需要安装 jq"
+        exit 1
+    fi
+}
+
+# ==================== 主逻辑 ====================
+main() {
+    check_dependencies
+    # 业务逻辑
+}
+
+main "$@"
+```
+
+**Python 脚本模板：**
+```python
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""skill-name: 功能描述"""
+
+import sys
+from pathlib import Path
+
+def main():
+    pass
+
+if __name__ == "__main__":
+    main()
+```
+
+### SKILL.md 规范
+
+```markdown
+---
+name: skill-name
+description: "触发条件描述。触发词：/xxx、关键词"
+---
+
+# Skill 名称
+
+简要说明。
+
+## 触发方式
+
+- `/command`
+- 「自然语言触发词」
+
+## 执行脚本
+
+\`\`\`bash
+bash ~/.claude/skills/skill-name/scripts/main.sh [args]
+\`\`\`
+
+## 脚本功能
+
+| 功能 | 说明 |
+|------|------|
+| 功能1 | 说明 |
+```
+
+### 决策树
+
+```
+需要实现功能？
+    │
+    ▼
+可以用 shell 命令组合实现？ ─是→ Bash 脚本
+    │
+   否
+    ▼
+需要复杂数据处理？ ─是→ Python 脚本
+    │
+   否 → 内联代码（最后选择）
+```
+
+### 必须检查项
+
+- [ ] 脚本有执行权限 (`chmod +x`)
+- [ ] 脚本头部有 shebang (`#!/bin/bash`)
+- [ ] 检查依赖工具 (jq, curl, python 等)
+- [ ] 支持代理环境变量 (`https_proxy`)
+- [ ] 使用 `set -e` 或 try-except 处理错误
+- [ ] 输出格式结构化，便于解析
