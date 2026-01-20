@@ -157,15 +157,17 @@ description: "汇总所有 Claude Code Skills 的目录与使用指南。触发�
 ## 🛠️ 开发工具类
 
 ### task-dispatcher
-**任务路由分派**
+**任务细分与并发分派**
 
-识别任务类型，路由到 Claude 或 Codex 执行。
+默认 Codex 执行，自动拆分任务、设置验证、支持并发分派。
 
 | 项目 | 内容 |
 |------|------|
-| 触发词 | `/dispatch`、任务分派、Claude还是Codex |
-| Claude 任务 | 分析、设计、规划、调试、决策 |
-| Codex 任务 | 实现、编写、修复、重构、测试、文档 |
+| 触发词 | `/dispatch`、任务分派 |
+| 核心流程 | 任务细分 → 验证定义 → 依赖分析 → 并发分派 → 结果验收 |
+| 拆分原则 | 单一职责、单文件、可验证、原子性 |
+| 失败回退 | Codex 重试 (2次) → Claude 接管分析 |
+| Claude 触发 | 仅当包含：分析/设计/规划/调试/决策 |
 
 ---
 
@@ -334,7 +336,8 @@ Makepad 开发的自改进技能系统，支持知识积累、错误自修正、
 | 生成播客 | notebooklm |
 | 同步文章到知识库 | sync-notebooklm-kb |
 | 记录今日工作 | daily-journal |
-| 让 Codex 执行代码任务 | task-dispatcher |
+| 拆分任务并分派给 Codex | task-dispatcher |
+| 并发执行多个独立任务 | task-dispatcher |
 | 备份/恢复技能 | skill-snapshot |
 | 复盘技能使用情况 | skill-retrospective |
 | 自动化浏览器操作 | agent-browser |
