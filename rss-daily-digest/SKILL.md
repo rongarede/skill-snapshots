@@ -59,8 +59,8 @@ python3 opml_parser.py
 ### 重点内容
 
 **{topic_name}**
-- {highlight_1}
-- {highlight_2}
+- {highlight_1} [→]({url})
+- {highlight_2} [→]({url})
 
 ---
 文件已保存至：
