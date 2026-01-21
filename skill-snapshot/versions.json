@@ -1,0 +1,9 @@
+{
+  "versions": [
+    {
+      "version": "v1",
+      "date": "2026-01-21",
+      "message": "初始备份：技能快照管理工具，支持 scan/save/restore/list/diff"
+    }
+  ]
+}
