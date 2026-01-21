@@ -1,12 +1,14 @@
 #!/bin/bash
 # ============================================================
-# skill-snapshot sync-configs - 同步所有 CLAUDE.md 配置文件
+# skill-snapshot sync-configs - 同步配置文件和子代理
 # ============================================================
 
 set -e
 
 LOCAL_REPO="$HOME/.claude/skill-snapshots"
 CONFIGS_DIR="$LOCAL_REPO/claude-configs"
+AGENTS_DIR="$LOCAL_REPO/agents"
+SOURCE_AGENTS_DIR="$HOME/.claude/agents"
 
 # ==================== 配置映射 ====================
 # 格式: "源路径|目标子目录"
@@ -46,6 +48,44 @@ log_skip() {
 
 log_error() {
     echo "[ERROR] $1" >&2
+}
+
+# ==================== 同步子代理 ====================
+sync_agents() {
+    echo "=== 同步子代理配置 ==="
+    echo ""
+
+    # 创建目标目录
+    mkdir -p "$AGENTS_DIR"
+
+    local agents_synced=0
+    local agents_skipped=0
+
+    # 检查源目录是否存在
+    if [ ! -d "$SOURCE_AGENTS_DIR" ]; then
+        log_skip "agents 目录不存在: $SOURCE_AGENTS_DIR"
+        return
+    fi
+
+    # 遍历所有 .md 文件
+    for agent_file in "$SOURCE_AGENTS_DIR"/*.md; do
+        # 检查文件是否存在（防止 glob 无匹配）
+        [ -f "$agent_file" ] || continue
+
+        local filename=$(basename "$agent_file")
+
+        # 复制文件
+        cp "$agent_file" "$AGENTS_DIR/$filename"
+        log_success "agents/$filename"
+        ((agents_synced++))
+    done
+
+    if [ $agents_synced -eq 0 ]; then
+        log_info "无子代理文件"
+    fi
+
+    echo ""
+    echo "子代理统计: 同步 $agents_synced"
 }
 
 # ==================== 主逻辑 ====================
@@ -96,6 +136,10 @@ main() {
     done
 
     echo ""
+
+    # 同步子代理
+    sync_agents
+
     echo "=== 生成索引 ==="
 
     # 生成 README.md
@@ -105,56 +149,83 @@ main() {
     echo "=== 提交变更 ==="
 
     # Git 操作
-    git add claude-configs/
+    git add claude-configs/ agents/
 
     # 检查是否有变化
     if git diff --cached --quiet; then
         log_info "无变化 - 所有配置与远程一致"
         echo ""
-        echo "统计: 同步 $synced, 跳过 $skipped, 总计 $total"
+        echo "配置统计: 同步 $synced, 跳过 $skipped, 总计 $total"
         exit 0
     fi
 
     # 提交并推送
-    local commit_msg="sync: update CLAUDE.md configs ($(date '+%Y-%m-%d %H:%M'))"
+    local commit_msg="sync: update configs and agents ($(date '+%Y-%m-%d %H:%M'))"
     git commit --quiet -m "$commit_msg"
     git push --quiet origin main
 
     log_success "已推送到 GitHub"
     echo ""
-    echo "统计: 同步 $synced, 跳过 $skipped, 总计 $total"
+    echo "配置统计: 同步 $synced, 跳过 $skipped, 总计 $total"
 }
 
 generate_readme() {
     local readme="$CONFIGS_DIR/README.md"
     local file_count=$(find "$CONFIGS_DIR" -name "CLAUDE.md" -type f | wc -l | tr -d ' ')
+    local agent_count=$(find "$AGENTS_DIR" -name "*.md" -type f 2>/dev/null | wc -l | tr -d ' ')
 
     cat > "$readme" << 'HEADER'
 # Claude 配置文件备份
 
-本目录备份了各项目的 `CLAUDE.md` 配置文件。
+本目录备份了各项目的 `CLAUDE.md` 配置文件和自定义子代理。
 
 ## 目录结构
 
 ```
-claude-configs/
-├── global/              # 全局配置 (~/.claude/CLAUDE.md)
-├── obsidian/            # Obsidian 知识库
-├── solidity/            # Solidity 项目
-│   ├── interview/       # 面试文档
-│   ├── denglian-nft-market/
-│   ├── denglian-launchpad/
-│   ├── denglian-daobank/
-│   └── denglian-module7/
-├── solana/              # Solana/Rust 项目
-│   ├── ipflow-candy-machine/
-│   ├── ipflow-v3/
-│   └── metaplex-candy-machine/
-└── misc/                # 其他项目
-    └── sumo-viz/        # SUMO 交通仿真可视化
+skill-snapshots/
+├── claude-configs/      # CLAUDE.md 配置文件
+│   ├── global/          # 全局配置 (~/.claude/CLAUDE.md)
+│   ├── obsidian/        # Obsidian 知识库
+│   ├── solidity/        # Solidity 项目
+│   │   ├── interview/
+│   │   ├── denglian-nft-market/
+│   │   ├── denglian-launchpad/
+│   │   ├── denglian-daobank/
+│   │   └── denglian-module7/
+│   ├── solana/          # Solana/Rust 项目
+│   │   ├── ipflow-candy-machine/
+│   │   ├── ipflow-v3/
+│   │   └── metaplex-candy-machine/
+│   └── misc/            # 其他项目
+│       └── sumo-viz/
+└── agents/              # 自定义子代理
+    ├── code-reviewer.md
+    ├── codex-executor.md
+    ├── codex-reviewer.md
+    └── research-analyst.md
 ```
 
-## 文件来源映射
+## 子代理列表
+
+HEADER
+
+    # 动态生成子代理列表
+    if [ -d "$AGENTS_DIR" ]; then
+        echo "| 子代理 | 说明 |" >> "$readme"
+        echo "|--------|------|" >> "$readme"
+        for agent_file in "$AGENTS_DIR"/*.md; do
+            [ -f "$agent_file" ] || continue
+            local name=$(basename "$agent_file" .md)
+            # 从文件中提取 description
+            local desc=$(grep -A1 "^description:" "$agent_file" 2>/dev/null | tail -1 | sed 's/^[[:space:]]*//' | head -c 60)
+            [ -z "$desc" ] && desc="自定义子代理"
+            echo "| \`$name\` | $desc... |" >> "$readme"
+        done
+        echo "" >> "$readme"
+    fi
+
+    cat >> "$readme" << 'MAPPING'
+## 配置文件来源映射
 
 | 备份路径 | 原始路径 |
 |----------|----------|
@@ -169,6 +240,7 @@ claude-configs/
 | `solana/ipflow-v3/CLAUDE.md` | `~/SolanaRust/ipflow-v3/CLAUDE.md` |
 | `solana/metaplex-candy-machine/CLAUDE.md` | `~/SolanaRust/metaplex-program-library/candy-machine/program/src/CLAUDE.md` |
 | `misc/sumo-viz/CLAUDE.md` | `~/v2x_ws/bisai/sumo_intersection_viz/CLAUDE.md` |
+| `agents/*.md` | `~/.claude/agents/*.md` |
 
 ## 同步命令
 
@@ -182,12 +254,13 @@ bash ~/.claude/skills/skill-snapshot/scripts/sync-configs.sh
 /skill-snapshot sync-configs
 ```
 
-HEADER
+MAPPING
 
     echo "## 最后更新" >> "$readme"
     echo "" >> "$readme"
     echo "- **日期**: $(date '+%Y-%m-%d %H:%M')" >> "$readme"
-    echo "- **文件数**: $file_count" >> "$readme"
+    echo "- **配置文件数**: $file_count" >> "$readme"
+    echo "- **子代理数**: $agent_count" >> "$readme"
 
     log_success "README.md 已更新"
 }
