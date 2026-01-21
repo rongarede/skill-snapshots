@@ -41,11 +41,16 @@ claude-configs/
 ## 同步命令
 
 ```bash
-# 手动同步脚本（后续可自动化）
-bash ~/.claude/skills/skill-snapshot/scripts/sync-claude-configs.sh
+bash ~/.claude/skills/skill-snapshot/scripts/sync-configs.sh
+```
+
+或通过 Claude Code:
+
+```
+/skill-snapshot sync-configs
 ```
 
 ## 最后更新
 
-- **日期**: 2026-01-21
+- **日期**: 2026-01-21 14:04
 - **文件数**: 11
