@@ -24,6 +24,7 @@
 | `restore <skill> [version]` | 恢复版本 | `/skill-snapshot restore my-skill v2` |
 | `list [skill]` | 列出快照 | `/skill-snapshot list my-skill` |
 | `diff <skill> [version]` | 对比差异 | `/skill-snapshot diff my-skill v1` |
+| `sync-configs` | 同步所有 CLAUDE.md 配置 | `/skill-snapshot sync-configs` |
 
 ## 配置
 
@@ -146,6 +147,49 @@ bash ~/.claude/skills/skill-snapshot/scripts/list.sh "[skill]"
 bash ~/.claude/skills/skill-snapshot/scripts/diff.sh "<skill>" "[version]"
 ```
 
+### sync-configs - 同步配置文件
+
+同步所有项目的 CLAUDE.md 配置文件到 `claude-configs/` 目录。
+
+支持的配置文件：
+
+| 分类 | 路径 |
+|------|------|
+| 核心配置 | `~/.claude/CLAUDE.md`, Obsidian 库 |
+| Solidity | 登链学院系列项目 |
+| Solana | IPFlow, Metaplex 系列 |
+| 其他 | SUMO 仿真等 |
+
+流程：
+1. 遍历预定义的配置文件路径
+2. 按项目分类复制到 `claude-configs/`
+3. 生成/更新 README.md 索引
+4. Git commit & push
+
+执行脚本：
+```bash
+bash ~/.claude/skills/skill-snapshot/scripts/sync-configs.sh
+```
+
+输出示例：
+```
+=== 同步 CLAUDE.md 配置文件 ===
+
+[✓] global
+[✓] obsidian
+[✓] solidity/denglian-nft-market
+[SKIP] solidity/interview (源文件不存在)
+...
+
+=== 生成索引 ===
+[✓] README.md 已更新
+
+=== 提交变更 ===
+[✓] 已推送到 GitHub
+
+统计: 同步 10, 跳过 1, 总计 11
+```
+
 ## 存储结构
 
 ```
@@ -155,6 +199,13 @@ bash ~/.claude/skills/skill-snapshot/scripts/diff.sh "<skill>" "[version]"
 │   └── scripts/
 ├── another-skill/
 │   └── SKILL.md
+├── claude-configs/                 # CLAUDE.md 配置备份
+│   ├── global/
+│   ├── obsidian/
+│   ├── solidity/
+│   ├── solana/
+│   ├── misc/
+│   └── README.md
 └── README.md
 
 GitHub Tags:
@@ -198,6 +249,14 @@ Claude: [执行 list my-skill]
   v1 - 2025-01-05 - 初始版本
   v2 - 2025-01-08 - 添加断点续写
   v3 - 2025-01-10 - 修改前备份
+```
+
+### 场景 5：同步配置文件
+
+```
+用户: 帮我同步所有的 CLAUDE.md 到 GitHub
+Claude: [执行 sync-configs]
+输出: 已同步 10 个配置文件到 skill-snapshots/claude-configs/
 ```
 
 ## 注意事项
