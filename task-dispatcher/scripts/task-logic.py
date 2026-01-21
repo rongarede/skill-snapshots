@@ -1,13 +1,50 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-task-dispatcher: 任务拆分与依赖分析
+task-dispatcher: 任务拆分、依赖分析、时间预估
 """
 
 import json
 import re
 import sys
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
+
+# ==================== 时间预估配置 ====================
+
+# 单位：秒
+TIME_LIMITS = {
+    "max_subtask": 120,      # 单个子任务最大时间（2分钟）
+    "warning_threshold": 90,  # 警告阈值（1.5分钟）
+    "min_subtask": 10,        # 最小合理时间（10秒）
+}
+
+# 任务类型预估时间（秒）
+TASK_TIME_ESTIMATES = {
+    # 简单任务 (10-30秒)
+    "配置": 15,
+    "修复": 20,
+    "格式化": 15,
+    "重命名": 20,
+    "注释": 15,
+
+    # 中等任务 (30-60秒)
+    "函数": 45,
+    "方法": 45,
+    "测试": 60,
+    "接口": 50,
+    "类型": 40,
+
+    # 复杂任务 (60-120秒) - 边界
+    "功能": 90,
+    "组件": 90,
+    "服务": 100,
+
+    # 过大任务 (>120秒) - 必须拆分
+    "模块": 180,
+    "系统": 300,
+    "重构": 150,
+    "架构": 240,
+}
 
 # ==================== 任务拆分 ====================
 
@@ -121,6 +158,129 @@ def is_verification_failed(exit_code: int, stdout: str, expected_pattern: str = 
     return False
 
 
+# ==================== 时间预估 ====================
+
+def estimate_task_time(task: str) -> Tuple[int, str, bool]:
+    """
+    预估任务执行时间
+
+    返回: (预估秒数, 风险等级, 是否需要拆分)
+    风险等级: "ok" | "warning" | "reject"
+    """
+    estimated_seconds = 30  # 默认 30 秒
+
+    # 根据关键词匹配
+    for keyword, seconds in TASK_TIME_ESTIMATES.items():
+        if keyword in task:
+            estimated_seconds = max(estimated_seconds, seconds)
+
+    # 额外因素调整
+    # 1. 多文件 +50%
+    file_count = count_target_files(task)
+    if file_count > 1:
+        estimated_seconds = int(estimated_seconds * (1 + 0.3 * (file_count - 1)))
+
+    # 2. 多动词 +30%
+    if has_multiple_verbs(task):
+        estimated_seconds = int(estimated_seconds * 1.3)
+
+    # 3. 代码行数因素
+    lines = estimated_lines_changed(task)
+    if lines > 100:
+        estimated_seconds = int(estimated_seconds * 1.5)
+
+    # 判断风险等级
+    max_time = TIME_LIMITS["max_subtask"]
+    warning_time = TIME_LIMITS["warning_threshold"]
+
+    if estimated_seconds > max_time:
+        return (estimated_seconds, "reject", True)
+    elif estimated_seconds > warning_time:
+        return (estimated_seconds, "warning", False)
+    else:
+        return (estimated_seconds, "ok", False)
+
+
+def check_timeout(actual_seconds: int, estimated_seconds: int) -> Tuple[str, str]:
+    """
+    检查实际执行时间与预估时间的偏差
+
+    返回: (状态, 诊断信息)
+    状态: "normal" | "slow" | "timeout" | "abnormal"
+    """
+    max_time = TIME_LIMITS["max_subtask"]
+
+    # 硬超时
+    if actual_seconds > max_time:
+        return ("timeout", f"执行超时 ({actual_seconds}s > {max_time}s 限制)")
+
+    # 计算偏差率
+    if estimated_seconds > 0:
+        deviation = (actual_seconds - estimated_seconds) / estimated_seconds
+    else:
+        deviation = 0
+
+    # 偏差判断
+    if deviation > 2.0:  # 超过预估 3 倍
+        diagnosis = f"严重超时: 实际 {actual_seconds}s vs 预估 {estimated_seconds}s (偏差 {deviation:.0%})"
+        return ("abnormal", diagnosis)
+    elif deviation > 1.0:  # 超过预估 2 倍
+        diagnosis = f"执行偏慢: 实际 {actual_seconds}s vs 预估 {estimated_seconds}s (偏差 {deviation:.0%})"
+        return ("slow", diagnosis)
+    elif deviation < -0.5:  # 比预估快 50% 以上
+        diagnosis = f"执行过快: 实际 {actual_seconds}s vs 预估 {estimated_seconds}s (可能未完成)"
+        return ("abnormal", diagnosis)
+    else:
+        return ("normal", f"正常: {actual_seconds}s (预估 {estimated_seconds}s)")
+
+
+def diagnose_timeout(task: str, actual_seconds: int, estimated_seconds: int) -> Dict[str, Any]:
+    """
+    诊断超时原因，给出建议
+
+    返回诊断报告
+    """
+    status, message = check_timeout(actual_seconds, estimated_seconds)
+
+    diagnosis = {
+        "status": status,
+        "message": message,
+        "actual_seconds": actual_seconds,
+        "estimated_seconds": estimated_seconds,
+        "task": task,
+        "possible_causes": [],
+        "recommendations": [],
+    }
+
+    if status in ("timeout", "abnormal", "slow"):
+        # 分析可能原因
+        if "node_modules" in task.lower() or "依赖" in task:
+            diagnosis["possible_causes"].append("可能读取了 node_modules 等大目录")
+            diagnosis["recommendations"].append("在 prompt 中明确禁止读取 node_modules")
+
+        if has_multiple_verbs(task):
+            diagnosis["possible_causes"].append("任务包含多个操作，应该拆分")
+            diagnosis["recommendations"].append("将任务拆分为单一职责的子任务")
+
+        if count_target_files(task) > 1:
+            diagnosis["possible_causes"].append("任务涉及多个文件")
+            diagnosis["recommendations"].append("每个子任务只处理一个文件")
+
+        if estimated_lines_changed(task) > 100:
+            diagnosis["possible_causes"].append("预估代码变更量过大")
+            diagnosis["recommendations"].append("减小任务范围，分步实现")
+
+        # 通用建议
+        if not diagnosis["possible_causes"]:
+            diagnosis["possible_causes"].append("任务描述可能不够具体")
+            diagnosis["recommendations"].append("提供更具体的任务描述和参考代码")
+
+        diagnosis["recommendations"].append("考虑在 prompt 中内联必要的参考代码")
+        diagnosis["recommendations"].append("明确限定需要读取的文件列表")
+
+    return diagnosis
+
+
 # ==================== 拆分输出 ====================
 
 def format_subtasks_yaml(subtasks: List[Dict[str, Any]]) -> str:
@@ -160,6 +320,9 @@ def main():
         print("  should-split <task>       判断任务是否需要拆分")
         print("  analyze-deps <json>       分析依赖关系 (JSON 格式)")
         print("  verify <exit_code> <stdout> [expected]  判断验证是否失败")
+        print("  estimate <task>           预估任务执行时间")
+        print("  check-timeout <actual> <estimated>  检查超时状态")
+        print("  diagnose <task> <actual> <estimated>  诊断超时原因")
         sys.exit(1)
 
     cmd = sys.argv[1]
@@ -182,6 +345,36 @@ def main():
         expected = sys.argv[4] if len(sys.argv) > 4 else None
         result = is_verification_failed(exit_code, stdout, expected)
         print(json.dumps({"failed": result}))
+
+    elif cmd == "estimate":
+        task = sys.argv[2] if len(sys.argv) > 2 else ""
+        seconds, risk, need_split = estimate_task_time(task)
+        result = {
+            "estimated_seconds": seconds,
+            "risk_level": risk,
+            "need_split": need_split,
+            "timeout_limit": TIME_LIMITS["max_subtask"],
+        }
+        print(json.dumps(result, ensure_ascii=False))
+
+        # 人类可读输出
+        risk_emoji = {"ok": "✅", "warning": "⚠️", "reject": "🚫"}[risk]
+        print(f"\n预估时间: {seconds}s {risk_emoji}")
+        if need_split:
+            print("建议: 任务过大，需要拆分")
+
+    elif cmd == "check-timeout":
+        actual = int(sys.argv[2]) if len(sys.argv) > 2 else 0
+        estimated = int(sys.argv[3]) if len(sys.argv) > 3 else 30
+        status, message = check_timeout(actual, estimated)
+        print(json.dumps({"status": status, "message": message}, ensure_ascii=False))
+
+    elif cmd == "diagnose":
+        task = sys.argv[2] if len(sys.argv) > 2 else ""
+        actual = int(sys.argv[3]) if len(sys.argv) > 3 else 0
+        estimated = int(sys.argv[4]) if len(sys.argv) > 4 else 30
+        diagnosis = diagnose_timeout(task, actual, estimated)
+        print(json.dumps(diagnosis, ensure_ascii=False, indent=2))
 
     else:
         print(f"未知命令: {cmd}")
