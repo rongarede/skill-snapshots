@@ -32,10 +32,18 @@ skill-snapshots/
 
 | 子代理 | 说明 |
 |--------|------|
+| `architect` | tools: Read, Grep, Glob... |
+| `build-error-resolver` | tools: Read, Write, Edit, Bash, Grep, Glob... |
+| `code-reviewer-ecc` | tools: Read, Grep, Glob, Bash... |
 | `code-reviewer` | tools: Read, Write, Edit, Bash, Glob, Grep... |
-| `codex-executor` | tools: Bash, Read, Glob, Grep... |
 | `codex-reviewer` | tools: Bash, Read, Glob, Grep... |
+| `doc-updater` | tools: Read, Write, Edit, Bash, Grep, Glob... |
+| `e2e-runner` | tools: Read, Write, Edit, Bash, Grep, Glob... |
+| `planner` | tools: Read, Grep, Glob... |
+| `refactor-cleaner` | tools: Read, Write, Edit, Bash, Grep, Glob... |
 | `research-analyst` | 增强版研究分析师，支持 NotebookLM 查询、论文... |
+| `security-reviewer` | tools: Read, Write, Edit, Bash, Grep, Glob... |
+| `tdd-guide` | tools: Read, Write, Edit, Bash, Grep... |
 
 ## 配置文件来源映射
 
@@ -68,6 +76,6 @@ bash ~/.claude/skills/skill-snapshot/scripts/sync-configs.sh
 
 ## 最后更新
 
-- **日期**: 2026-01-21 14:30
+- **日期**: 2026-01-24 10:36
 - **配置文件数**: 11
-- **子代理数**: 4
+- **子代理数**: 12

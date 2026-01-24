@@ -1,8 +1,14 @@
+## 交互规则
+
+- **称呼：** 每次回复时称呼用户为 **bitone**
+
 <hooks>
 RPC 节点配置（强制）：
 
-- **强制规则：** 所有涉及 Solana RPC 调用的操作，必须使用以下 Devnet RPC 节点
-- **RPC URL:** `https://solana-devnet.g.alchemy.com/v2/VgGOBgswnuX7oivzzUG61`
+- **强制规则：** 所有涉及 Solana RPC 调用的操作，必须使用以下 Alchemy RPC 节点
+- **Devnet RPC:** `https://solana-devnet.g.alchemy.com/v2/VgGOBgswnuX7oivzzUG61`
+- **Mainnet RPC:** `https://solana-mainnet.g.alchemy.com/v2/VgGOBgswnuX7oivzzUG61`
+- **当前环境:** Devnet（E2E 测试和开发使用 Devnet RPC）
 - **适用范围：**
   - 脚本中的 `Connection` 初始化
   - Anchor 命令的 `--provider.cluster` 参数
@@ -11,6 +17,8 @@ RPC 节点配置（强制）：
 - **示例命令：**
   - `anchor deploy --provider.cluster https://solana-devnet.g.alchemy.com/v2/VgGOBgswnuX7oivzzUG61`
   - `anchor idl fetch <PROGRAM_ID> --provider.cluster https://solana-devnet.g.alchemy.com/v2/VgGOBgswnuX7oivzzUG61`
+- **E2E 测试运行：**
+  - `RPC_URL=https://solana-devnet.g.alchemy.com/v2/VgGOBgswnuX7oivzzUG61 npx ts-node tests/e2e/paths/path-a.test.ts`
 
 文档同步（架构级变更触发）：
 - **触发条件：** 创建 / 删除 /移动文件或目录、模块重组、层级调整、职责重新划分
@@ -55,7 +63,8 @@ bugs 复盘（仅在错误/问题修复后触发）：
 
 - **Cluster:** `devnet` (Current Target)
 - **Program ID:** `ALRWyaQkjVGznjAXsxhqXkyYDaETPUN2xj82W8uyji53`
-- **RPC URL:** `https://solana-devnet.g.alchemy.com/v2/VgGOBgswnuX7oivzzUG61` (Alchemy Devnet 节点，见 hooks 强制规则)
+- **Devnet RPC:** `https://solana-devnet.g.alchemy.com/v2/VgGOBgswnuX7oivzzUG61` (Alchemy Devnet)
+- **Mainnet RPC:** `https://solana-mainnet.g.alchemy.com/v2/VgGOBgswnuX7oivzzUG61` (Alchemy Mainnet)
 - **ANCHOR_WALLET:** `deployer-keypair.json` (链上 Admin 钱包，用于管理员操作测试)
   - 公钥: `3TLCqGuFEUFokdF8BMrwtLKcjdupFcnnp5aoikU7W6qq`
   - 运行脚本前设置: `export ANCHOR_WALLET=/Users/bit/SolanaRust/ipflow-v3/deployer-keypair.json`
@@ -82,6 +91,10 @@ bugs 复盘（仅在错误/问题修复后触发）：
 - **根因**：脚本最小 Vault 余额只补到 2 SOL，中奖金额高于 Vault 可用余额。
 - **解决方案**：将 `Task_1.18_B.ts` 最小 Vault 余额提升至 4 SOL，确保大额中奖可覆盖。
 - **相关命令**：`bun scripts/Task_1.18_B.ts`
+- **问题**：安装 `spl-token-bankrun` 时 npm 报 `ERESOLVE`（anchor-bankrun peer 依赖冲突）。
+- **根因**：`anchor-bankrun@0.5.0` 仅接受 `@coral-xyz/anchor@^0.30.0`，与项目 `^0.32.1` 冲突。
+- **解决方案**：使用 `--legacy-peer-deps` 忽略 peer 依赖冲突完成安装。
+- **相关命令**：`npm install --save-dev spl-token-bankrun --legacy-peer-deps`
 
 ## 流程图绘制标准 (Diagram Standards)
 
