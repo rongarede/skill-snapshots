@@ -69,16 +69,24 @@ thinking_mode: ultrathink
 
 ### Agent 2: GitHub 检索
 ```
-工具: GitHub MCP 或 WebFetch GitHub Search
+工具（按优先级）:
+  1. WebSearch: site:github.com [关键词] stars (推荐，稳定)
+  2. /fetch skill: 当需要获取仓库详情时调用
+
 查询: [关键词] stars:>100
 目标: 收集相关仓库，记录 stars/issues/last commit
+
+⚠️ 注意: WebFetch 无法访问 github.com，使用 WebSearch 或 /fetch skill
 ```
 
 ### Agent 3: 官方文档
 ```
-工具: Context7 (若配置)
+工具（按优先级）:
+  1. Context7 (若配置): 获取官方文档片段
+  2. /fetch skill: 当 WebFetch 失败时调用
+
 查询: [候选库名称]
-目标: 获取官方文档片段
+目标: 获取官方文档片段、快速入门指南
 ```
 
 ### 结果聚合
@@ -109,9 +117,9 @@ thinking_mode: ultrathink
 
 | 维度 | 检查项 | 数据来源 |
 |------|--------|----------|
-| 文档质量 | 是否有快速入门、API 文档、示例 | Context7 / 官网 |
-| 社区活跃 | Issue 响应速度、PR 合并频率 | GitHub API |
-| 维护状态 | 最近 commit、release 频率 | GitHub API |
+| 文档质量 | 是否有快速入门、API 文档、示例 | Context7 / `/fetch` skill |
+| 社区活跃 | Issue 响应速度、PR 合并频率 | `/fetch` skill (GitHub URL) |
+| 维护状态 | 最近 commit、release 频率 | `/fetch` skill (GitHub URL) |
 | 上手难度 | 依赖复杂度、配置量 | 文档 + 代码 |
 | 兼容性 | 与用户技术栈的集成难度 | 文档 + 经验 |
 
@@ -215,8 +223,24 @@ thinking_mode: ultrathink
 |------|----------|
 | MCP 不可用 | 降级到内置 WebSearch/WebFetch |
 | 搜索无结果 | 扩展关键词，尝试相关领域 |
-| GitHub API 限流 | 使用 WebFetch 备选 |
+| **WebFetch 失败** | **调用 `/fetch` skill (web-fetch-fallback)** |
 | 用户中断 | 保存当前进度到 Memory |
+
+### WebFetch 失败时
+
+当 WebFetch 返回以下错误时，**必须立即调用 `/fetch` skill**：
+- `Unable to verify if domain xxx is safe to fetch`
+- `网络限制或企业安全策略阻止`
+- 任何域名访问失败
+
+**调用方式：**
+```
+使用 Skill 工具调用 web-fetch-fallback:
+skill: "web-fetch-fallback"
+args: "<失败的 URL>"
+```
+
+`/fetch` skill 会自动选择最优的抓取方式（gh CLI / curl+pandoc / agent-browser）。
 
 ---
 
