@@ -20,7 +20,7 @@ description: "汇总所有 Claude Code Skills 的目录与使用指南，支持�
 | 📝 学术写作 | 5 | 论文映射、逆向工程、段落分析、PDF转MD、LaTeX 转换 |
 | 📚 知识管理 | 5 | NotebookLM、Obsidian、日记 |
 | 🛠️ 开发工具 | 4 | Codex 集成、任务分派、规划 |
-| 🔧 技能管理 | 3 | 快照、复盘、目录 |
+| 🔧 技能管理 | 5 | 快照、复盘、目录、编写规范、计划规范 |
 | 🌐 浏览器与数据 | 2 | 浏览器自动化、RSS |
 | 📄 文件处理 | 1 | PDF 重命名 |
 | 🎨 特定框架 | 1 | Makepad 开发 |
@@ -270,6 +270,30 @@ OpenAI Codex CLI 非交互模式执行最佳实践。
 
 ---
 
+### skill-authoring
+**Skill 编写规范**
+
+Skill 编写最佳实践，脚本优先、目录结构、模板规范。
+
+| 项目 | 内容 |
+|------|------|
+| 触发词 | `/skill-authoring`、编写 skill、创建技能 |
+| 核心功能 | 脚本模板、目录结构、决策树 |
+
+---
+
+### plan-writing
+**计划文档格式规范**
+
+计划文档编写规范，描述性优先，禁止代码块。
+
+| 项目 | 内容 |
+|------|------|
+| 触发词 | `/plan-writing`、写计划、计划文档规范 |
+| 核心功能 | Task 格式、验证标准、检查清单 |
+
+---
+
 ## 🌐 浏览器与数据类
 
 ### agent-browser
@@ -346,6 +370,8 @@ Makepad 开发的自改进技能系统，支持知识积累、错误自修正、
 | 重命名 PDF 文件 | rename-pdf |
 | 创建 Obsidian Canvas | json-canvas |
 | 编辑 Obsidian Bases | obsidian-bases |
+| 编写新 Skill | skill-authoring |
+| 写计划文档 | plan-writing |
 | **检查 skill/plugin 更新** | **skill-catalog** (`/skills check`) |
 
 ---
