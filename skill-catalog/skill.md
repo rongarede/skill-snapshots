@@ -19,7 +19,7 @@ description: "汇总所有 Claude Code Skills 的目录与使用指南，支持�
 |------|------|------|
 | 📝 学术写作 | 5 | 论文映射、逆向工程、段落分析、PDF转MD、LaTeX 转换 |
 | 📚 知识管理 | 5 | NotebookLM、Obsidian、日记 |
-| 🛠️ 开发工具 | 4 | Codex 集成、任务分派、规划 |
+| 🛠️ 开发工具 | 5 | Codex/Gemini 集成、任务分派、规划 |
 | 🔧 技能管理 | 5 | 快照、复盘、目录、编写规范、计划规范 |
 | 🌐 浏览器与数据 | 2 | 浏览器自动化、RSS |
 | 📄 文件处理 | 1 | PDF 重命名 |
@@ -156,6 +156,20 @@ description: "汇总所有 Claude Code Skills 的目录与使用指南，支持�
 ---
 
 ## 🛠️ 开发工具类
+
+### collaborating-with-gemini
+**Gemini CLI 非交互式集成**
+
+在 Claude Code 中非交互式调用 Gemini CLI，支持会话保存、上下文注入、Agent 角色注入。
+
+| 项目 | 内容 |
+|------|------|
+| 触发词 | `/gemini`、gemini 协作、调用 gemini |
+| 核心功能 | 非交互调用、会话保存、上下文注入、Agent 注入 |
+| 会话存储 | `~/.claude/skills/collaborating-with-gemini/sessions/` |
+| 命令 | `gemini-agent.sh`、`gemini-sessions.sh` |
+
+---
 
 ### task-dispatcher
 **任务细分与并发分派**
@@ -361,6 +375,7 @@ Makepad 开发的自改进技能系统，支持知识积累、错误自修正、
 | 生成播客 | notebooklm |
 | 同步文章到知识库 | sync-notebooklm-kb |
 | 记录今日工作 | daily-journal |
+| **调用 Gemini CLI** | **collaborating-with-gemini** |
 | 拆分任务并分派给 Codex | task-dispatcher |
 | 并发执行多个独立任务 | task-dispatcher |
 | 备份/恢复技能 | skill-snapshot |
