@@ -1,6 +1,6 @@
 ---
 name: collaborating-with-codex
-description: Delegates coding tasks to Codex CLI for prototyping, debugging, and code review. Use when needing algorithm implementation, bug analysis, or code quality feedback. Supports multi-turn sessions via SESSION_ID.
+description: Delegates coding tasks to Codex CLI for prototyping, debugging, and code review. Use when needing algorithm implementation, bug analysis, or code quality feedback. Supports multi-turn sessions via SESSION_ID and agent role injection from ~/.claude/agents/.
 ---
 
 ## Quick Start
@@ -11,31 +11,63 @@ python3 scripts/codex_bridge.py --cd "/path/to/project" --PROMPT "Your task"
 
 **Output:** JSON with `success`, `SESSION_ID`, `agent_messages`, and optional `error`.
 
+## Agent Role Injection (NEW)
+
+Inject agent roles from `~/.claude/agents/` to customize Codex behavior:
+
+```bash
+# 使用 planner agent 角色
+python3 scripts/codex_bridge.py --cd "/project" --agent planner --PROMPT "Plan the auth feature"
+
+# 使用 security-reviewer agent 角色
+python3 scripts/codex_bridge.py --cd "/project" --agent security-reviewer --PROMPT "Review auth.py for vulnerabilities"
+
+# 列出可用 agents
+python3 scripts/codex_bridge.py --cd "/project" --list-agents --PROMPT ""
+```
+
+### Agent 注入优先级
+
+1. `--instructions` - 直接传入指令字符串（最高优先级）
+2. `--instructions-file` - 指定指令文件路径
+3. `--agent-file` - 指定自定义 agent 文件路径
+4. `--agent` - 从 `~/.claude/agents/` 加载 agent
+
 ## Parameters
 
 ```
-usage: codex_bridge.py [-h] --PROMPT PROMPT --cd CD [--sandbox {read-only,workspace-write,danger-full-access}] [--SESSION_ID SESSION_ID] [--skip-git-repo-check]
-                       [--return-all-messages] [--image IMAGE] [--model MODEL] [--yolo] [--profile PROFILE]
+usage: codex_bridge.py [-h] --PROMPT PROMPT --cd CD
+                       [--sandbox {read-only,workspace-write,danger-full-access}]
+                       [--SESSION_ID SESSION_ID] [--skip-git-repo-check]
+                       [--return-all-messages] [--image IMAGE] [--model MODEL]
+                       [--yolo] [--profile PROFILE]
+                       [--agent AGENT] [--agent-file AGENT_FILE]
+                       [--agent-dir AGENT_DIR] [--list-agents]
+                       [--instructions INSTRUCTIONS] [--instructions-file FILE]
 
-Codex Bridge
+Codex Bridge with Agent Role Injection
 
-options:
-  -h, --help            show this help message and exit
+Core Options:
   --PROMPT PROMPT       Instruction for the task to send to codex.
-  --cd CD               Set the workspace root for codex before executing the task.
-  --sandbox {read-only,workspace-write,danger-full-access}
-                        Sandbox policy for model-generated commands. Defaults to `read-only`.
-  --SESSION_ID SESSION_ID
-                        Resume the specified session of the codex. Defaults to `None`, start a new session.
-  --skip-git-repo-check
-                        Allow codex running outside a Git repository (useful for one-off directories).
-  --return-all-messages
-                        Return all messages (e.g. reasoning, tool calls, etc.) from the codex session. Set to `False` by default, only the agent's final reply message is
-                        returned.
-  --image IMAGE         Attach one or more image files to the initial prompt. Separate multiple paths with commas or repeat the flag.
-  --model MODEL         The model to use for the codex session. This parameter is strictly prohibited unless explicitly specified by the user.
-  --yolo                Run every command without approvals or sandboxing. Only use when `sandbox` couldn't be applied.
-  --profile PROFILE     Configuration profile name to load from `~/.codex/config.toml`. This parameter is strictly prohibited unless explicitly specified by the user.
+  --cd CD               Set the workspace root for codex.
+  --sandbox             Sandbox policy. Defaults to `read-only`.
+  --SESSION_ID          Resume a previous session.
+  --model MODEL         Model to use (e.g., gpt-5.2-codex).
+
+Agent Role Injection:
+  --agent AGENT         Agent name from ~/.claude/agents/ (e.g., 'planner').
+  --agent-file FILE     Custom agent file path.
+  --agent-dir DIR       Agent directory. Defaults to ~/.claude/agents/
+  --list-agents         List available agents and exit.
+  --instructions STR    Direct system instructions string.
+  --instructions-file   Path to custom instructions file.
+
+Other Options:
+  --skip-git-repo-check Allow running outside a Git repository.
+  --return-all-messages Return all messages including reasoning.
+  --image IMAGE         Attach image files to the prompt.
+  --yolo                Run without approvals or sandboxing.
+  --profile PROFILE     Configuration profile from config.toml.
 ```
 
 ## Multi-turn Sessions
@@ -43,21 +75,36 @@ options:
 **Always capture `SESSION_ID`** from the first response for follow-up:
 
 ```bash
-# Initial task
-python3 scripts/codex_bridge.py --cd "/project" --PROMPT "Analyze auth in login.py"
+# Initial task with agent role
+python3 scripts/codex_bridge.py --cd "/project" --agent architect --PROMPT "Design the API"
 
-# Continue with SESSION_ID
-python3 scripts/codex_bridge.py --cd "/project" --SESSION_ID "uuid-from-response" --PROMPT "Write unit tests for that"
+# Continue with SESSION_ID (agent role persists in session)
+python3 scripts/codex_bridge.py --cd "/project" --SESSION_ID "uuid-from-response" --PROMPT "Add error handling"
 ```
 
 ## Common Patterns
 
-**Prototyping (read-only, request diffs):**
+**Planning with planner agent:**
 ```bash
-python3 scripts/codex_bridge.py --cd "/project" --PROMPT "Generate unified diff to add logging"
+python3 scripts/codex_bridge.py --cd "/project" --agent planner --PROMPT "Plan refactoring of auth module"
+```
+
+**Security review:**
+```bash
+python3 scripts/codex_bridge.py --cd "/project" --agent security-reviewer --PROMPT "Audit payment.py"
+```
+
+**Code review:**
+```bash
+python3 scripts/codex_bridge.py --cd "/project" --agent code-reviewer --PROMPT "Review recent changes"
+```
+
+**Custom instructions:**
+```bash
+python3 scripts/codex_bridge.py --cd "/project" --instructions "你是 Rust 专家，专注于性能优化" --PROMPT "Optimize this function"
 ```
 
 **Debug with full trace:**
 ```bash
-python3 scripts/codex_bridge.py --cd "/project" --PROMPT "Debug this error" --return-all-messages
+python3 scripts/codex_bridge.py --cd "/project" --agent build-error-resolver --PROMPT "Fix build errors" --return-all-messages
 ```
