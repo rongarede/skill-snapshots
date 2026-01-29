@@ -1,12 +1,28 @@
 #!/bin/bash
-# skill-snapshot save - 保存技能快照
+# skill-snapshot save - 保存技能快照（支持分类目录）
 
 set -e
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
 
 SKILL_NAME="$1"
 MESSAGE="$2"
 SKILLS_DIR="$HOME/.claude/skills"
 LOCAL_REPO="$HOME/.claude/skill-snapshots"
+CATEGORIES_FILE="$HOME/.claude/skills/skill-snapshot/categories.conf"
+
+# 获取技能分类
+get_category() {
+    local skill="$1"
+    if [ -f "$CATEGORIES_FILE" ]; then
+        local cat=$(grep "^$skill=" "$CATEGORIES_FILE" 2>/dev/null | cut -d'=' -f2)
+        if [ -n "$cat" ]; then
+            echo "$cat"
+            return
+        fi
+    fi
+    echo "uncategorized"
+}
 
 # 参数检查
 if [ -z "$SKILL_NAME" ]; then
@@ -41,16 +57,25 @@ cd "$LOCAL_REPO"
 git pull --quiet origin main 2>/dev/null || true
 git fetch --tags --quiet
 
-# 确定版本号
-EXISTING_TAGS=$(git tag -l "$SKILL_NAME/v*" 2>/dev/null | sort -V | tail -1)
-if [ -z "$EXISTING_TAGS" ]; then
-    NEXT_VERSION="v1"
-else
-    LAST_NUM=$(echo "$EXISTING_TAGS" | sed "s|$SKILL_NAME/v||")
+# 获取分类
+CATEGORY=$(get_category "$SKILL_NAME")
+DEST_DIR="$CATEGORY/$SKILL_NAME"
+
+# 确定版本号（兼容旧格式和新格式）
+OLD_TAGS=$(git tag -l "$SKILL_NAME/v*" 2>/dev/null | sort -V | tail -1)
+NEW_TAGS=$(git tag -l "$CATEGORY/$SKILL_NAME/v*" 2>/dev/null | sort -V | tail -1)
+
+if [ -n "$NEW_TAGS" ]; then
+    LAST_NUM=$(echo "$NEW_TAGS" | sed "s|$CATEGORY/$SKILL_NAME/v||")
     NEXT_VERSION="v$((LAST_NUM + 1))"
+elif [ -n "$OLD_TAGS" ]; then
+    LAST_NUM=$(echo "$OLD_TAGS" | sed "s|$SKILL_NAME/v||")
+    NEXT_VERSION="v$((LAST_NUM + 1))"
+else
+    NEXT_VERSION="v1"
 fi
 
-TAG_NAME="$SKILL_NAME/$NEXT_VERSION"
+TAG_NAME="$CATEGORY/$SKILL_NAME/$NEXT_VERSION"
 
 # 默认消息
 if [ -z "$MESSAGE" ]; then
@@ -59,30 +84,35 @@ fi
 
 echo "=== 保存快照 ==="
 echo "技能: $SKILL_NAME"
+echo "分类: $CATEGORY"
 echo "版本: $NEXT_VERSION"
 echo "说明: $MESSAGE"
 echo ""
 
-# 复制技能目录（排除 .git 和 __pycache__）
-rm -rf "$LOCAL_REPO/$SKILL_NAME"
-mkdir -p "$LOCAL_REPO/$SKILL_NAME"
+# 复制技能目录到分类目录（排除 .git 和 __pycache__）
+mkdir -p "$LOCAL_REPO/$CATEGORY"
+rm -rf "$LOCAL_REPO/$DEST_DIR"
+mkdir -p "$LOCAL_REPO/$DEST_DIR"
 rsync -a --exclude='.git' --exclude='__pycache__' --exclude='.DS_Store' \
-    "$SKILL_PATH/" "$LOCAL_REPO/$SKILL_NAME/"
+    "$SKILL_PATH/" "$LOCAL_REPO/$DEST_DIR/"
 
 # Git 操作
-git add "$SKILL_NAME/"
+git add "$DEST_DIR/"
 
 # 检查是否有变化
 if git diff --cached --quiet; then
     echo "✓ 无变化 - 内容与最新快照相同，无需保存"
-    LATEST_TAG=$(git tag -l "$SKILL_NAME/v*" 2>/dev/null | sort -V | tail -1)
+    LATEST_TAG=$(git tag -l "$CATEGORY/$SKILL_NAME/v*" 2>/dev/null | sort -V | tail -1)
+    if [ -z "$LATEST_TAG" ]; then
+        LATEST_TAG=$(git tag -l "$SKILL_NAME/v*" 2>/dev/null | sort -V | tail -1)
+    fi
     if [ -n "$LATEST_TAG" ]; then
         echo "→ 最新快照: $LATEST_TAG"
     fi
     exit 0
 fi
 
-git commit --quiet -m "[$SKILL_NAME] $NEXT_VERSION: $MESSAGE"
+git commit --quiet -m "[$CATEGORY/$SKILL_NAME] $NEXT_VERSION: $MESSAGE"
 git tag -a "$TAG_NAME" -m "$MESSAGE"
 git push --quiet origin main
 git push --quiet origin "$TAG_NAME"

@@ -1,6 +1,6 @@
 # Skill Snapshot
 
-为 Claude Code 技能创建快照，支持版本回退。存储在 GitHub 私有仓库。
+为 Claude Code 技能创建快照，支持版本回退。存储在 GitHub 私有仓库，按分类目录组织。
 
 ## 触发词
 
@@ -19,18 +19,46 @@
 | 命令 | 说明 | 示例 |
 |------|------|------|
 | `init` | 初始化私有仓库 | `/skill-snapshot init` |
-| `scan` | 扫描技能，判断哪些需要备份 | `/skill-snapshot scan` |
-| `save <skill> [message]` | 保存快照 | `/skill-snapshot save my-skill "添加断点续写"` |
+| `scan` | 扫描技能，按分类显示备份状态 | `/skill-snapshot scan` |
+| `save <skill> [message]` | 保存快照到分类目录 | `/skill-snapshot save my-skill "添加断点续写"` |
 | `restore <skill> [version]` | 恢复版本 | `/skill-snapshot restore my-skill v2` |
-| `list [skill]` | 列出快照 | `/skill-snapshot list my-skill` |
+| `list [skill]` | 列出快照（按分类分组） | `/skill-snapshot list my-skill` |
 | `diff <skill> [version]` | 对比差异 | `/skill-snapshot diff my-skill v1` |
+| `migrate` | 迁移旧格式快照到分类目录 | `/skill-snapshot migrate` |
 | `sync-configs` | 同步所有 CLAUDE.md 配置 | `/skill-snapshot sync-configs` |
 
-## 配置
+## 分类配置
 
-- **私有仓库**: `skill-snapshots`（自动创建）
-- **本地克隆**: `~/.claude/skill-snapshots/`
-- **版本标签**: `<skill-name>/v<n>`（如 `my-skill/v1`）
+技能分类定义在 `categories.conf` 文件中：
+
+```conf
+# 格式: skill-name=category
+collaborating-with-codex=ai-collaboration
+paper-mapping=writing
+obsidian-bases=obsidian
+coding-standards=development
+planning-with-files=workflow
+skill-authoring=meta
+agent-browser=utilities
+```
+
+### 预定义分类
+
+| 分类 | 说明 | 示例技能 |
+|------|------|----------|
+| `ai-collaboration` | AI 协作工具 | collaborating-with-codex, task-dispatcher |
+| `writing` | 写作与文档 | paper-mapping, pdf2md-academic |
+| `obsidian` | Obsidian 相关 | obsidian-bases, nb-query, notebooklm |
+| `development` | 开发模式 | coding-standards, tdd-workflow |
+| `workflow` | 工作流程 | planning-with-files, changelog |
+| `meta` | 元技能管理 | skill-authoring, skill-catalog |
+| `utilities` | 工具类 | agent-browser, web-fetch-fallback |
+| `uncategorized` | 未分类（默认） | 未在配置中定义的技能 |
+
+## 版本标签格式
+
+- **新格式**: `<category>/<skill-name>/v<n>`（如 `writing/paper-mapping/v1`）
+- **旧格式**: `<skill-name>/v<n>`（如 `paper-mapping/v1`，兼容但建议迁移）
 
 ## 忽略规则
 
@@ -50,7 +78,7 @@ scan 命令根据以下规则自动判断哪些技能需要备份：
 
 ### scan - 扫描技能
 
-扫描所有技能，判断哪些需要备份、哪些应跳过。
+扫描所有技能，按分类显示备份状态。
 
 执行脚本：
 ```bash
@@ -60,24 +88,18 @@ bash ~/.claude/skills/skill-snapshot/scripts/scan.sh
 输出示例：
 ```
 【需要备份】
-  ✓ my-skill (5 files, 68K) [已有: my-skill/v1]
-  ○ new-skill (3 files, 12K) [未备份]
+
+  [ai-collaboration]
+    ✓ collaborating-with-codex (7 files, 68K) [已有: ai-collaboration/collaborating-with-codex/v1]
+    ✓ task-dispatcher (7 files, 48K) [已有: ai-collaboration/task-dispatcher/v1]
+
+  [writing]
+    ✓ paper-mapping (1 files, 8K) [已有: writing/paper-mapping/v1]
+    ○ new-skill (3 files, 12K) [未备份]
 
 【跳过】
-  ✗ git-managed-skill - 自带 Git 版本控制
+  ✗ skill-snapshot - 快照工具本身
   ✗ external-plugin - 符号链接（外部安装）
-```
-
-### init - 初始化
-
-1. 检查 GitHub 私有仓库 `skill-snapshots` 是否存在
-2. 如不存在，创建私有仓库
-3. 克隆到本地 `~/.claude/skill-snapshots/`
-4. 初始化目录结构
-
-执行脚本：
-```bash
-bash ~/.claude/skills/skill-snapshot/scripts/init.sh
 ```
 
 ### save - 保存快照
@@ -88,9 +110,10 @@ bash ~/.claude/skills/skill-snapshot/scripts/init.sh
 
 流程：
 1. 验证技能存在于 `~/.claude/skills/<skill>/`
-2. 确定下一个版本号（检查现有 tags）
-3. 复制技能目录到仓库 `~/.claude/skill-snapshots/<skill>/`
-4. Git add, commit, tag, push
+2. 从 `categories.conf` 获取分类
+3. 确定下一个版本号
+4. 复制技能目录到 `~/.claude/skill-snapshots/<category>/<skill>/`
+5. Git add, commit, tag, push
 
 执行脚本：
 ```bash
@@ -101,13 +124,13 @@ bash ~/.claude/skills/skill-snapshot/scripts/save.sh "<skill>" "[message]"
 
 参数：
 - `<skill>`: 技能名称（必填）
-- `[version]`: 版本号（可选，默认为最新）
+- `[version]`: 版本号（可选，默认列出可用版本）
 
 流程：
 1. 拉取最新仓库
-2. 如未指定版本，列出可用版本让用户选择
+2. 查找匹配的 tag（兼容新旧格式）
 3. Checkout 到指定 tag
-4. 复制仓库中的技能目录到 `~/.claude/skills/<skill>/`
+4. 复制到 `~/.claude/skills/<skill>/`
 5. 切回 main 分支
 
 执行脚本：
@@ -115,104 +138,63 @@ bash ~/.claude/skills/skill-snapshot/scripts/save.sh "<skill>" "[message]"
 bash ~/.claude/skills/skill-snapshot/scripts/restore.sh "<skill>" "[version]"
 ```
 
+### migrate - 迁移旧格式
+
+将旧格式快照（`skill/vN`）迁移到新的分类目录格式（`category/skill/vN`）。
+
+执行脚本：
+```bash
+bash ~/.claude/skills/skill-snapshot/scripts/migrate.sh
+```
+
+流程：
+1. 扫描所有旧格式 tags
+2. 根据 `categories.conf` 确定分类
+3. 为每个旧 tag 创建对应的新格式 tag
+4. 推送新 tags（保留旧 tags）
+
 ### list - 列出快照
 
 参数：
-- `[skill]`: 技能名称（可选，不填则列出所有）
-
-流程：
-1. 拉取最新 tags
-2. 过滤匹配的 tags
-3. 显示版本列表和提交信息
+- `[skill]`: 技能名称（可选，不填则按分类列出所有）
 
 执行脚本：
 ```bash
 bash ~/.claude/skills/skill-snapshot/scripts/list.sh "[skill]"
 ```
 
-### diff - 对比差异
-
-参数：
-- `<skill>`: 技能名称（必填）
-- `[version]`: 版本号（可选，默认为最新快照）
-
-流程：
-1. Checkout 到指定版本
-2. 对比仓库中的版本与当前 `~/.claude/skills/<skill>/`
-3. 显示差异
-4. 切回 main
-
-执行脚本：
-```bash
-bash ~/.claude/skills/skill-snapshot/scripts/diff.sh "<skill>" "[version]"
-```
-
-### sync-configs - 同步配置文件
-
-同步所有项目的 CLAUDE.md 配置文件到 `claude-configs/` 目录。
-
-支持的配置文件：
-
-| 分类 | 路径 |
-|------|------|
-| 核心配置 | `~/.claude/CLAUDE.md`, Obsidian 库 |
-| Solidity | 登链学院系列项目 |
-| Solana | IPFlow, Metaplex 系列 |
-| 其他 | SUMO 仿真等 |
-
-流程：
-1. 遍历预定义的配置文件路径
-2. 按项目分类复制到 `claude-configs/`
-3. 生成/更新 README.md 索引
-4. Git commit & push
-
-执行脚本：
-```bash
-bash ~/.claude/skills/skill-snapshot/scripts/sync-configs.sh
-```
-
-输出示例：
-```
-=== 同步 CLAUDE.md 配置文件 ===
-
-[✓] global
-[✓] obsidian
-[✓] solidity/denglian-nft-market
-[SKIP] solidity/interview (源文件不存在)
-...
-
-=== 生成索引 ===
-[✓] README.md 已更新
-
-=== 提交变更 ===
-[✓] 已推送到 GitHub
-
-统计: 同步 10, 跳过 1, 总计 11
-```
-
 ## 存储结构
 
 ```
 ~/.claude/skill-snapshots/          # 本地仓库
-├── my-skill/
-│   ├── SKILL.md
-│   └── scripts/
-├── another-skill/
-│   └── SKILL.md
+├── ai-collaboration/               # 分类目录
+│   ├── collaborating-with-codex/
+│   │   ├── SKILL.md
+│   │   └── scripts/
+│   └── task-dispatcher/
+├── writing/
+│   ├── paper-mapping/
+│   └── pdf2md-academic/
+├── obsidian/
+│   ├── obsidian-bases/
+│   └── nb-query/
+├── development/
+├── workflow/
+├── meta/
+├── utilities/
 ├── claude-configs/                 # CLAUDE.md 配置备份
 │   ├── global/
 │   ├── obsidian/
 │   ├── solidity/
 │   ├── solana/
-│   ├── misc/
 │   └── README.md
 └── README.md
 
-GitHub Tags:
-├── my-skill/v1
-├── my-skill/v2
-├── my-skill/v3
-└── another-skill/v1
+GitHub Tags (新格式):
+├── ai-collaboration/collaborating-with-codex/v1
+├── writing/paper-mapping/v1
+├── obsidian/nb-query/v1
+└── ...
 ```
 
 ## 使用示例
@@ -227,41 +209,53 @@ Claude: [执行 init]
 ### 场景 2：修改前保存
 
 ```
-用户: 我要改 my-skill，先保存一下
-Claude: [执行 save my-skill "修改前备份"]
-输出: 已保存快照 my-skill/v3
+用户: 我要改 paper-mapping，先保存一下
+Claude: [执行 save paper-mapping "修改前备份"]
+输出:
+  技能: paper-mapping
+  分类: writing
+  版本: v2
+  ✓ 快照已保存: writing/paper-mapping/v2
 ```
 
 ### 场景 3：改坏了回退
 
 ```
-用户: my-skill 改坏了，退回上一版
-Claude: [执行 restore my-skill v2]
-输出: 已恢复到 my-skill/v2
+用户: paper-mapping 改坏了，退回上一版
+Claude: [执行 restore paper-mapping v1]
+输出: 已恢复到 writing/paper-mapping/v1
 ```
 
 ### 场景 4：查看历史
 
 ```
-用户: my-skill 有哪些版本？
-Claude: [执行 list my-skill]
+用户: paper-mapping 有哪些版本？
+Claude: [执行 list paper-mapping]
 输出:
-  v1 - 2025-01-05 - 初始版本
-  v2 - 2025-01-08 - 添加断点续写
-  v3 - 2025-01-10 - 修改前备份
+  === paper-mapping 快照历史 ===
+  分类: writing
+
+  v1 - 2025-01-05 - 初始版本 [新]
+  v2 - 2025-01-08 - 添加断点续写 [新]
 ```
 
-### 场景 5：同步配置文件
+### 场景 5：迁移旧格式
 
 ```
-用户: 帮我同步所有的 CLAUDE.md 到 GitHub
-Claude: [执行 sync-configs]
-输出: 已同步 10 个配置文件到 skill-snapshots/claude-configs/
+用户: 帮我把旧的快照迁移到分类目录
+Claude: [执行 migrate]
+输出:
+  发现 43 个技能需要迁移:
+    collaborating-with-codex → ai-collaboration/ (3 个版本)
+    paper-mapping → writing/ (1 个版本)
+    ...
+  是否继续迁移? (y/N)
 ```
 
 ## 注意事项
 
-1. **符号链接跳过**：如 `external-plugin` 等外部安装的技能（符号链接）不支持快照
-2. **archive 目录忽略**：不对 archive 目录下的技能做快照
-3. **首次使用需 init**：首次使用前需执行 `init` 创建仓库
-4. **网络依赖**：save/restore 需要网络连接推送到 GitHub
+1. **分类配置**: 新技能需要在 `categories.conf` 中添加分类，否则归入 `uncategorized`
+2. **向后兼容**: restore/list 命令兼容新旧两种格式的 tags
+3. **迁移建议**: 建议执行 `migrate` 将旧格式迁移到新格式
+4. **符号链接跳过**: 外部安装的技能（符号链接）不支持快照
+5. **网络依赖**: save/restore/migrate 需要网络连接推送到 GitHub
