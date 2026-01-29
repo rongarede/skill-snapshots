@@ -300,9 +300,32 @@ def main():
     parser.add_argument("--instructions", default="", help="Direct system instructions string. Overrides --agent and --agent-file.")
     parser.add_argument("--instructions-file", default="", help="Path to custom instructions file. Overrides --agent.")
 
+    # 进程管理参数
+    parser.add_argument("--ps", action="store_true", help="List running Codex processes.")
+    parser.add_argument("--kill", default="", help="Kill Codex process by PID or 'all' to kill all exec processes.")
+    parser.add_argument("--sessions", action="store_true", help="List recent Codex sessions.")
+
     args = parser.parse_args()
 
     agent_dir = Path(args.agent_dir).expanduser()
+
+    # 处理 --ps（列出进程）
+    if args.ps:
+        result = list_codex_processes()
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return
+
+    # 处理 --kill（终止进程）
+    if args.kill:
+        result = kill_codex_process(args.kill)
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return
+
+    # 处理 --sessions（列出会话）
+    if args.sessions:
+        result = list_codex_sessions()
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return
 
     # 处理 --list-agents
     if args.list_agents:

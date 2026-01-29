@@ -108,3 +108,42 @@ python3 scripts/codex_bridge.py --cd "/project" --instructions "你是 Rust 专�
 ```bash
 python3 scripts/codex_bridge.py --cd "/project" --agent build-error-resolver --PROMPT "Fix build errors" --return-all-messages
 ```
+
+## Process Monitoring (NEW)
+
+使用 `codex_monitor.py` 监控和管理 Codex 进程：
+
+```bash
+# 列出运行中的 Codex 进程
+python3 scripts/codex_monitor.py --ps
+
+# 查看最新会话的对话内容
+python3 scripts/codex_monitor.py --session latest --messages 20
+
+# 查看指定会话（使用 SESSION_ID）
+python3 scripts/codex_monitor.py --session 019c08b7-8d56-7543 --messages 50
+
+# 实时监控最新会话（Ctrl+C 停止）
+python3 scripts/codex_monitor.py --watch
+
+# 终止指定进程
+python3 scripts/codex_monitor.py --kill 12345
+
+# 终止所有 codex exec 进程
+python3 scripts/codex_monitor.py --kill all
+
+# JSON 格式输出（便于程序处理）
+python3 scripts/codex_monitor.py --ps --json
+python3 scripts/codex_monitor.py --session latest --json
+```
+
+### Monitor 参数
+
+| 参数 | 说明 |
+|------|------|
+| `--ps` | 列出运行中的 Codex 进程 |
+| `--kill <PID\|all>` | 终止进程 |
+| `--session <ID\|latest>` | 查看会话内容 |
+| `--watch` | 实时监控最新会话 |
+| `--messages N` | 显示消息数量（默认 20） |
+| `--json` | JSON 格式输出 |
