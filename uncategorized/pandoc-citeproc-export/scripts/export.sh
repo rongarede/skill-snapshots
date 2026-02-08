@@ -104,7 +104,21 @@ fi
 
 # ==================== 中英文后处理 ====================
 echo "[3/4] 中英文参考文献后处理..."
-python3 "$SKILL_DIR/scripts/fix_cn_refs.py" "$OUTPUT"
+CN_REFS_SCRIPT="$SKILL_DIR/scripts/fix_cn_refs.py"
+if [ ! -f "$CN_REFS_SCRIPT" ]; then
+  # fallback: 搜索项目目录下的同名脚本
+  LOCAL_SCRIPT=$(find . -maxdepth 2 -name "fix_cn_refs.py" -type f 2>/dev/null | head -1)
+  if [ -n "$LOCAL_SCRIPT" ]; then
+    CN_REFS_SCRIPT="$LOCAL_SCRIPT"
+    echo "  使用项目本地脚本: $CN_REFS_SCRIPT"
+  else
+    echo "  ⚠ fix_cn_refs.py 未找到，跳过中英文后处理"
+    CN_REFS_SCRIPT=""
+  fi
+fi
+if [ -n "$CN_REFS_SCRIPT" ]; then
+  python3 "$CN_REFS_SCRIPT" "$OUTPUT" || echo "  ⚠ 中英文后处理执行失败，继续验证"
+fi
 
 # ==================== 验证 ====================
 echo "[4/4] 验证输出..."
