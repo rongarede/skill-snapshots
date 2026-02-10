@@ -31,10 +31,6 @@ pushd "$THESIS_DIR" >/dev/null
 
 python3 "$SCRIPT_DIR/build_docx_banshi1.py" "$THESIS_DIR"
 
-if [[ -f verify_docx.py ]]; then
-  python3 verify_docx.py || true
-fi
-
 python3 /Users/bit/.codex/skills/swun-thesis-docx-banshi1/scripts/verify_extra.py \
   "$THESIS_DIR/main_版式1.docx"
 
