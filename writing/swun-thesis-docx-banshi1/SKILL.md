@@ -32,6 +32,9 @@ Generate a `.docx` from a SWUN thesis LaTeX project while treating the official 
      - avoids numbering `\\[ ... \\]` blocks (keeps them unnumbered)
    - fixes mixed Chinese/Arabic section numbering by adding `w:isLgl` to `ilvl >= 1` (abstractNumId=0)
    - normalizes unknown paragraph styles produced by pandoc back to template `Normal` (prevents template/style drift)
+   - splits sections for page numbering:
+     - "摘要" + "Abstract" is a separate major chapter block with Roman numeral footer page numbers
+     - the rest of the thesis uses Arabic numeral footer page numbers starting from 1
 
 ## Prerequisites
 

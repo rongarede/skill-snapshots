@@ -44,6 +44,12 @@ def main() -> int:
     if "w:abstractNumId=\"0\"" in num and "w:isLgl" not in num:
         errors.append("missing w:isLgl in numbering.xml (abstractNumId=0)")
 
+    # Sectioned page numbering: expect Roman + Arabic page formats.
+    if 'w:fmt="lowerRoman"' not in doc:
+        errors.append('missing Roman page numbering (w:pgNumType w:fmt="lowerRoman") for abstracts section')
+    if 'w:fmt="decimal"' not in doc or 'w:start="1"' not in doc:
+        errors.append('missing Arabic page numbering restart (w:pgNumType w:fmt="decimal" w:start="1") for main body')
+
     # Bibliography hanging indent: should be present for entries.
     if "参考文献" in doc and "hangingChars" not in doc:
         errors.append("missing hanging indent for bibliography entries (w:hangingChars)")
