@@ -785,7 +785,6 @@ def _number_display_equations(
 ) -> None:
     """Add chapter-based equation numbers to paragraphs containing m:oMathPara."""
     w_p = _qn(ns, "w", "p")
-    w_r = _qn(ns, "w", "r")
     m_uri = None
     for k, v in ns.items():
         if k == "m":
@@ -794,6 +793,7 @@ def _number_display_equations(
     if not m_uri:
         return
     m_oMathPara = f"{{{m_uri}}}oMathPara"
+    m_oMath = f"{{{m_uri}}}oMath"
 
     text_w = _sect_text_width_dxa(ns, root)
     if text_w is None or text_w == 0:
@@ -806,7 +806,18 @@ def _number_display_equations(
     eq_no = 0
 
     children = list(body)
-    math_paras = [p for p in children if p.tag == w_p and p.find(m_oMathPara) is not None]
+    def is_display_math_para(p: ET.Element) -> bool:
+        if p.tag != w_p:
+            return False
+        if p.find(m_oMathPara) is not None:
+            return True
+        # Some pandoc runs emit OMML as <m:oMath> directly in the paragraph; only treat it
+        # as display math if the paragraph has no visible text runs.
+        if p.find(m_oMath) is not None and not _p_text(ns, p).strip():
+            return True
+        return False
+
+    math_paras = [p for p in children if is_display_math_para(p)]
 
     # Use LaTeX-derived flags if available and aligned; otherwise number all display math.
     if (
@@ -826,6 +837,38 @@ def _number_display_equations(
         except StopIteration:
             return True
 
+    def _ensure_display_math_para_centered(p: ET.Element) -> None:
+        # Display math must be standalone and centered. We implement this via a leading tab
+        # to a centered tab stop, keeping the equation number aligned with a right tab stop.
+        pPr = _ensure_ppr(ns, p)
+        ind = pPr.find(_qn(ns, "w", "ind"))
+        if ind is not None:
+            for attr in ("firstLineChars", "firstLine", "hangingChars", "hanging"):
+                ind.attrib.pop(_qn(ns, "w", attr), None)
+            if not ind.attrib:
+                pPr.remove(ind)
+
+        _set_para_tabs_for_equation(ns, p, text_w)
+
+        # Insert a leading tab run (idempotent) so the math starts at the center tab stop.
+        children2 = list(p)
+        insert_idx = 0
+        if children2 and children2[0].tag == _qn(ns, "w", "pPr"):
+            insert_idx = 1
+
+        has_leading_tab = False
+        for el in children2[insert_idx:]:
+            # first content element decides; if it isn't a run tab, we will add one
+            if el.tag == _qn(ns, "w", "r"):
+                if el.find(_qn(ns, "w", "tab")) is not None:
+                    has_leading_tab = True
+                break
+            # If math comes first, we still want a leading tab.
+            break
+
+        if not has_leading_tab:
+            p.insert(insert_idx, _make_run_tab(ns))
+
     for p in children:
         if p.tag != w_p:
             continue
@@ -838,21 +881,19 @@ def _number_display_equations(
                 eq_no = 0
             continue
 
-        if p.find(m_oMathPara) is None:
+        if not is_display_math_para(p):
             continue
+
+        # Consume numbering flag for each display math paragraph to keep alignment stable.
+        num_flag = should_number()
+
+        # Always center display equations and keep them standalone.
+        _ensure_display_math_para_centered(p)
 
         if chapter_no <= 0:
             continue
 
-        if not should_number():
-            # Ensure display math paragraphs don't inherit body first-line indent.
-            pPr = _ensure_ppr(ns, p)
-            ind = pPr.find(_qn(ns, "w", "ind"))
-            if ind is not None:
-                for attr in ("firstLineChars", "firstLine", "hangingChars", "hanging"):
-                    ind.attrib.pop(_qn(ns, "w", attr), None)
-                if not ind.attrib:
-                    pPr.remove(ind)
+        if not num_flag:
             continue
 
         # Avoid double-numbering if already contains something like (2-1).
