@@ -43,7 +43,7 @@ Generate a `.docx` from a SWUN thesis LaTeX project while treating the official 
 ## Prerequisites
 
 - Tools: `pandoc`, `latexpand`, `python3`
-- Thesis workspace contains `build_docx_banshi1.py` and `verify_docx.py`
+- Thesis workspace contains `main.tex` (and usually `backmatter/references.bib`, figures/media directories, etc.)
 - Official template exists (default):
   - `/Users/bit/LaTeX/西南民族大学研究生学位论文写作规范_模板部分_版式1.docx`
 

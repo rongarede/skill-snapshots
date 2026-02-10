@@ -4,6 +4,7 @@
 set -euo pipefail
 
 THESIS_DIR="${1:-/Users/bit/LaTeX/SWUN_Thesis}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 need() {
   command -v "$1" >/dev/null 2>&1 || {
@@ -21,11 +22,6 @@ if [[ ! -d "$THESIS_DIR" ]]; then
   exit 1
 fi
 
-if [[ ! -f "$THESIS_DIR/build_docx_banshi1.py" ]]; then
-  echo "error: missing: $THESIS_DIR/build_docx_banshi1.py" >&2
-  exit 1
-fi
-
 if [[ ! -f "$THESIS_DIR/main.tex" ]]; then
   echo "error: missing: $THESIS_DIR/main.tex" >&2
   exit 1
@@ -33,7 +29,7 @@ fi
 
 pushd "$THESIS_DIR" >/dev/null
 
-python3 build_docx_banshi1.py
+python3 "$SCRIPT_DIR/build_docx_banshi1.py" "$THESIS_DIR"
 
 if [[ -f verify_docx.py ]]; then
   python3 verify_docx.py || true
@@ -45,4 +41,3 @@ python3 /Users/bit/.codex/skills/swun-thesis-docx-banshi1/scripts/verify_extra.p
 popd >/dev/null
 
 echo "OK: $THESIS_DIR/main_版式1.docx"
-
