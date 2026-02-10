@@ -35,6 +35,10 @@ Generate a `.docx` from a SWUN thesis LaTeX project while treating the official 
    - splits sections for page numbering:
      - "摘要" + "Abstract" is a separate major chapter block with Roman numeral footer page numbers
      - the rest of the thesis uses Arabic numeral footer page numbers starting from 1
+   - inserts abstract keywords:
+     - leaves one blank line before the keywords line
+     - summarizes to 3-4 keyword groups (merges extras into the last group)
+     - emits `关键词：...` for Chinese and `Keywords: ...` for English
 
 ## Prerequisites
 

@@ -17,6 +17,12 @@ def _iter_paragraphs(doc_xml: str) -> list[str]:
     # Good enough for checks (Word XML is regular; paragraphs aren't nested).
     return re.findall(r"(<w:p[\s\S]*?</w:p>)", doc_xml)
 
+def _p_text(p_xml: str) -> str:
+    # Join all text runs within a paragraph. This avoids false negatives when punctuation
+    # is split across <w:t> nodes.
+    parts = re.findall(r"<w:t[^>]*>([\s\S]*?)</w:t>", p_xml)
+    return "".join(parts)
+
 
 def main() -> int:
     if len(sys.argv) != 2:
@@ -49,6 +55,42 @@ def main() -> int:
         errors.append('missing Roman page numbering (w:pgNumType w:fmt="lowerRoman") for abstracts section')
     if 'w:fmt="decimal"' not in doc or 'w:start="1"' not in doc:
         errors.append('missing Arabic page numbering restart (w:pgNumType w:fmt="decimal" w:start="1") for main body')
+
+    paras = _iter_paragraphs(doc)
+    texts = [_p_text(p) for p in paras]
+
+    # Abstract keywords: required with a blank line before.
+    if not any("关键词：" in t for t in texts):
+        errors.append("missing Chinese abstract keywords line (expected '关键词：...')")
+    if not any("Keywords:" in t for t in texts):
+        errors.append("missing English abstract keywords line (expected 'Keywords: ...')")
+
+    # Best-effort: ensure there is an empty paragraph right before each keywords line.
+    for marker in ["关键词：", "Keywords:"]:
+        for i, t in enumerate(texts):
+            if marker not in t:
+                continue
+            if i == 0:
+                errors.append(f"keywords line '{marker}' is the first paragraph; expected a blank line before it")
+                continue
+            prev_t = texts[i - 1].strip()
+            if prev_t:
+                errors.append(f"missing blank line before keywords line '{marker}' (previous paragraph contains text)")
+            break
+
+    # Best-effort: ensure 3-4 groups (<= 3 separators) for both CN and EN.
+    # We only check locally around the marker to avoid over-parsing OOXML.
+    def _check_groups(marker: str, sep: str, max_sep: int = 3) -> None:
+        for t in texts:
+            if marker not in t:
+                continue
+            tail = t.split(marker, 1)[1]
+            if tail.count(sep) > max_sep:
+                errors.append(f"too many keyword separators near '{marker}' (expected 3-4 groups)")
+            return
+
+    _check_groups("关键词：", "；", 3)
+    _check_groups("Keywords:", ";", 3)
 
     # Bibliography hanging indent: should be present for entries.
     if "参考文献" in doc and "hangingChars" not in doc:
