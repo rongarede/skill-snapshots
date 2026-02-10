@@ -13,6 +13,11 @@ import sys
 import zipfile
 
 
+def _iter_paragraphs(doc_xml: str) -> list[str]:
+    # Good enough for checks (Word XML is regular; paragraphs aren't nested).
+    return re.findall(r"(<w:p[\s\S]*?</w:p>)", doc_xml)
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         print("usage: verify_extra.py /path/to/main_版式1.docx", file=sys.stderr)
@@ -47,6 +52,38 @@ def main() -> int:
     if "vertAlign" not in doc and not re.search(r"\[[0-9]{1,3}\]", doc):
         errors.append("no obvious citation markers found (expected [n] possibly superscript)")
 
+    # Figure captions: expect "图{章}-{序号} ..."
+    cap_re = re.compile(r"图\d+-\d+\s+")
+    cap_paras = []
+    for p in _iter_paragraphs(doc):
+        if cap_re.search(p):
+            cap_paras.append(p)
+
+    if not cap_paras:
+        errors.append("no numbered figure captions found (expected '图{章}-{序号} ...')")
+    else:
+        # Captions should be centered.
+        not_centered = [p for p in cap_paras if 'w:jc w:val="center"' not in p]
+        if not_centered:
+            errors.append("some figure captions are not centered (missing w:jc center)")
+
+    # Equation numbering: expect some display-math paras to end with '(章-序号)'.
+    eq_re = re.compile(r"\(\d+-\d+\)")
+    math_paras = [p for p in _iter_paragraphs(doc) if "<m:oMathPara" in p]
+    numbered_math_paras = [p for p in math_paras if eq_re.search(p)]
+    if math_paras and not numbered_math_paras:
+        errors.append("no equation numbers found on display-math paragraphs (expected '(章-序号)')")
+
+    # Ensure we don't accidentally number the universal-quantifier display line.
+    for p in math_paras:
+        if "<m:t>∀</m:t>" in p and eq_re.search(p):
+            errors.append("found an equation number on a quantifier-only display math paragraph (should be unnumbered)")
+            break
+
+    # KeepTogether hints for figures (best-effort).
+    if "<w:keepNext" not in doc:
+        errors.append("missing keepNext in document.xml (expected for figure paragraphs)")
+
     if errors:
         print("EXTRA VERIFY: FAIL")
         for e in errors:
@@ -59,4 +96,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

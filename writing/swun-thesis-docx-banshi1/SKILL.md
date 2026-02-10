@@ -24,7 +24,14 @@ Generate a `.docx` from a SWUN thesis LaTeX project while treating the official 
    - adds page breaks before each chapter (Heading 1)
    - adds first-line indents for body paragraphs
    - adds hanging indents for bibliography entries
+   - fixes figure captions:
+     - adds chapter-based numbering prefix: `图{章}-{序号} 图题`
+     - centers figure + caption, removes empty caption paras, keeps figure+caption together
+   - fixes equation numbering (display math):
+     - adds chapter-based numbering suffix: `(章-序号)` right-aligned
+     - avoids numbering `\\[ ... \\]` blocks (keeps them unnumbered)
    - fixes mixed Chinese/Arabic section numbering by adding `w:isLgl` to `ilvl >= 1` (abstractNumId=0)
+   - normalizes unknown paragraph styles produced by pandoc back to template `Normal` (prevents template/style drift)
 
 ## Prerequisites
 
@@ -44,10 +51,11 @@ bash /Users/bit/.codex/skills/swun-thesis-docx-banshi1/scripts/main.sh /path/to/
 
 # Optionally override template path for the build script
 export SWUN_TEMPLATE_DOCX="/path/to/西南民族大学研究生学位论文写作规范_模板部分_版式1.docx"
+export SWUN_CSL="/path/to/china-national-standard-gb-t-7714-2015-numeric.csl"
+export SWUN_BIB="/path/to/references.bib"
 ```
 
 ## Guardrails
 
 - Never recreate styles/numbering from scratch. Always use the official template as `--reference-doc`.
 - Do not manually type heading numbering; rely on the template multilevel list mapping.
-
