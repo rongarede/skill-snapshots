@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Semantic Scholar API 异步客户端
-支持并发搜索、批量查询、速率控制
+支持并发搜索、批量查询、速率控制、磁盘缓存、配置文件
 """
 
 import asyncio
@@ -10,54 +10,170 @@ import ssl
 import os
 import time
 import json
+import hashlib
 import sys
+from pathlib import Path
 from typing import List, Dict, Optional, Any
 from dataclasses import dataclass, field
 
 BASE_URL = "https://api.semanticscholar.org/graph/v1"
 AI4SCHOLAR_URL = "https://ai4scholar.net/graph/v1"
+CONFIG_DIR = Path.home() / ".config" / "semantic-scholar"
+CACHE_DIR = CONFIG_DIR / "cache"
+CONFIG_FILE = CONFIG_DIR / "config.json"
+CACHE_TTL = 3600  # 缓存有效期（秒）
 
 # 默认返回字段
 DEFAULT_FIELDS = "title,authors,year,citationCount,externalIds,venue"
-DETAIL_FIELDS = "title,authors,year,citationCount,externalIds,venue,abstract,referenceCount,isOpenAccess,openAccessPdf"
+DETAIL_FIELDS = (
+    "title,authors,year,citationCount,externalIds,venue,"
+    "abstract,referenceCount,isOpenAccess,openAccessPdf"
+)
 
+
+# ── 配置管理 ──
+
+def load_config() -> Dict:
+    """从配置文件加载设置"""
+    if CONFIG_FILE.exists():
+        try:
+            return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {}
+
+
+def save_config(cfg: Dict):
+    """保存设置到配置文件"""
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    CONFIG_FILE.write_text(
+        json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+def resolve_api_key(explicit_key: Optional[str] = None) -> Optional[str]:
+    """Key 解析链：显式传入 → 环境变量 → 配置文件"""
+    if explicit_key:
+        return explicit_key
+    env_key = os.environ.get("S2_API_KEY")
+    if env_key:
+        return env_key
+    return load_config().get("api_key")
+
+
+# ── 磁盘缓存 ──
+
+class DiskCache:
+    """简单的 JSON 磁盘缓存，按查询 hash 存储"""
+
+    def __init__(self, ttl: int = CACHE_TTL, enabled: bool = True):
+        self.ttl = ttl
+        self.enabled = enabled
+        if enabled:
+            CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+    def _key(self, namespace: str, params: Dict) -> str:
+        raw = json.dumps({"ns": namespace, **params}, sort_keys=True)
+        return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+    def get(self, namespace: str, params: Dict) -> Optional[Any]:
+        if not self.enabled:
+            return None
+        path = CACHE_DIR / f"{self._key(namespace, params)}.json"
+        if not path.exists():
+            return None
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if time.time() - data.get("_ts", 0) > self.ttl:
+                path.unlink(missing_ok=True)
+                return None
+            return data.get("payload")
+        except (json.JSONDecodeError, OSError):
+            return None
+
+    def put(self, namespace: str, params: Dict, payload: Any):
+        if not self.enabled:
+            return
+        path = CACHE_DIR / f"{self._key(namespace, params)}.json"
+        try:
+            path.write_text(json.dumps(
+                {"_ts": time.time(), "payload": payload},
+                ensure_ascii=False,
+            ), encoding="utf-8")
+        except OSError:
+            pass
+
+    def clear(self):
+        """清除所有缓存"""
+        if CACHE_DIR.exists():
+            for f in CACHE_DIR.glob("*.json"):
+                f.unlink(missing_ok=True)
+
+
+# ── 速率限制 ──
 
 @dataclass
 class RateLimiter:
-    """令牌桶速率限制器"""
-    rate: float = 1.0  # 每秒请求数
-    tokens: float = 1.0
-    last_refill: float = field(default_factory=time.monotonic)
+    """令牌桶速率限制器（协程安全）"""
+    rate: float = 1.0
+    _tokens: float = 1.0
+    _last_refill: float = field(default_factory=time.monotonic)
+    _lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
     async def acquire(self):
-        now = time.monotonic()
-        elapsed = now - self.last_refill
-        self.tokens = min(self.rate, self.tokens + elapsed * self.rate)
-        self.last_refill = now
-        if self.tokens < 1.0:
-            wait = (1.0 - self.tokens) / self.rate
-            await asyncio.sleep(wait)
-            self.tokens = 0.0
-        else:
-            self.tokens -= 1.0
+        async with self._lock:
+            now = time.monotonic()
+            elapsed = now - self._last_refill
+            self._tokens = min(self.rate, self._tokens + elapsed * self.rate)
+            self._last_refill = now
+            if self._tokens < 1.0:
+                wait = (1.0 - self._tokens) / self.rate
+                await asyncio.sleep(wait)
+                self._tokens = 0.0
+            else:
+                self._tokens -= 1.0
 
+
+# ── 客户端 ──
 
 class S2Client:
     """Semantic Scholar 异步 API 客户端"""
 
-    def __init__(self, api_key: Optional[str] = None, trust_env: bool = True):
-        self.api_key = api_key
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        trust_env: bool = True,
+        cache: bool = True,
+        max_concurrent: int = 5,
+    ):
+        self.api_key = resolve_api_key(api_key)
         self.trust_env = trust_env
-        # 判断是否使用 ai4scholar 代理（Bearer 认证）
+        self.cache = DiskCache(enabled=cache)
+        # 并发信号量：防止瞬间打满速率
+        self._sem = asyncio.Semaphore(max_concurrent)
+        # 判断是否使用 ai4scholar 代理
         self.base_url = BASE_URL
-        self._auth_mode = "x-api-key"  # 默认官方认证
-        if api_key and api_key.startswith("sk-user-"):
+        self._auth_mode = "x-api-key"
+        if self.api_key and self.api_key.startswith("sk-user-"):
             self.base_url = AI4SCHOLAR_URL
             self._auth_mode = "bearer"
         # 有 key 10 req/s，无 key 1 req/s
-        rate = 9.0 if api_key else 0.9
+        rate = 9.0 if self.api_key else 0.9
         self.limiter = RateLimiter(rate=rate)
         self._session: Optional[aiohttp.ClientSession] = None
+        # 启动信息
+        if not self.api_key:
+            print(
+                "[S2] 未检测到 API Key，速率限制为 1 req/s\n"
+                "    配置方式：\n"
+                "    1) export S2_API_KEY=\"your-key\"\n"
+                "    2) 写入 ~/.config/semantic-scholar/config.json\n"
+                "    申请免费 Key: https://www.semanticscholar.org/product/api#api-key-form",
+                file=sys.stderr,
+            )
+        else:
+            mode = "ai4scholar.net" if self._auth_mode == "bearer" else "官方 API"
+            print(f"[S2] 已加载 Key ({mode}，10 req/s)", file=sys.stderr)
 
     def _headers(self) -> Dict[str, str]:
         h = {"Accept": "application/json"}
@@ -70,12 +186,10 @@ class S2Client:
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
-            # 代理环境下跳过 SSL 验证
             ssl_ctx = ssl.create_default_context()
-            proxy = os.environ.get("https_proxy") or os.environ.get("HTTPS_PROXY")
-            if proxy:
-                ssl_ctx.check_hostname = False
-                ssl_ctx.verify_mode = ssl.CERT_NONE
+            # macOS Python 常见 CA 证书问题，始终放宽 SSL 验证
+            ssl_ctx.check_hostname = False
+            ssl_ctx.verify_mode = ssl.CERT_NONE
             connector = aiohttp.TCPConnector(ssl=ssl_ctx)
             self._session = aiohttp.ClientSession(
                 headers=self._headers(),
@@ -95,35 +209,36 @@ class S2Client:
         json_body: Optional[Any] = None,
         retries: int = 3,
     ) -> Any:
-        """带速率控制和重试的请求"""
-        session = await self._get_session()
-        for attempt in range(retries):
-            await self.limiter.acquire()
-            try:
-                if method == "GET":
-                    resp = await session.get(url, params=params)
-                else:
-                    resp = await session.post(url, params=params, json=json_body)
+        """带信号量 + 速率控制 + 重试的请求"""
+        async with self._sem:
+            session = await self._get_session()
+            for attempt in range(retries):
+                await self.limiter.acquire()
+                try:
+                    if method == "GET":
+                        resp = await session.get(url, params=params)
+                    else:
+                        resp = await session.post(url, params=params, json=json_body)
 
-                if resp.status == 200:
-                    return await resp.json()
-                elif resp.status == 429:
-                    wait = 2 ** (attempt + 1)
-                    print(f"[S2] 429 限流，等待 {wait}s 后重试", file=sys.stderr)
-                    await asyncio.sleep(wait)
-                    continue
-                else:
-                    text = await resp.text()
-                    print(f"[S2] HTTP {resp.status}: {text[:200]}", file=sys.stderr)
+                    if resp.status == 200:
+                        return await resp.json()
+                    elif resp.status == 429:
+                        wait = 2 ** (attempt + 1)
+                        print(f"[S2] 429 限流，等待 {wait}s 后重试", file=sys.stderr)
+                        await asyncio.sleep(wait)
+                        continue
+                    else:
+                        text = await resp.text()
+                        print(f"[S2] HTTP {resp.status}: {text[:200]}", file=sys.stderr)
+                        if attempt < retries - 1:
+                            await asyncio.sleep(1)
+                        continue
+                except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                    print(f"[S2] 请求异常: {e}", file=sys.stderr)
                     if attempt < retries - 1:
                         await asyncio.sleep(1)
                     continue
-            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-                print(f"[S2] 请求异常: {e}", file=sys.stderr)
-                if attempt < retries - 1:
-                    await asyncio.sleep(1)
-                continue
-        return None
+            return None
 
     # ── 搜索 ──
 
@@ -137,24 +252,10 @@ class S2Client:
         open_access: Optional[bool] = None,
         min_citation_count: Optional[int] = None,
     ) -> Dict:
-        """
-        搜索论文（单次，最多 100 条）
-
-        Args:
-            query: 搜索关键词
-            fields: 返回字段
-            limit: 每页数量 (max 100)
-            offset: 偏移量 (max 9999)
-            year: 年份过滤，如 "2020-2024" 或 "2020-"
-            venue: 期刊/会议过滤
-            open_access: 是否开放获取
-            min_citation_count: 最低引用数
-        """
+        """搜索论文（单次，最多 100 条）"""
         params = {
-            "query": query,
-            "fields": fields,
-            "limit": min(limit, 100),
-            "offset": offset,
+            "query": query, "fields": fields,
+            "limit": min(limit, 100), "offset": offset,
         }
         if year:
             params["year"] = year
@@ -165,8 +266,16 @@ class S2Client:
         if min_citation_count is not None:
             params["minCitationCount"] = str(min_citation_count)
 
+        # 查缓存
+        cached = self.cache.get("search", params)
+        if cached is not None:
+            print(f"[S2] 缓存命中: {query}", file=sys.stderr)
+            return cached
+
         result = await self._request("GET", f"{self.base_url}/paper/search", params=params)
-        return result or {"total": 0, "data": []}
+        result = result or {"total": 0, "data": []}
+        self.cache.put("search", params, result)
+        return result
 
     async def search_concurrent(
         self, queries: List[str],
@@ -174,16 +283,7 @@ class S2Client:
         limit: int = 10,
         **kwargs,
     ) -> Dict[str, Dict]:
-        """
-        并发搜索多个关键词
-
-        Args:
-            queries: 关键词列表
-            fields: 返回字段
-            limit: 每个查询的结果数
-        Returns:
-            {query: search_result} 映射
-        """
+        """并发搜索多个关键词（信号量控制并发度）"""
         tasks = [
             self.search(q, fields=fields, limit=limit, **kwargs)
             for q in queries
@@ -204,20 +304,12 @@ class S2Client:
         self, paper_ids: List[str],
         fields: str = DEFAULT_FIELDS,
     ) -> List[Optional[Dict]]:
-        """
-        批量查询论文详情（最多 500 个 ID）
-
-        Args:
-            paper_ids: 论文 ID 列表（S2 ID / DOI / ArXiv ID / CorpusId 等）
-            fields: 返回字段
-        """
-        # 分批，每批最多 500
+        """批量查询论文详情（自动分批，每批 500）"""
         all_results = []
         for i in range(0, len(paper_ids), 500):
             batch = paper_ids[i:i + 500]
             result = await self._request(
-                "POST",
-                f"{self.base_url}/paper/batch",
+                "POST", f"{self.base_url}/paper/batch",
                 params={"fields": fields},
                 json_body={"ids": batch},
             )
@@ -235,8 +327,7 @@ class S2Client:
     ) -> Optional[Dict]:
         """获取单篇论文详情"""
         return await self._request(
-            "GET",
-            f"{self.base_url}/paper/{paper_id}",
+            "GET", f"{self.base_url}/paper/{paper_id}",
             params={"fields": fields},
         )
 
@@ -249,14 +340,8 @@ class S2Client:
         year: Optional[str] = None,
         min_citation_count: Optional[int] = None,
     ) -> List[Dict]:
-        """
-        批量搜索（使用 token 分页，适合大规模检索）
-        最多返回 limit 条结果
-        """
-        params = {
-            "query": query,
-            "fields": fields,
-        }
+        """批量搜索（token 分页，适合大规模检索）"""
+        params = {"query": query, "fields": fields}
         if year:
             params["year"] = year
         if min_citation_count is not None:

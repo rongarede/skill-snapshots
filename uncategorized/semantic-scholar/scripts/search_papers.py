@@ -28,7 +28,7 @@ import sys
 
 # 将 scripts 目录加入 path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from s2_client import S2Client, DEFAULT_FIELDS, DETAIL_FIELDS
+from s2_client import S2Client, DEFAULT_FIELDS, DETAIL_FIELDS, save_config, load_config, resolve_api_key, CONFIG_FILE
 
 
 def format_paper(p: dict) -> str:
@@ -60,10 +60,27 @@ def format_paper(p: dict) -> str:
     return "\n".join(lines)
 
 
+async def _verify_key(key: str):
+    """验证 API Key 是否有效"""
+    client = S2Client(api_key=key, cache=False)
+    try:
+        result = await client.search("test", limit=1)
+        if result and result.get("data") is not None:
+            print("Key 验证成功")
+        else:
+            print("Key 验证失败：无法获取结果")
+    except Exception as e:
+        print(f"Key 验证失败：{e}")
+    finally:
+        await client.close()
+
+
 async def run_search(args):
     """执行搜索"""
-    api_key = args.api_key or os.environ.get("S2_API_KEY")
-    client = S2Client(api_key=api_key)
+    client = S2Client(
+        api_key=args.api_key,
+        cache=not args.no_cache,
+    )
 
     try:
         if args.ids:
@@ -154,10 +171,41 @@ def main():
         "--api-key", help="S2 API Key（也可设 S2_API_KEY 环境变量）"
     )
     parser.add_argument(
+        "--no-cache", action="store_true", help="跳过缓存"
+    )
+    parser.add_argument(
+        "--clear-cache", action="store_true", help="清除所有缓存后退出"
+    )
+    parser.add_argument(
+        "--setup", action="store_true",
+        help="交互式配置 API Key（保存到 ~/.config/semantic-scholar/config.json）"
+    )
+    parser.add_argument(
         "-o", "--output", help="输出 JSON 文件路径"
     )
 
     args = parser.parse_args()
+
+    # 特殊命令：配置 Key
+    if args.setup:
+        key = input("请输入 API Key: ").strip()
+        if key:
+            cfg = load_config()
+            cfg["api_key"] = key
+            save_config(cfg)
+            print(f"已保存到 {CONFIG_FILE}")
+            # 验证
+            print("验证中...", end=" ")
+            from s2_client import DiskCache
+            asyncio.run(_verify_key(key))
+        return
+
+    # 特殊命令：清除缓存
+    if args.clear_cache:
+        from s2_client import DiskCache
+        DiskCache(enabled=True).clear()
+        print("缓存已清除")
+        return
 
     if not args.queries and not args.ids:
         parser.error("请提供搜索关键词或 --ids 参数")
