@@ -1,7 +1,7 @@
 ---
 name: swun-thesis-docx-banshi1
-description: "Build SWUN thesis DOCX (Format 1 / 版式1) from LaTeX using the official SWUN reference template, with post-processing fixes (TOC, chapter page breaks, indents, isLgl numbering fix)."
-version: 1.0.0
+description: "Build SWUN thesis DOCX (Format 1 / 版式1) from LaTeX using the official SWUN reference template, with post-processing fixes (TOC, chapter page breaks, indents, isLgl numbering fix, and three-line table layout normalization)."
+version: 1.2.0
 ---
 
 # SWUN Thesis DOCX (版式1)
@@ -15,11 +15,13 @@ Generate a `.docx` from a SWUN thesis LaTeX project while treating the official 
 ## Pipeline
 
 1. `latexpand` flattens `main.tex`
-2. `pandoc` converts LaTeX -> DOCX with:
+2. LaTeX preprocessing (`_preprocess_latex`):
+   - flattens `subfigure` environments: replaces subfigure `\ref{}` with parent figure `\ref{}`, strips subfigure `\caption`/`\label` to prevent pandoc from inflating the figure counter, deduplicates adjacent identical refs
+3. `pandoc` converts LaTeX -> DOCX with:
    - `--reference-doc` pointing at the official template
    - `--citeproc` + GB/T 7714-2015 numeric CSL
    - `--resource-path` so `\\includegraphics` assets are embedded
-3. OOXML post-processing:
+4. OOXML post-processing:
    - inserts Word TOC field
    - adds page breaks before each chapter (Heading 1)
    - adds first-line indents for body paragraphs
@@ -27,10 +29,21 @@ Generate a `.docx` from a SWUN thesis LaTeX project while treating the official 
    - fixes figure captions:
      - adds chapter-based numbering prefix: `图{章}-{序号} 图题`
      - centers figure + caption, removes empty caption paras, keeps figure+caption together
+   - fixes figure/table reference format in body text:
+     - replaces pandoc's dot-format refs (`图3.1`, `表4.2`) with hyphen format (`图3-1`, `表4-2`)
+     - handles both single-node refs and split-across-runs refs (pandoc often splits `图` and `3.1` into separate XML runs with whitespace runs in between)
    - fixes equation numbering (display math):
      - adds chapter-based numbering suffix: `(章-序号)` right-aligned
      - avoids numbering `\\[ ... \\]` blocks (keeps them unnumbered)
    - fixes mixed Chinese/Arabic section numbering by adding `w:isLgl` to `ilvl >= 1` (abstractNumId=0)
+   - enforces data-table layout for three-line tables:
+     - table width fills the whole text area (`tblW == text width`)
+     - table layout is fixed (`w:tblLayout w:type="fixed"`)
+     - column widths are redistributed by table content and written back to `tblGrid` + `tcW`
+   - normalizes table captions:
+     - move table title below each data table
+     - caption format is chapter-based: `表{章}-{序号} 表题`
+     - numbering is continuous within a chapter and restarts at each new chapter
    - normalizes unknown paragraph styles produced by pandoc back to template `Normal` (prevents template/style drift)
    - splits sections for page numbering:
      - "摘要" + "Abstract" is a separate major chapter block with Roman numeral footer page numbers
@@ -62,7 +75,21 @@ export SWUN_CSL="/path/to/china-national-standard-gb-t-7714-2015-numeric.csl"
 export SWUN_BIB="/path/to/references.bib"
 ```
 
+## Built-in Verification (via `main.sh`)
+
+`main.sh` runs a 3-step pipeline:
+
+1. Build DOCX by running `build_docx_banshi1.py`
+2. Run generic structural checks with `verify_extra.py`
+3. Run table-specific checks to enforce:
+   - data table full-width (`tblW=dxa` and equals text width)
+   - fixed table layout (`tblLayout=fixed`)
+   - `tblGrid` width sum equals table width
+   - table captions are below tables (no caption-above)
+   - table captions follow chapter numbering order (`表{章}-{序号}`)
+
 ## Guardrails
 
 - Never recreate styles/numbering from scratch. Always use the official template as `--reference-doc`.
 - Do not manually type heading numbering; rely on the template multilevel list mapping.
+- For three-line tables, do not keep `auto` table width and do not leave captions above tables.

@@ -73,6 +73,92 @@ def _preprocess_latex(s: str) -> str:
     # Common in declaration pages: \ul{　　　　　}
     s = re.sub(r"\\ul\\{[^}]*\\}", "__________", s)
 
+    # --- Flatten subfigures so pandoc counts only main figure captions ---
+    s = _flatten_subfigures(s)
+
+    return s
+
+
+def _flatten_subfigures(s: str) -> str:
+    """Replace subfigure \\ref with parent figure \\ref and strip subfigure captions/labels.
+
+    Pandoc counts every \\caption inside subfigure as a separate figure, inflating
+    the figure counter.  This function:
+    1. Builds a mapping: subfigure_label -> parent_figure_label
+    2. Replaces \\ref{subfig_label} with \\ref{parent_label} everywhere
+    3. Strips \\caption and \\label inside subfigure environments
+    4. Removes \\begin{subfigure}/\\end{subfigure} wrappers (keeps \\includegraphics)
+    5. Deduplicates adjacent identical refs (e.g. "图~\\ref{X}和图~\\ref{X}" -> "图~\\ref{X}")
+    """
+    # Step 1: extract subfigure labels and their parent figure labels
+    subfig_to_parent: dict[str, str] = {}
+
+    # Find each figure environment and its subfigures
+    fig_re = re.compile(
+        r"\\begin\{figure\}.*?\\end\{figure\}", re.DOTALL
+    )
+    subfig_label_re = re.compile(
+        r"\\begin\{subfigure\}.*?\\label\{([^}]+)\}.*?\\end\{subfigure\}", re.DOTALL
+    )
+    # Parent label: \label{...} that is NOT inside a subfigure block
+    # We find it by looking for \label after the last \end{subfigure} but before \end{figure}
+    parent_label_re = re.compile(r"\\label\{([^}]+)\}")
+
+    for fig_m in fig_re.finditer(s):
+        fig_block = fig_m.group(0)
+        # Collect subfigure labels
+        sub_labels = [m.group(1) for m in subfig_label_re.finditer(fig_block)]
+        if not sub_labels:
+            continue  # no subfigures in this figure
+
+        # Find parent label: the \label that is outside any subfigure
+        # Remove all subfigure blocks to find the parent label
+        stripped = re.sub(
+            r"\\begin\{subfigure\}.*?\\end\{subfigure\}", "", fig_block, flags=re.DOTALL
+        )
+        parent_m = parent_label_re.search(stripped)
+        if not parent_m:
+            continue
+        parent_label = parent_m.group(1)
+
+        for sl in sub_labels:
+            subfig_to_parent[sl] = parent_label
+
+    if not subfig_to_parent:
+        return s
+
+    # Step 2: replace \ref{subfig_label} with \ref{parent_label}
+    for sub_lbl, par_lbl in subfig_to_parent.items():
+        s = s.replace(f"\\ref{{{sub_lbl}}}", f"\\ref{{{par_lbl}}}")
+
+    # Step 3: strip \caption and \label inside subfigure environments
+    def _strip_subfig_internals(m: re.Match) -> str:
+        block = m.group(0)
+        # Remove \caption{...} lines
+        block = re.sub(r"\\caption\{[^}]*\}\s*", "", block)
+        # Remove \label{...} lines
+        block = re.sub(r"\\label\{[^}]*\}\s*", "", block)
+        return block
+
+    s = re.sub(
+        r"\\begin\{subfigure\}.*?\\end\{subfigure\}",
+        _strip_subfig_internals,
+        s,
+        flags=re.DOTALL,
+    )
+
+    # Step 4: remove \begin{subfigure}[...]{...} and \end{subfigure} wrappers
+    s = re.sub(r"\\begin\{subfigure\}(\[[^\]]*\])?\{[^}]*\}", "", s)
+    s = re.sub(r"\\end\{subfigure\}", "", s)
+
+    # Step 5: deduplicate adjacent identical figure refs
+    # "图~\ref{X}和图~\ref{X}" or "图 \ref{X} 与图 \ref{X}" -> single ref
+    s = re.sub(
+        r"(图[~\s]*)\\ref\{([^}]+)\}\s*[与和及]\s*图[~\s]*\\ref\{\2\}",
+        r"\1\\ref{\2}",
+        s,
+    )
+
     return s
 
 
@@ -604,6 +690,51 @@ def _clear_paragraph_runs_and_text(ns: dict[str, str], p: ET.Element) -> None:
         p.remove(r)
 
 
+def _fix_ref_dot_to_hyphen(ns: dict[str, str], body: ET.Element) -> None:
+    """Replace dot-format figure/table refs (图3.1, 表4.2) with hyphen format (图3-1, 表4-2).
+
+    Handles two cases:
+    1. Reference within a single <w:t>: "如图3.1所示" or "图 3.7 与图 3.8"
+    2. Split across runs: <w:t>图 </w:t> + <w:t>3.1</w:t>
+    """
+    w_p = _qn(ns, "w", "p")
+    w_r = _qn(ns, "w", "r")
+    w_t = _qn(ns, "w", "t")
+
+    # Pattern for refs inside a single text node
+    inline_re = re.compile(r"((?:图|表)\s*)(\d+)\.(\d+)")
+    # Pattern for a standalone number at the start of a text node
+    num_re = re.compile(r"^(\s*)(\d+)\.(\d+)")
+
+    for p in body.iter(w_p):
+        # Pass 1: fix refs contained in a single <w:t>
+        for t in p.iter(w_t):
+            if t.text and inline_re.search(t.text):
+                t.text = inline_re.sub(r"\1\2-\3", t.text)
+
+        # Pass 2: fix split refs (图/表 at end of one run, number in a later run)
+        # Pandoc often splits as: [..."图"] [" "] ["3.7"] [" "]
+        runs = list(p.findall(f".//{w_r}"))
+        for i in range(len(runs) - 1):
+            cur_texts = list(runs[i].iter(w_t))
+            if not cur_texts:
+                continue
+            tail = (cur_texts[-1].text or "").rstrip()
+            if not tail.endswith(("图", "表")):
+                continue
+            # Look ahead, skipping whitespace-only runs
+            for j in range(i + 1, min(i + 4, len(runs))):
+                nxt_texts = list(runs[j].iter(w_t))
+                if not nxt_texts:
+                    continue
+                nxt_val = nxt_texts[0].text or ""
+                if nxt_val.strip() == "":
+                    continue  # skip whitespace-only run
+                if num_re.match(nxt_val):
+                    nxt_texts[0].text = num_re.sub(r"\1\2-\3", nxt_val, count=1)
+                break  # stop at first non-whitespace run
+
+
 def _fix_figure_captions(ns: dict[str, str], body: ET.Element) -> None:
     """Prefix figure captions with chapter-based numbering and center-align."""
     w_p = _qn(ns, "w", "p")
@@ -666,6 +797,493 @@ def _fix_figure_captions(ns: dict[str, str], body: ET.Element) -> None:
             body.remove(el)
         except ValueError:
             pass
+
+
+def _first_table_style_id(styles_xml: bytes) -> str | None:
+    ns = _collect_ns(styles_xml)
+    if "w" not in ns:
+        return None
+    w_uri = ns["w"]
+    q_style = f"{{{w_uri}}}style"
+    q_type = f"{{{w_uri}}}type"
+    q_styleId = f"{{{w_uri}}}styleId"
+    root = ET.fromstring(styles_xml)
+    for st in root.findall(q_style):
+        if st.get(q_type) != "table":
+            continue
+        sid = st.get(q_styleId)
+        if sid:
+            return sid
+    return None
+
+
+def _ensure_tbl_pr(ns: dict[str, str], tbl: ET.Element) -> ET.Element:
+    w_tblPr = _qn(ns, "w", "tblPr")
+    pr = tbl.find(w_tblPr)
+    if pr is None:
+        pr = ET.Element(w_tblPr)
+        tbl.insert(0, pr)
+    return pr
+
+
+def _set_border_el(ns: dict[str, str], parent: ET.Element, edge: str, val: str, sz: str) -> None:
+    w_val = _qn(ns, "w", "val")
+    w_sz = _qn(ns, "w", "sz")
+    w_space = _qn(ns, "w", "space")
+    w_color = _qn(ns, "w", "color")
+    el = parent.find(_qn(ns, "w", edge))
+    if el is None:
+        el = ET.SubElement(parent, _qn(ns, "w", edge))
+    el.attrib.clear()
+    el.set(w_val, val)
+    if val != "nil":
+        el.set(w_sz, sz)
+        el.set(w_space, "0")
+        el.set(w_color, "auto")
+
+
+def _is_data_table(ns: dict[str, str], tbl: ET.Element) -> bool:
+    w_tblPr = _qn(ns, "w", "tblPr")
+    w_tblStyle = _qn(ns, "w", "tblStyle")
+    w_tblCaption = _qn(ns, "w", "tblCaption")
+    w_val = _qn(ns, "w", "val")
+
+    pr = tbl.find(w_tblPr)
+    if pr is None:
+        return False
+    st = pr.find(w_tblStyle)
+    st_val = st.get(w_val) if st is not None else None
+    has_caption = pr.find(w_tblCaption) is not None
+    # Pandoc uses FigureTable for figure layout tables; never treat them as data tables.
+    if st_val == "FigureTable":
+        return False
+    return has_caption or st_val == "Table"
+
+
+def _visual_text_len(s: str) -> int:
+    n = 0
+    for ch in s:
+        if ch.isspace():
+            continue
+        n += 1 if ord(ch) < 128 else 2
+    return n
+
+
+def _table_col_count(ns: dict[str, str], tbl: ET.Element) -> int:
+    w_tblGrid = _qn(ns, "w", "tblGrid")
+    w_gridCol = _qn(ns, "w", "gridCol")
+    w_tr = _qn(ns, "w", "tr")
+    w_tc = _qn(ns, "w", "tc")
+    w_tcPr = _qn(ns, "w", "tcPr")
+    w_gridSpan = _qn(ns, "w", "gridSpan")
+    w_val = _qn(ns, "w", "val")
+
+    grid = tbl.find(w_tblGrid)
+    if grid is not None:
+        cols = len(grid.findall(w_gridCol))
+        if cols > 0:
+            return cols
+
+    max_cols = 0
+    for tr in tbl.findall(w_tr):
+        col = 0
+        for tc in tr.findall(w_tc):
+            span = 1
+            tcPr = tc.find(w_tcPr)
+            if tcPr is not None:
+                gs = tcPr.find(w_gridSpan)
+                if gs is not None:
+                    try:
+                        span = max(1, int(gs.get(w_val) or "1"))
+                    except ValueError:
+                        span = 1
+            col += span
+        max_cols = max(max_cols, col)
+    return max_cols
+
+
+def _table_col_weights(ns: dict[str, str], tbl: ET.Element, ncols: int) -> list[int]:
+    w_tr = _qn(ns, "w", "tr")
+    w_tc = _qn(ns, "w", "tc")
+    w_tcPr = _qn(ns, "w", "tcPr")
+    w_gridSpan = _qn(ns, "w", "gridSpan")
+    w_val = _qn(ns, "w", "val")
+    w_t = _qn(ns, "w", "t")
+
+    if ncols <= 0:
+        return []
+
+    weights = [1] * ncols
+    for tr in tbl.findall(w_tr):
+        col = 0
+        for tc in tr.findall(w_tc):
+            span = 1
+            tcPr = tc.find(w_tcPr)
+            if tcPr is not None:
+                gs = tcPr.find(w_gridSpan)
+                if gs is not None:
+                    try:
+                        span = max(1, int(gs.get(w_val) or "1"))
+                    except ValueError:
+                        span = 1
+            txt = "".join((t.text or "") for t in tc.iter(w_t)).strip()
+            score = max(1, _visual_text_len(txt))
+            per_col = max(1, int(round(score / max(1, span))))
+            for k in range(span):
+                idx = col + k
+                if idx >= ncols:
+                    break
+                weights[idx] = max(weights[idx], per_col)
+            col += span
+    return weights
+
+
+def _normalize_widths_to_total(weights: list[int], total_w: int) -> list[int]:
+    n = len(weights)
+    if n == 0:
+        return []
+    if total_w <= 0:
+        return [0] * n
+
+    min_col = max(240, min(720, total_w // n))
+    s = sum(max(1, w) for w in weights)
+    widths = [max(min_col, int(round(total_w * max(1, w) / s))) for w in weights]
+
+    diff = total_w - sum(widths)
+    if diff > 0:
+        order = sorted(range(n), key=lambda i: weights[i], reverse=True)
+        if not order:
+            order = list(range(n))
+        k = 0
+        while diff > 0:
+            idx = order[k % len(order)]
+            widths[idx] += 1
+            diff -= 1
+            k += 1
+    elif diff < 0:
+        order = sorted(range(n), key=lambda i: widths[i], reverse=True)
+        k = 0
+        guard = 0
+        while diff < 0 and guard < n * max(total_w, 1):
+            idx = order[k % len(order)]
+            if widths[idx] > min_col:
+                widths[idx] -= 1
+                diff += 1
+            k += 1
+            guard += 1
+        # Last resort: force exact total on the widest column.
+        if diff != 0 and widths:
+            widest = max(range(n), key=lambda i: widths[i])
+            widths[widest] = max(min_col, widths[widest] + diff)
+
+    return widths
+
+
+def _set_table_full_width_and_columns(
+    ns: dict[str, str], tbl: ET.Element, text_w: int
+) -> None:
+    w_tblPr = _qn(ns, "w", "tblPr")
+    w_tblW = _qn(ns, "w", "tblW")
+    w_tblLayout = _qn(ns, "w", "tblLayout")
+    w_tblGrid = _qn(ns, "w", "tblGrid")
+    w_gridCol = _qn(ns, "w", "gridCol")
+    w_tr = _qn(ns, "w", "tr")
+    w_tc = _qn(ns, "w", "tc")
+    w_tcPr = _qn(ns, "w", "tcPr")
+    w_tcW = _qn(ns, "w", "tcW")
+    w_gridSpan = _qn(ns, "w", "gridSpan")
+    w_type = _qn(ns, "w", "type")
+    w_val = _qn(ns, "w", "val")
+    w_w = _qn(ns, "w", "w")
+
+    ncols = _table_col_count(ns, tbl)
+    if ncols <= 0:
+        return
+    weights = _table_col_weights(ns, tbl, ncols)
+    widths = _normalize_widths_to_total(weights, text_w)
+    if not widths:
+        return
+
+    pr = _ensure_tbl_pr(ns, tbl)
+    tblW = pr.find(w_tblW)
+    if tblW is None:
+        tblW = ET.SubElement(pr, w_tblW)
+    tblW.set(w_type, "dxa")
+    tblW.set(w_w, str(text_w))
+
+    layout = pr.find(w_tblLayout)
+    if layout is None:
+        layout = ET.SubElement(pr, w_tblLayout)
+    layout.set(w_type, "fixed")
+
+    tblGrid = tbl.find(w_tblGrid)
+    if tblGrid is None:
+        tblGrid = ET.Element(w_tblGrid)
+        insert_at = 0
+        for i, child in enumerate(list(tbl)):
+            if child.tag == w_tblPr:
+                insert_at = i + 1
+                break
+        tbl.insert(insert_at, tblGrid)
+    for gc in list(tblGrid.findall(w_gridCol)):
+        tblGrid.remove(gc)
+    for wv in widths:
+        gc = ET.SubElement(tblGrid, w_gridCol)
+        gc.set(w_w, str(wv))
+
+    for tr in tbl.findall(w_tr):
+        col = 0
+        for tc in tr.findall(w_tc):
+            span = 1
+            tcPr = tc.find(w_tcPr)
+            if tcPr is None:
+                tcPr = ET.SubElement(tc, w_tcPr)
+            gs = tcPr.find(w_gridSpan)
+            if gs is not None:
+                try:
+                    span = max(1, int(gs.get(w_val) or "1"))
+                except ValueError:
+                    span = 1
+            cell_w = 0
+            for k in range(span):
+                idx = col + k
+                if idx < len(widths):
+                    cell_w += widths[idx]
+            if cell_w <= 0 and col < len(widths):
+                cell_w = widths[col]
+
+            tcW = tcPr.find(w_tcW)
+            if tcW is None:
+                tcW = ET.SubElement(tcPr, w_tcW)
+            tcW.set(w_type, "dxa")
+            tcW.set(w_w, str(max(1, cell_w)))
+            col += span
+
+
+def _set_p_style(ns: dict[str, str], p: ET.Element, style: str) -> None:
+    w_pStyle = _qn(ns, "w", "pStyle")
+    w_val = _qn(ns, "w", "val")
+    pPr = _ensure_ppr(ns, p)
+    ps = pPr.find(w_pStyle)
+    if ps is None:
+        ps = ET.SubElement(pPr, w_pStyle)
+    ps.set(w_val, style)
+
+
+def _set_paragraph_text(ns: dict[str, str], p: ET.Element, txt: str) -> None:
+    _clear_paragraph_runs_and_text(ns, p)
+    p.append(_make_run_text(ns, txt))
+
+
+def _clean_table_title(txt: str) -> str:
+    s = (txt or "").strip()
+    s = re.sub(r"^表[\s\xa0]*\d+(?:[\-\.．]\d+)?[\s\xa0:：、.]*", "", s)
+    return s.strip()
+
+
+def _is_table_caption_para(ns: dict[str, str], p: ET.Element) -> bool:
+    style = _p_style(ns, p)
+    txt = _p_text(ns, p).strip()
+    if style == "TableCaption":
+        return True
+    return bool(re.match(r"^表[\s\xa0]*\d+(?:[\-\.．]\d+)?", txt))
+
+
+def _find_caption_idx_near_table(
+    ns: dict[str, str], children: list[ET.Element], tbl_idx: int, direction: int
+) -> int | None:
+    w_p = _qn(ns, "w", "p")
+    step = -1 if direction < 0 else 1
+    rng = range(tbl_idx + step, -1, -1) if step < 0 else range(tbl_idx + 1, len(children))
+    checked = 0
+    for j in rng:
+        el = children[j]
+        if el.tag != w_p:
+            continue
+        txt = _p_text(ns, el).strip()
+        if not txt:
+            continue
+        checked += 1
+        if _is_table_caption_para(ns, el):
+            return j
+        # Stop at first non-caption paragraph near the table.
+        if checked >= 1:
+            break
+    return None
+
+
+def _apply_three_line_tables(
+    ns: dict[str, str], root: ET.Element, body: ET.Element, table_style_id: str | None
+) -> None:
+    """
+    Enforce three-line tables and normalize table layout/captions:
+    - table top + bottom border
+    - header separator line (bottom border of last header row)
+    - no vertical borders and no inner horizontal borders for body rows
+    - table width fills full text width; column widths are redistributed by content
+    - table captions are ordered by chapter and placed below each table
+    """
+    w_tbl = _qn(ns, "w", "tbl")
+    w_tblPr = _qn(ns, "w", "tblPr")
+    w_tblStyle = _qn(ns, "w", "tblStyle")
+    w_tblCaption = _qn(ns, "w", "tblCaption")
+    w_tr = _qn(ns, "w", "tr")
+    w_trPr = _qn(ns, "w", "trPr")
+    w_tblHeader = _qn(ns, "w", "tblHeader")
+    w_tc = _qn(ns, "w", "tc")
+    w_tcPr = _qn(ns, "w", "tcPr")
+    w_tcBorders = _qn(ns, "w", "tcBorders")
+    w_tblBorders = _qn(ns, "w", "tblBorders")
+    w_p = _qn(ns, "w", "p")
+    w_val = _qn(ns, "w", "val")
+
+    # Word border size unit is 1/8 pt. Template examples use w:sz="6" (0.75pt).
+    rule_sz = "6"
+    text_w = _sect_text_width_dxa(ns, root) or 9356
+    excluded_h1 = {"目录", "摘要", "Abstract", "致谢", "参考文献", "攻读硕士学位期间所取得的相关科研成果"}
+    chapter_no = 0
+    table_no = 0
+    global_no = 0
+
+    i = 0
+    children = list(body)
+    while i < len(children):
+        el = children[i]
+        if el.tag == w_p and _p_style(ns, el) == "1":
+            title = _p_text(ns, el).strip()
+            if title and title not in excluded_h1:
+                chapter_no += 1
+                table_no = 0
+            i += 1
+            continue
+        if el.tag != w_tbl:
+            i += 1
+            continue
+
+        tbl = el
+        if not _is_data_table(ns, tbl):
+            i += 1
+            continue
+
+        global_no += 1
+        if chapter_no > 0:
+            table_no += 1
+            table_prefix = f"表{chapter_no}-{table_no}"
+        else:
+            table_prefix = f"表{global_no}"
+
+        pr = tbl.find(w_tblPr)
+        if pr is None:
+            i += 1
+            continue
+
+        st = pr.find(w_tblStyle)
+        st_val = st.get(w_val) if st is not None else None
+        pr = _ensure_tbl_pr(ns, tbl)
+
+        # Make tblStyle valid (pandoc sometimes emits an undefined styleId like "Table").
+        if table_style_id and (st_val in (None, "", "Table")):
+            if st is None:
+                st = ET.SubElement(pr, w_tblStyle)
+            st.set(w_val, table_style_id)
+
+        _set_table_full_width_and_columns(ns, tbl, text_w)
+
+        # Remove any existing cell borders to avoid unwanted gridlines.
+        for tc in tbl.iter(w_tc):
+            tcPr = tc.find(w_tcPr)
+            if tcPr is None:
+                continue
+            tcBorders = tcPr.find(w_tcBorders)
+            if tcBorders is not None:
+                tcPr.remove(tcBorders)
+
+        # Table-level borders: only top and bottom.
+        borders = pr.find(w_tblBorders)
+        if borders is not None:
+            pr.remove(borders)
+        borders = ET.SubElement(pr, w_tblBorders)
+        _set_border_el(ns, borders, "top", "single", rule_sz)
+        _set_border_el(ns, borders, "bottom", "single", rule_sz)
+        _set_border_el(ns, borders, "left", "nil", rule_sz)
+        _set_border_el(ns, borders, "right", "nil", rule_sz)
+        _set_border_el(ns, borders, "insideH", "nil", rule_sz)
+        _set_border_el(ns, borders, "insideV", "nil", rule_sz)
+
+        # Header separator: bottom border of the last header row at the top of table.
+        trs = tbl.findall(w_tr)
+        if not trs:
+            continue
+
+        header_end = None
+        for i, tr in enumerate(trs):
+            trPr = tr.find(w_trPr)
+            if trPr is not None and trPr.find(w_tblHeader) is not None:
+                header_end = i
+                continue
+            break
+        if header_end is None:
+            header_end = 0
+
+        header_tr = trs[header_end]
+        for tc in header_tr.findall(w_tc):
+            tcPr = tc.find(w_tcPr)
+            if tcPr is None:
+                tcPr = ET.SubElement(tc, w_tcPr)
+            tcBorders = tcPr.find(w_tcBorders)
+            if tcBorders is None:
+                tcBorders = ET.SubElement(tcPr, w_tcBorders)
+            _set_border_el(ns, tcBorders, "bottom", "single", rule_sz)
+
+        # Normalize caption text and ensure caption paragraph is below the table.
+        children = list(body)
+        tbl_idx = children.index(tbl)
+        prev_cap_idx = _find_caption_idx_near_table(ns, children, tbl_idx, direction=-1)
+        next_cap_idx = _find_caption_idx_near_table(ns, children, tbl_idx, direction=1)
+
+        cap_par = None
+        if next_cap_idx is not None:
+            cap_par = children[next_cap_idx]
+        elif prev_cap_idx is not None:
+            cap_par = children[prev_cap_idx]
+
+        tbl_cap = pr.find(w_tblCaption)
+        title_raw = ""
+        if tbl_cap is not None:
+            title_raw = tbl_cap.get(w_val) or ""
+        if not title_raw and cap_par is not None:
+            title_raw = _p_text(ns, cap_par).strip()
+        title = _clean_table_title(title_raw) or title_raw.strip()
+
+        if not title:
+            i += 1
+            continue
+
+        if tbl_cap is None:
+            tbl_cap = ET.SubElement(pr, w_tblCaption)
+        tbl_cap.set(w_val, title)
+
+        if cap_par is None:
+            cap_par = _make_empty_para(ns, "TableCaption")
+        else:
+            # Remove nearby old caption paragraphs (both above and below) to avoid duplicates.
+            remove_idx = [x for x in [prev_cap_idx, next_cap_idx] if x is not None]
+            for idx in sorted(set(remove_idx), reverse=True):
+                try:
+                    body.remove(children[idx])
+                except ValueError:
+                    pass
+            children = list(body)
+            tbl_idx = children.index(tbl)
+
+        _set_p_style(ns, cap_par, "TableCaption")
+        _set_para_center(ns, cap_par)
+        _set_para_keep_lines(ns, cap_par)
+        _set_paragraph_text(ns, cap_par, f"{table_prefix} {title}")
+        body.insert(tbl_idx + 1, cap_par)
+
+        children = list(body)
+        i = children.index(tbl) + 2
 
 
 def _make_empty_para(ns: dict[str, str], style: str = "a") -> ET.Element:
@@ -1205,6 +1823,7 @@ def _postprocess_docx(
 
         styles_xml = zin.read("word/styles.xml") if "word/styles.xml" in files else b""
         known_styles = _collect_style_ids(styles_xml) if styles_xml else set()
+        table_style_id = _first_table_style_id(styles_xml) if styles_xml else None
 
         sectPr = _get_body_sectPr(doc_ns, body)
         if sectPr is not None:
@@ -1219,9 +1838,11 @@ def _postprocess_docx(
 
         _insert_toc_before_first_chapter(doc_ns, body)
         _add_page_breaks_before_h1(doc_ns, body)
+        _apply_three_line_tables(doc_ns, root, body, table_style_id)
         _ensure_indent_for_body_paragraphs(doc_ns, body)
         _ensure_hanging_indent_for_bibliography(doc_ns, body)
         _fix_figure_captions(doc_ns, body)
+        _fix_ref_dot_to_hyphen(doc_ns, body)
         _number_display_equations(doc_ns, root, body, display_math_flags)
         if known_styles:
             _normalize_unknown_pstyles(doc_ns, body, known_styles)
