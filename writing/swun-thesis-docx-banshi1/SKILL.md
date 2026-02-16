@@ -1,7 +1,7 @@
 ---
 name: swun-thesis-docx-banshi1
 description: "Build SWUN thesis DOCX (Format 1 / 版式1) from LaTeX using the official SWUN reference template, with post-processing fixes (TOC, chapter page breaks, indents, isLgl numbering fix, and three-line table layout normalization)."
-version: 1.2.0
+version: 1.2.1
 ---
 
 # SWUN Thesis DOCX (版式1)
@@ -48,6 +48,9 @@ Generate a `.docx` from a SWUN thesis LaTeX project while treating the official 
    - splits sections for page numbering:
      - "摘要" + "Abstract" is a separate major chapter block with Roman numeral footer page numbers
      - the rest of the thesis uses Arabic numeral footer page numbers starting from 1
+   - resolves abstract pagination conflicts:
+     - removes stale `w:pageBreakBefore` from abstract anchor paragraphs before inserting Heading 1 ("摘要"/"Abstract")
+     - prevents "摘要标题后空白页" regression caused by cover-page boundary pagination
    - inserts abstract keywords:
      - leaves one blank line before the keywords line
      - summarizes to 3-4 keyword groups (merges extras into the last group)
@@ -81,6 +84,7 @@ export SWUN_BIB="/path/to/references.bib"
 
 1. Build DOCX by running `build_docx_banshi1.py`
 2. Run generic structural checks with `verify_extra.py`
+   - includes regression guard: no forced page break between "摘要"/"Abstract" headings and their first content paragraph
 3. Run table-specific checks to enforce:
    - data table full-width (`tblW=dxa` and equals text width)
    - fixed table layout (`tblLayout=fixed`)

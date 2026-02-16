@@ -407,6 +407,16 @@ def _make_unnumbered_heading1(ns: dict[str, str], title: str) -> ET.Element:
     return p
 
 
+def _remove_page_break_before(ns: dict[str, str], p: ET.Element) -> None:
+    w_pageBreakBefore = _qn(ns, "w", "pageBreakBefore")
+    pPr = p.find(_qn(ns, "w", "pPr"))
+    if pPr is None:
+        return
+    pbb = pPr.find(w_pageBreakBefore)
+    if pbb is not None:
+        pPr.remove(pbb)
+
+
 def _prepend_template_cover_pages(
     ns: dict[str, str],
     body: ET.Element,
@@ -522,6 +532,7 @@ def _insert_abstract_chapters_and_sections(
             break
     if cn_idx is None:
         return
+    _remove_page_break_before(ns, children[cn_idx])
 
     # Find English abstract paragraph (search after CN).
     children = list(body)
@@ -535,6 +546,7 @@ def _insert_abstract_chapters_and_sections(
             break
     if en_idx is None:
         return
+    _remove_page_break_before(ns, children[en_idx])
 
     # Section break before Chinese abstract (ends previous section).
     sect1 = copy.deepcopy(sectPr_proto)

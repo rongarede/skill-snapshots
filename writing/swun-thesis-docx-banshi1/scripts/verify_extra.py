@@ -17,11 +17,53 @@ def _iter_paragraphs(doc_xml: str) -> list[str]:
     # Good enough for checks (Word XML is regular; paragraphs aren't nested).
     return re.findall(r"(<w:p[\s\S]*?</w:p>)", doc_xml)
 
+def _iter_tables(doc_xml: str) -> list[str]:
+    # Tables aren't nested in our use-case; regex is sufficient for lightweight validation.
+    return re.findall(r"(<w:tbl[\s\S]*?</w:tbl>)", doc_xml)
+
 def _p_text(p_xml: str) -> str:
     # Join all text runs within a paragraph. This avoids false negatives when punctuation
     # is split across <w:t> nodes.
     parts = re.findall(r"<w:t[^>]*>([\s\S]*?)</w:t>", p_xml)
     return "".join(parts)
+
+
+def _check_no_forced_break_after_heading(
+    paras: list[str], texts: list[str], heading_text: str
+) -> str | None:
+    """
+    Ensure no forced page break sneaks in between heading and its first content paragraph.
+    This catches the regression where abstract heading is followed by an empty page.
+    """
+    idx = None
+    for i, t in enumerate(texts):
+        if t.strip() == heading_text:
+            idx = i
+            break
+    if idx is None:
+        return None
+
+    # Look ahead to the first non-empty paragraph.
+    j = idx + 1
+    while j < len(paras):
+        p_xml = paras[j]
+        t = texts[j].strip()
+        # A hard page-break paragraph or section break right after heading is suspicious.
+        if 'w:type="page"' in p_xml:
+            return f"found explicit page break paragraph right after heading '{heading_text}'"
+        if "<w:pageBreakBefore" in p_xml:
+            return f"found pageBreakBefore on paragraph right after heading '{heading_text}'"
+        if t:
+            break
+        j += 1
+
+    if j >= len(paras):
+        return None
+
+    first_content_p = paras[j]
+    if "<w:pageBreakBefore" in first_content_p:
+        return f"first content paragraph under '{heading_text}' has pageBreakBefore (can create an empty page)"
+    return None
 
 
 def main() -> int:
@@ -58,6 +100,11 @@ def main() -> int:
 
     paras = _iter_paragraphs(doc)
     texts = [_p_text(p) for p in paras]
+
+    for h in ("摘要", "Abstract"):
+        err = _check_no_forced_break_after_heading(paras, texts, h)
+        if err is not None:
+            errors.append(err)
 
     # Abstract keywords: required with a blank line before.
     if not any("关键词：" in t for t in texts):
@@ -131,6 +178,31 @@ def main() -> int:
     # KeepTogether hints for figures (best-effort).
     if "<w:keepNext" not in doc:
         errors.append("missing keepNext in document.xml (expected for figure paragraphs)")
+
+    # Three-line tables: apply only to data tables (those with w:tblCaption).
+    tables = _iter_tables(doc)
+    data_tables = [t for t in tables if "<w:tblCaption" in t]
+    for t in data_tables:
+        m = re.search(r"(<w:tblBorders[\s\S]*?</w:tblBorders>)", t)
+        if not m:
+            errors.append("data table missing w:tblBorders (expected three-line table borders)")
+            break
+        b = m.group(1)
+        need = [
+            'w:top w:val="single"',
+            'w:bottom w:val="single"',
+            'w:left w:val="nil"',
+            'w:right w:val="nil"',
+            'w:insideH w:val="nil"',
+            'w:insideV w:val="nil"',
+        ]
+        missing = [x for x in need if x not in b]
+        if missing:
+            errors.append("data table borders are not three-line (missing: " + ", ".join(missing) + ")")
+            break
+        if '<w:tcBorders><w:bottom w:val="single"' not in t:
+            errors.append("data table missing header separator line (expected cell bottom border on header row)")
+            break
 
     if errors:
         print("EXTRA VERIFY: FAIL")
