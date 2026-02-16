@@ -1,7 +1,7 @@
 ---
 name: swun-thesis-docx-banshi1
 description: "Build SWUN thesis DOCX (Format 1 / 版式1) from LaTeX using the official SWUN reference template, with post-processing fixes (TOC, chapter page breaks, indents, isLgl numbering fix, and three-line table layout normalization)."
-version: 1.2.1
+version: 1.2.2
 ---
 
 # SWUN Thesis DOCX (版式1)
@@ -31,6 +31,7 @@ Generate a `.docx` from a SWUN thesis LaTeX project while treating the official 
      - centers figure + caption, removes empty caption paras, keeps figure+caption together
    - fixes figure/table reference format in body text:
      - replaces pandoc's dot-format refs (`图3.1`, `表4.2`) with hyphen format (`图3-1`, `表4-2`)
+     - normalizes standalone hyperlink ref text for `fig:/tab:/tbl:` anchors (`3.16` -> `3-16`)
      - handles both single-node refs and split-across-runs refs (pandoc often splits `图` and `3.1` into separate XML runs with whitespace runs in between)
    - fixes equation numbering (display math):
      - adds chapter-based numbering suffix: `(章-序号)` right-aligned
@@ -80,12 +81,14 @@ export SWUN_BIB="/path/to/references.bib"
 
 ## Built-in Verification (via `main.sh`)
 
-`main.sh` runs a 3-step pipeline:
+`main.sh` runs a 4-step pipeline:
 
 1. Build DOCX by running `build_docx_banshi1.py`
-2. Run generic structural checks with `verify_extra.py`
+2. Run regression samples for ref normalization via `ref_hyphen_regression.py`
+3. Run generic structural checks with `verify_extra.py`
    - includes regression guard: no forced page break between "摘要"/"Abstract" headings and their first content paragraph
-3. Run table-specific checks to enforce:
+   - hard check: figure/table hyperlink refs (`fig:/tab:/tbl:`) must not contain dot numbering (`3.16`); must use hyphen (`3-16`)
+4. Run table-specific checks to enforce:
    - data table full-width (`tblW=dxa` and equals text width)
    - fixed table layout (`tblLayout=fixed`)
    - `tblGrid` width sum equals table width
@@ -97,3 +100,4 @@ export SWUN_BIB="/path/to/references.bib"
 - Never recreate styles/numbering from scratch. Always use the official template as `--reference-doc`.
 - Do not manually type heading numbering; rely on the template multilevel list mapping.
 - For three-line tables, do not keep `auto` table width and do not leave captions above tables.
+- Figure/table references must use caption-style hyphen numbering (`图3-16`, `表4-2`), not dot numbering (`图3.16`, `表4.2`).

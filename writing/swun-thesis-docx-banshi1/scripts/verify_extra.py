@@ -66,6 +66,24 @@ def _check_no_forced_break_after_heading(
     return None
 
 
+def _collect_dotted_fig_table_hyperlinks(doc_xml: str) -> list[tuple[str, str]]:
+    """Collect fig/tab/tbl hyperlinks whose visible text still uses dot numbering."""
+    out: list[tuple[str, str]] = []
+    dotted_re = re.compile(r"(?<!\d)\d+\.\d+(?!\d)")
+    # Hyperlink content can include runs; extract text from <w:t> nodes.
+    for m in re.finditer(
+        r'<w:hyperlink[^>]*w:anchor="([^"]+)"[^>]*>([\s\S]*?)</w:hyperlink>',
+        doc_xml,
+    ):
+        anchor, inner = m.group(1), m.group(2)
+        if not anchor.startswith(("fig:", "tab:", "tbl:")):
+            continue
+        txt = "".join(re.findall(r"<w:t[^>]*>([\s\S]*?)</w:t>", inner)).strip()
+        if txt and dotted_re.search(txt):
+            out.append((anchor, txt))
+    return out
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         print("usage: verify_extra.py /path/to/main_版式1.docx", file=sys.stderr)
@@ -105,6 +123,15 @@ def main() -> int:
         err = _check_no_forced_break_after_heading(paras, texts, h)
         if err is not None:
             errors.append(err)
+
+    # Figure/table refs must use caption numbering style with hyphen (e.g., 3-16).
+    dotted_refs = _collect_dotted_fig_table_hyperlinks(doc)
+    if dotted_refs:
+        sample = ", ".join([f"{a}='{t}'" for a, t in dotted_refs[:3]])
+        errors.append(
+            "found dotted figure/table hyperlink refs (must use hyphen numbering): "
+            + sample
+        )
 
     # Abstract keywords: required with a blank line before.
     if not any("关键词：" in t for t in texts):
