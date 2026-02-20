@@ -278,6 +278,7 @@ cmd_gate() {
 cmd_status() {
   [[ -d "$OUT_DIR" ]] || die "out dir not found: $OUT_DIR"
 
+  local local_name decision_file dec
   for rd in "$OUT_DIR"/round-*; do
     [[ -d "$rd" ]] || continue
     local_name="$(basename "$rd")"
