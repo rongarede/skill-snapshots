@@ -113,26 +113,51 @@ def parse_session_messages(session_file: Path, limit: int = 50):
                             'timestamp': data.get('timestamp')
                         })
 
-                    # 提取 agent_message
+                    # 提取 event_msg
                     elif data.get('type') == 'event_msg':
-                        item = data.get('item', {})
-                        if item.get('type') == 'agent_message':
+                        payload = data.get('payload', {})
+                        msg_type = payload.get('type')
+
+                        if msg_type == 'user_message':
+                            messages.append({
+                                'type': 'user',
+                                'text': payload.get('message', '')
+                            })
+                        elif msg_type == 'agent_message':
                             messages.append({
                                 'type': 'agent',
-                                'text': item.get('text', '')
+                                'text': payload.get('text', '')
+                            })
+                        elif msg_type == 'agent_reasoning':
+                            messages.append({
+                                'type': 'reasoning',
+                                'text': payload.get('text', '')
+                            })
+                        elif msg_type == 'exec_command':
+                            messages.append({
+                                'type': 'command',
+                                'command': payload.get('command', ''),
+                                'cwd': payload.get('cwd', '')
+                            })
+                        elif msg_type == 'exec_command_output':
+                            messages.append({
+                                'type': 'command_output',
+                                'output': payload.get('output', '')[:500]
                             })
 
                     # 提取 response_item (tool calls)
                     elif data.get('type') == 'response_item':
-                        item = data.get('item', {})
-                        if item.get('type') == 'function_call':
+                        payload = data.get('payload', {})
+                        item_type = payload.get('type')
+
+                        if item_type == 'function_call':
                             messages.append({
                                 'type': 'tool_call',
-                                'name': item.get('name'),
-                                'arguments': str(item.get('arguments', ''))[:200]
+                                'name': payload.get('name'),
+                                'arguments': str(payload.get('arguments', ''))[:200]
                             })
-                        elif item.get('type') == 'function_call_output':
-                            output = item.get('output', '')
+                        elif item_type == 'function_call_output':
+                            output = payload.get('output', '')
                             messages.append({
                                 'type': 'tool_output',
                                 'output': output[:500] if isinstance(output, str) else str(output)[:500]
@@ -163,13 +188,20 @@ def watch_session(session_file: Path, interval: float = 1.0):
                 new_messages = messages[len(last_messages):]
 
                 for msg in new_messages:
-                    if msg['type'] == 'agent':
-                        print(f"\n[Agent]: {msg['text']}")
+                    timestamp = datetime.now().strftime("%H:%M:%S")
+                    if msg['type'] == 'user':
+                        print(f"\n[{timestamp}] [User]: {msg['text'][:200]}...")
+                    elif msg['type'] == 'agent':
+                        print(f"\n[{timestamp}] [Agent]: {msg['text']}")
+                    elif msg['type'] == 'reasoning':
+                        print(f"\n[{timestamp}] [Thinking]: {msg['text'][:150]}...")
+                    elif msg['type'] == 'command':
+                        print(f"\n[{timestamp}] [Command]: {msg['command'][:100]}")
                     elif msg['type'] == 'tool_call':
-                        print(f"\n[Tool Call]: {msg['name']}")
+                        print(f"\n[{timestamp}] [Tool]: {msg['name']}")
                     elif msg['type'] == 'meta':
-                        print(f"\n[Session]: {msg['session_id']}")
-                        print(f"[CWD]: {msg['cwd']}")
+                        print(f"\n[{timestamp}] [Session]: {msg['session_id']}")
+                        print(f"[{timestamp}] [CWD]: {msg['cwd']}")
 
                 last_messages = messages
                 last_size = current_size

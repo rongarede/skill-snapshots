@@ -1,6 +1,6 @@
 ---
 name: collaborating-with-codex
-description: Delegates coding tasks to Codex CLI for prototyping, debugging, and code review. Use when needing algorithm implementation, bug analysis, or code quality feedback. Supports multi-turn sessions via SESSION_ID and agent role injection from ~/.claude/agents/.
+description: "[由 collaborating-hub 路由] Codex CLI 后端实现。直接使用请通过 /collab 或 /codex 触发 collaborating-hub。"
 ---
 
 ## Quick Start

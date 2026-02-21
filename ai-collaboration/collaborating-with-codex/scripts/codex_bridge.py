@@ -288,7 +288,7 @@ def main():
     parser.add_argument("--skip-git-repo-check", action="store_true", default=True, help="Allow codex running outside a Git repository (useful for one-off directories).")
     parser.add_argument("--return-all-messages", action="store_true", help="Return all messages (e.g. reasoning, tool calls, etc.) from the codex session. Set to `False` by default, only the agent's final reply message is returned.")
     parser.add_argument("--image", action="append", default=[], help="Attach one or more image files to the initial prompt. Separate multiple paths with commas or repeat the flag.")
-    parser.add_argument("--model", default="", help="The model to use for the codex session. This parameter is strictly prohibited unless explicitly specified by the user.")
+    parser.add_argument("--model", default="gpt-5.3-codex", help="The model to use for the codex session. Defaults to gpt-5.3-codex; falls back to gpt-5.3-codex-spark on failure.")
     parser.add_argument("--yolo", action="store_true", help="Run every command without approvals or sandboxing. Only use when `sandbox` couldn't be applied.")
     parser.add_argument("--profile", default="", help="Configuration profile name to load from `~/.codex/config.toml`. This parameter is strictly prohibited unless explicitly specified by the user.")
 
@@ -392,9 +392,9 @@ def main():
         agent_model = agent_frontmatter["model"]
         # 映射 Claude 模型名到 Codex 支持的模型
         model_mapping = {
-            "opus": "gpt-5.2-codex",
-            "sonnet": "gpt-5.2-codex",
-            "haiku": "gpt-4.1-mini",
+            "opus": "gpt-5.3-codex",
+            "sonnet": "gpt-5.3-codex",
+            "haiku": "gpt-5.3-codex-spark",
         }
         args.model = model_mapping.get(agent_model, agent_model)
 
@@ -422,50 +422,72 @@ def main():
 
     cmd += ['--', PROMPT]
 
-    # Execution Logic
+    # Execution Logic with model fallback
+    FALLBACK_MODEL = "gpt-5.3-codex-spark"
+    models_to_try = [args.model]
+    if args.model != FALLBACK_MODEL:
+        models_to_try.append(FALLBACK_MODEL)
+
     all_messages = []
     agent_messages = ""
     success = True
     err_message = ""
     thread_id = None
 
-    for line in run_shell_command(cmd):
-        try:
-            line_dict = json.loads(line.strip())
-            all_messages.append(line_dict)
-            item = line_dict.get("item", {})
-            item_type = item.get("type", "")
-            if item_type == "agent_message":
-                agent_messages = agent_messages + item.get("text", "")
-            if line_dict.get("thread_id") is not None:
-                thread_id = line_dict.get("thread_id")
-            if "fail" in line_dict.get("type", ""):
-                success = False if len(agent_messages) == 0 else success
-                err_message += "\n\n[codex error] " + line_dict.get("error", {}).get("message", "")
-            if "error" in line_dict.get("type", ""):
-                error_msg = line_dict.get("message", "")
-                is_reconnecting = bool(re.match(r'^Reconnecting\.\.\.\s+\d+/\d+$', error_msg))
+    for model_attempt in models_to_try:
+        # 替换 cmd 中的 --model 参数值
+        if "--model" in cmd:
+            idx = cmd.index("--model")
+            cmd[idx + 1] = model_attempt
 
-                if not is_reconnecting:
+        all_messages = []
+        agent_messages = ""
+        success = True
+        err_message = ""
+        thread_id = None
+
+        for line in run_shell_command(cmd):
+            try:
+                line_dict = json.loads(line.strip())
+                all_messages.append(line_dict)
+                item = line_dict.get("item", {})
+                item_type = item.get("type", "")
+                if item_type == "agent_message":
+                    agent_messages = agent_messages + item.get("text", "")
+                if line_dict.get("thread_id") is not None:
+                    thread_id = line_dict.get("thread_id")
+                if "fail" in line_dict.get("type", ""):
                     success = False if len(agent_messages) == 0 else success
-                    err_message += "\n\n[codex error] " + error_msg
+                    err_message += "\n\n[codex error] " + line_dict.get("error", {}).get("message", "")
+                if "error" in line_dict.get("type", ""):
+                    error_msg = line_dict.get("message", "")
+                    is_reconnecting = bool(re.match(r'^Reconnecting\.\.\.\s+\d+/\d+$', error_msg))
 
-        except json.JSONDecodeError:
-            err_message += "\n\n[json decode error] " + line
-            continue
+                    if not is_reconnecting:
+                        success = False if len(agent_messages) == 0 else success
+                        err_message += "\n\n[codex error] " + error_msg
 
-        except Exception as error:
-            err_message += "\n\n[unexpected error] " + f"Unexpected error: {error}. Line: {line!r}"
+            except json.JSONDecodeError:
+                err_message += "\n\n[json decode error] " + line
+                continue
+
+            except Exception as error:
+                err_message += "\n\n[unexpected error] " + f"Unexpected error: {error}. Line: {line!r}"
+                success = False
+                break
+
+        if thread_id is None:
             success = False
-            break
+            err_message = "Failed to get `SESSION_ID` from the codex session. \n\n" + err_message
 
-    if thread_id is None:
-        success = False
-        err_message = "Failed to get `SESSION_ID` from the codex session. \n\n" + err_message
+        if len(agent_messages) == 0:
+            success = False
+            err_message = "Failed to get `agent_messages` from the codex session. \n\n You can try to set `return_all_messages` to `True` to get the full reasoning information. " + err_message
 
-    if len(agent_messages) == 0:
-        success = False
-        err_message = "Failed to get `agent_messages` from the codex session. \n\n You can try to set `return_all_messages` to `True` to get the full reasoning information. " + err_message
+        if success:
+            break  # 成功，不需要 fallback
+        elif model_attempt != models_to_try[-1]:
+            sys.stderr.write(f"[codex_bridge] Model '{model_attempt}' failed, falling back to '{FALLBACK_MODEL}'...\n")
 
     if success:
         result = {
