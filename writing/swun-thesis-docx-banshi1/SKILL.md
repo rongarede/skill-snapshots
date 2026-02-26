@@ -58,6 +58,7 @@ Generate a `.docx` from a SWUN thesis LaTeX project while treating the official 
      - leaves one blank line before the keywords line
      - summarizes to 3-4 keyword groups (merges extras into the last group)
      - emits `关键词：...` for Chinese and `Keywords: ...` for English
+     - English keyword splitting prefers semicolons; comma splitting is only fallback and avoids commas inside paired punctuation
    - validates experiment figure media type:
      - all `fig_3_*`/`fig_4_*` drawings must resolve to `media/*.png`
      - aborts build if any experiment figure is still embedded as PDF
@@ -86,20 +87,24 @@ export SWUN_BIB="/path/to/references.bib"
 
 ## Built-in Verification (via `main.sh`)
 
-`main.sh` runs a 4-step pipeline:
+`main.sh` runs a 5-step pipeline:
 
 1. Build DOCX by running `build_docx_banshi1.py`
    - includes hard validation that experiment figures are embedded as PNG
 2. Run regression samples for ref normalization via `ref_hyphen_regression.py`
-3. Run generic structural checks with `verify_extra.py`
+3. Run abstract section regression samples via `abstract_section_regression.py`
+   - guards against duplicate `摘要` heading when heading/first paragraph are separated by blank lines
+   - guards against truncating multi-paragraph English abstract
+4. Run generic structural checks with `verify_extra.py`
    - includes regression guard: no forced page break between "摘要"/"Abstract" headings and their first content paragraph
    - hard check: figure/table hyperlink refs (`fig:/tab:/tbl:`) must not contain dot numbering (`3.16`); must use hyphen (`3-16`)
-4. Run table-specific checks to enforce:
+5. Run table-specific checks to enforce:
    - data table full-width (`tblW=dxa` and equals text width)
    - fixed table layout (`tblLayout=fixed`)
    - `tblGrid` width sum equals table width
    - table captions are below tables (no caption-above)
    - table captions follow chapter numbering order (`表{章}-{序号}`)
+   - when no data table exists, defaults to `SKIP` (set `SWUN_TABLE_VERIFY_ALLOW_EMPTY=0` to enforce hard-fail)
 
 ## Guardrails
 
