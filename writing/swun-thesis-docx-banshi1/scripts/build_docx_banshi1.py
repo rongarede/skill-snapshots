@@ -75,8 +75,124 @@ def _preprocess_latex(s: str) -> str:
 
     # --- Flatten subfigures so pandoc counts only main figure captions ---
     s = _flatten_subfigures(s)
+    s = _prefer_png_for_docx_images(s)
+    unresolved = _find_unresolved_pdf_experiment_refs(s)
+    if unresolved:
+        lines = "\n".join(f"  - {p}" for p in unresolved)
+        raise RuntimeError(
+            "DOCX build blocked: experiment figures must use PNG, "
+            "but some includegraphics still point to PDF and no PNG fallback was found:\n"
+            f"{lines}"
+        )
 
     return s
+
+
+def _is_experiment_figure_path(path: str) -> bool:
+    p = path.strip()
+    return (
+        p.startswith("experiments/ch3_v2/results/figures/")
+        or p.startswith("figures/ch4/")
+        or "/fig_3_" in p
+        or "/fig_4_" in p
+    )
+
+
+def _find_unresolved_pdf_experiment_refs(s: str) -> list[str]:
+    pat = re.compile(r"\\includegraphics(?:\[[^\]]*\])?\{([^}]+)\}")
+    unresolved: list[str] = []
+    for m in pat.finditer(s):
+        p = m.group(1).strip()
+        if _is_experiment_figure_path(p) and p.lower().endswith(".pdf"):
+            unresolved.append(p)
+    # keep stable order and de-dup
+    seen = set()
+    out = []
+    for p in unresolved:
+        if p in seen:
+            continue
+        seen.add(p)
+        out.append(p)
+    return out
+
+
+def _prefer_png_for_docx_images(s: str) -> str:
+    """在 DOCX 构建阶段优先将 includegraphics 的 PDF 路径替换为 PNG。"""
+
+    def _pick_png_path(raw_path: str) -> str | None:
+        p = Path(raw_path.strip())
+        if p.suffix.lower() != ".pdf":
+            return None
+
+        candidates = [p.with_suffix(".png")]
+        # chapter4 当前正文引用 figures/ch4/*.pdf，实验图实际由 ch4_v2 生成。
+        if p.as_posix().startswith("figures/ch4/"):
+            candidates.append(Path("experiments/ch4_v2/results/figures") / p.with_suffix(".png").name)
+
+        for cand in candidates:
+            if (ROOT / cand).exists():
+                return cand.as_posix()
+        return None
+
+    def _repl(m: re.Match) -> str:
+        prefix, path_str, suffix = m.group(1), m.group(2), m.group(3)
+        new_path = _pick_png_path(path_str)
+        if not new_path:
+            return m.group(0)
+        return f"{prefix}{new_path}{suffix}"
+
+    return re.sub(
+        r"(\\includegraphics(?:\[[^\]]*\])?\{)([^}]+)(\})",
+        _repl,
+        s,
+    )
+
+
+def _verify_docx_experiment_images_are_png(docx_path: Path) -> tuple[int, list[tuple[str, str]]]:
+    """验证 DOCX 内实验图引用全部落为 PNG 媒体。"""
+    with zipfile.ZipFile(docx_path, "r") as zf:
+        doc_xml = zf.read("word/document.xml")
+        rel_xml = zf.read("word/_rels/document.xml.rels")
+
+    ns_doc = _collect_ns(doc_xml)
+    if "w" not in ns_doc:
+        return 0, [("document.xml", "missing w namespace")]
+    root = ET.fromstring(doc_xml)
+
+    rel_root = ET.fromstring(rel_xml)
+    rel_map: dict[str, str] = {}
+    for rel in rel_root:
+        # In package relationships, Id/Target are typically unqualified attributes.
+        rid = rel.get("Id")
+        target = rel.get("Target", "")
+        if rid is None:
+            # Fallback for parsers that preserve qualified attribute names.
+            rid = rel.get(next((k for k in rel.attrib if k.endswith("}Id")), ""))
+        if not target:
+            target = rel.get(next((k for k in rel.attrib if k.endswith("}Target")), ""), "")
+        if rid:
+            rel_map[rid] = target
+
+    q = lambda p, l: f"{{{ns_doc[p]}}}{l}"
+    q_r_embed = "{%s}embed" % ns_doc["r"]
+    bad: list[tuple[str, str]] = []
+    total = 0
+    for d in root.findall(f".//{q('w', 'drawing')}"):
+        blip = d.find(f".//{q('a', 'blip')}")
+        if blip is None:
+            continue
+        rid = blip.get(q_r_embed)
+        if not rid:
+            continue
+        cNvPr = d.find(f".//{q('pic', 'cNvPr')}")
+        desc = cNvPr.get("descr", "").strip() if cNvPr is not None else ""
+        if not _is_experiment_figure_path(desc):
+            continue
+        total += 1
+        target = rel_map.get(rid, "")
+        if not target.lower().endswith(".png"):
+            bad.append((desc, target))
+    return total, bad
 
 
 def _flatten_subfigures(s: str) -> str:
@@ -1972,6 +2088,14 @@ def main(argv: list[str] | None = None) -> None:
 
     # 3) OOXML postprocess -> final docx
     _postprocess_docx(INTERMEDIATE_DOCX, OUTPUT_DOCX, display_math_flags, cn_kw, en_kw)
+    exp_total, exp_bad = _verify_docx_experiment_images_are_png(OUTPUT_DOCX)
+    if exp_bad:
+        details = "\n".join(f"  - {d} => {t}" for d, t in exp_bad)
+        raise RuntimeError(
+            "DOCX build blocked: experiment figures must be embedded as PNG in the final document.\n"
+            f"{details}"
+        )
+    print(f"PNG VERIFY: PASS ({exp_total} experiment figures)")
 
     # Optional cleanup: keep FLAT_TEX for debugging, remove intermediate.
     if INTERMEDIATE_DOCX.exists():

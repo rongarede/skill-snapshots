@@ -1,7 +1,7 @@
 ---
 name: swun-thesis-docx-banshi1
 description: "Build SWUN thesis DOCX (Format 1 / 版式1) from LaTeX using the official SWUN reference template, with post-processing fixes (TOC, chapter page breaks, indents, isLgl numbering fix, and three-line table layout normalization)."
-version: 1.2.2
+version: 1.2.3
 ---
 
 # SWUN Thesis DOCX (版式1)
@@ -17,6 +17,8 @@ Generate a `.docx` from a SWUN thesis LaTeX project while treating the official 
 1. `latexpand` flattens `main.tex`
 2. LaTeX preprocessing (`_preprocess_latex`):
    - flattens `subfigure` environments: replaces subfigure `\ref{}` with parent figure `\ref{}`, strips subfigure `\caption`/`\label` to prevent pandoc from inflating the figure counter, deduplicates adjacent identical refs
+   - rewrites experiment figure references from `.pdf` to `.png` when PNG assets exist
+   - hard-fails if any experiment figure still points to `.pdf` after rewrite
 3. `pandoc` converts LaTeX -> DOCX with:
    - `--reference-doc` pointing at the official template
    - `--citeproc` + GB/T 7714-2015 numeric CSL
@@ -56,6 +58,9 @@ Generate a `.docx` from a SWUN thesis LaTeX project while treating the official 
      - leaves one blank line before the keywords line
      - summarizes to 3-4 keyword groups (merges extras into the last group)
      - emits `关键词：...` for Chinese and `Keywords: ...` for English
+   - validates experiment figure media type:
+     - all `fig_3_*`/`fig_4_*` drawings must resolve to `media/*.png`
+     - aborts build if any experiment figure is still embedded as PDF
 
 ## Prerequisites
 
@@ -84,6 +89,7 @@ export SWUN_BIB="/path/to/references.bib"
 `main.sh` runs a 4-step pipeline:
 
 1. Build DOCX by running `build_docx_banshi1.py`
+   - includes hard validation that experiment figures are embedded as PNG
 2. Run regression samples for ref normalization via `ref_hyphen_regression.py`
 3. Run generic structural checks with `verify_extra.py`
    - includes regression guard: no forced page break between "摘要"/"Abstract" headings and their first content paragraph
@@ -101,3 +107,4 @@ export SWUN_BIB="/path/to/references.bib"
 - Do not manually type heading numbering; rely on the template multilevel list mapping.
 - For three-line tables, do not keep `auto` table width and do not leave captions above tables.
 - Figure/table references must use caption-style hyphen numbering (`图3-16`, `表4-2`), not dot numbering (`图3.16`, `表4.2`).
+- Experiment figures must be embedded as PNG in DOCX (`fig_3_*`, `fig_4_*`); PDF embeds are treated as build errors.
