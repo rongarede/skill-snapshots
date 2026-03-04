@@ -64,6 +64,60 @@ def _run(cmd: list[str], cwd: Path) -> None:
     subprocess.run(cmd, cwd=str(cwd), check=True)
 
 
+# ---------------------------------------------------------------------------
+# Cross-reference resolution: parse main.aux and replace \ref/\eqref with
+# resolved numbers so pandoc doesn't emit raw [label] text.
+# ---------------------------------------------------------------------------
+
+def _parse_aux_labels(aux_path: Path) -> dict[str, str]:
+    """Parse main.aux and return {label: number} for alg:/eq: labels."""
+    if not aux_path.exists():
+        return {}
+    text = aux_path.read_text(encoding="utf-8", errors="ignore")
+    labels: dict[str, str] = {}
+    for m in re.finditer(r"\\newlabel\{((?:alg|eq):[^}]+)\}\{\{([^}]+)\}", text):
+        labels[m.group(1)] = m.group(2)
+    return labels
+
+
+def _resolve_latex_refs(s: str, labels: dict[str, str]) -> str:
+    """Replace \\ref{alg:...}, \\eqref{eq:...}, \\ref{eq:...} with resolved text.
+
+    - \\eqref{eq:X} where aux gives "4.2" → (4-2)
+    - \\ref{eq:X}   where aux gives "4.2" → (4-2)
+    - \\ref{alg:X}  where aux gives "2"   → 2
+    Tilde before \\ref/\\eqref is consumed to avoid double spacing.
+    """
+    if not labels:
+        return s
+
+    def _eq_num(raw: str) -> str:
+        """Convert '4.2' → '4-2' for DOCX hyphen convention."""
+        return raw.replace(".", "-")
+
+    def _repl_eqref(m: re.Match) -> str:
+        label = m.group(1)
+        num = labels.get(label)
+        if num is None:
+            return m.group(0)  # leave unresolved
+        return f"({_eq_num(num)})"
+
+    def _repl_ref(m: re.Match) -> str:
+        label = m.group(1)
+        num = labels.get(label)
+        if num is None:
+            return m.group(0)  # leave unresolved
+        if label.startswith("eq:"):
+            return f"({_eq_num(num)})"
+        return num  # alg: returns plain number
+
+    # \\eqref{eq:X} — with optional preceding tilde
+    s = re.sub(r"~?\\eqref\{(eq:[^}]+)\}", _repl_eqref, s)
+    # \\ref{alg:X} or \\ref{eq:X} — with optional preceding tilde
+    s = re.sub(r"~?\\ref\{((?:alg|eq):[^}]+)\}", _repl_ref, s)
+    return s
+
+
 def _preprocess_latex(s: str) -> str:
     # Pandoc LaTeX reader doesn't recognize \\< escape sequence.
     s = s.replace("\\<", "<")
@@ -94,6 +148,12 @@ def _preprocess_latex(s: str) -> str:
         r"\1{\2}\n",
         s,
     )
+
+    # --- Resolve \ref{alg:...} and \eqref{eq:...} cross-references ---
+    aux_path = ROOT / "main.aux"
+    labels = _parse_aux_labels(aux_path)
+    if labels:
+        s = _resolve_latex_refs(s, labels)
 
     # --- Flatten subfigures so pandoc counts only main figure captions ---
     s = _flatten_subfigures(s)
