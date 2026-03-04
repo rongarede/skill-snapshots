@@ -39,7 +39,7 @@ SCRIPT_DIR = Path(__file__).resolve().parents[1]
 TEMPLATE_DOCX = Path(
     os.environ.get(
         "SWUN_TEMPLATE_DOCX",
-        "/Users/bit/LaTeX/西南民族大学研究生学位论文写作规范_模板部分_版式1.docx",
+        "/Users/bit/LaTeX/SWUN_Thesis/.高春琴_normalized.docx",
     )
 ).expanduser()
 MAIN_TEX = ROOT / "main.tex"
@@ -3094,36 +3094,44 @@ def _fix_numbering_isLgl(ns: dict[str, str], numbering_xml: bytes) -> bytes:
 
     root = ET.fromstring(numbering_xml)
 
-    target = None
+    # Find multi-level abstractNum (heading numbering); prefer id=0 for
+    # backwards-compatibility with 版式1 template, fall back to any with ≥2 levels.
+    targets: list[ET.Element] = []
+    fallbacks: list[ET.Element] = []
     for absn in root.findall(w_abstractNum):
-        if absn.get(w_abstractNumId) == "0":
-            target = absn
-            break
-    if target is None:
+        levels = absn.findall(w_lvl)
+        if absn.get(w_abstractNumId) == "0" and len(levels) >= 2:
+            targets.append(absn)
+        elif len(levels) >= 2:
+            fallbacks.append(absn)
+    if not targets:
+        targets = fallbacks
+    if not targets:
         return numbering_xml
 
     changed = False
-    for lvl in target.findall(w_lvl):
-        ilvl = lvl.get(w_ilvl)
-        if ilvl is None:
-            continue
-        try:
-            ilvl_i = int(ilvl)
-        except ValueError:
-            continue
-        if ilvl_i < 1:
-            continue
-        if lvl.find(w_isLgl) is not None:
-            continue
-        isLgl = ET.Element(w_isLgl)
-        # Insert after <w:start> if present, else as first child.
-        start = lvl.find(w_start)
-        if start is not None:
-            idx = list(lvl).index(start) + 1
-            lvl.insert(idx, isLgl)
-        else:
-            lvl.insert(0, isLgl)
-        changed = True
+    for target in targets:
+        for lvl in target.findall(w_lvl):
+            ilvl = lvl.get(w_ilvl)
+            if ilvl is None:
+                continue
+            try:
+                ilvl_i = int(ilvl)
+            except ValueError:
+                continue
+            if ilvl_i < 1:
+                continue
+            if lvl.find(w_isLgl) is not None:
+                continue
+            isLgl = ET.Element(w_isLgl)
+            # Insert after <w:start> if present, else as first child.
+            start = lvl.find(w_start)
+            if start is not None:
+                idx = list(lvl).index(start) + 1
+                lvl.insert(idx, isLgl)
+            else:
+                lvl.insert(0, isLgl)
+            changed = True
 
     if not changed:
         return numbering_xml

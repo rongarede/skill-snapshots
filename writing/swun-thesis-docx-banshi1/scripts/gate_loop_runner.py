@@ -3,10 +3,10 @@
 Gate-Loop Runner: 驱动 6 Phase DOCX 检测循环。
 
 使用方法：
-  python3 gate_loop_runner.py /path/to/thesis_dir [--phase N] [--max-retry 3]
+  python3 gate_loop_runner.py /path/to/thesis_dir [--phase N] [--max-retry 2]
 
   --phase N       仅运行指定 Phase（1-6）
-  --max-retry N   每个 Phase 最大重试次数（默认 3）
+  --max-retry N   每个 Phase 最大重试次数（默认 2）
   --gate-file     Gate 记录文件路径（默认 thesis_dir/gates.md）
   --skip-build    跳过首次 DOCX 构建（假设已有最新 DOCX）
 """
@@ -16,6 +16,7 @@ import argparse
 import os
 import subprocess
 import sys
+import zipfile
 from datetime import datetime
 from pathlib import Path
 
@@ -109,20 +110,29 @@ def build_docx(thesis_dir: str) -> bool:
 
 def run_phase_check(phase_id: int, docx_path: str) -> list[str]:
     """运行指定 Phase 的检查，返回错误列表。"""
-    module_name = PHASES[phase_id]["module"]
+    try:
+        module_name = PHASES[phase_id]["module"]
 
-    sys.path.insert(0, str(SCRIPT_DIR / "phase_checks"))
-    import importlib
+        sys.path.insert(0, str(SCRIPT_DIR / "phase_checks"))
+        import importlib
 
-    mod = importlib.import_module(module_name)
+        mod = importlib.import_module(module_name)
 
-    if phase_id == 6:
-        result = mod.run(docx_path)
-        if result["status"] == "conversion_failed":
-            return ["DOCX→PDF 转换失败，无法进行视觉审查（需要安装 libreoffice）"]
-        return []
+        if phase_id == 6:
+            result = mod.run(docx_path)
+            if result["status"] == "conversion_failed":
+                return ["DOCX→PDF 转换失败，无法进行视觉审查（需要安装 libreoffice）"]
+            return []
 
-    return mod.run(docx_path)
+        return mod.run(docx_path)
+    except FileNotFoundError:
+        return [f"DOCX file not found: {docx_path}"]
+    except zipfile.BadZipFile:
+        return [f"invalid DOCX archive: {docx_path}"]
+    except KeyError as exc:
+        return [f"DOCX missing required OOXML part: {exc}"]
+    except Exception as exc:
+        return [f"phase {phase_id} runtime error: {exc}"]
 
 
 def write_gate_record(gate_file: str, phase_id: int, errors: list[str]) -> None:
@@ -239,7 +249,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Gate-Loop DOCX 6-Phase 检测")
     parser.add_argument("thesis_dir", help="论文根目录")
     parser.add_argument("--phase", type=int, help="仅运行指定 Phase (1-6)")
-    parser.add_argument("--max-retry", type=int, default=1, help="每个 Phase 单次运行（修复在外部编排）")
+    parser.add_argument("--max-retry", type=int, default=2, help="每个 Phase 最大重试次数（默认 2）")
     parser.add_argument("--gate-file", help="Gate 记录文件路径")
     parser.add_argument("--skip-build", action="store_true", help="跳过 DOCX 构建")
     args = parser.parse_args()
@@ -254,6 +264,10 @@ def main() -> int:
         phase_ids = [args.phase]
     else:
         phase_ids = list(PHASES.keys())
+
+    if args.max_retry < 1:
+        print("--max-retry 必须 >= 1", file=sys.stderr)
+        return 2
 
     results = run_gate_loop(thesis_dir, phase_ids, args.max_retry, gate_file, args.skip_build)
 

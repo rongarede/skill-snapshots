@@ -167,7 +167,7 @@ python3 /Users/bit/.claude/skills/swun-thesis-docx-banshi1/scripts/gate_loop_run
    - hard check: main-body internal cross-reference links must be plain text (no `w:anchor` hyperlink nodes, no hyperlink-like blue/underline style residue)
    - hard check: if references contain DOI/URL text, `w:hyperlink r:id` external links must still exist
    - hard check: main-body `Heading5` (`\paragraph`) must start with explicit `(n)` prefix
-   - hard check: each main-body `fig:/tab:/tbl:` anchor must have bilingual caption lines (CN+EN), correct position, and chapter-local numbering
+  - hard check: each main-body `fig:/tab:/tbl:` anchor must have Chinese caption line with correct position and chapter-local numbering; if English caption line exists, its format/numbering must also be valid
    - hard check: figure captions must be below figure blocks, table captions must be above table blocks
 5. Run table-specific checks to enforce:
    - data table full-width (`tblW=dxa` and equals text width)

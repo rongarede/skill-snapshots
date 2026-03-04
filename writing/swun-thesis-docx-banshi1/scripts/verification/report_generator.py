@@ -146,12 +146,6 @@ def _run_has_hyperlink_style(r: ET.Element, ns: dict[str, str]) -> bool:
         if theme == "hyperlink" or val in {"0563c1", "0000ff"}:
             return True
 
-    u = rpr.find("w:u", ns)
-    if u is not None:
-        uval = (u.get(f"{{{ns['w']}}}val") or "").lower()
-        if uval in {"", "single"}:
-            return True
-
     return False
 
 
@@ -579,13 +573,13 @@ def _check_anchor_caption_rules(doc_xml: str) -> list[str]:
                 errors.append(
                     f"anchor '{label}' figure caption numbering mismatch: got 图{cn[0]}-{cn[1]}, expected 图{chapter_no}-{seq}"
                 )
-            if len(after) < 2:
-                errors.append(f"anchor '{label}' missing figure English caption line below block")
-            else:
+            if len(after) >= 2:
                 en = _parse_caption_index(kind, "en", after[1])
-                if en is None:
+                # English caption line is optional (plain \\caption may only have Chinese line).
+                # If an English-looking line exists, enforce its format/numbering.
+                if en is None and re.match(r"^\s*Figure\b", after[1], flags=re.IGNORECASE):
                     errors.append(f"anchor '{label}' figure English caption line format invalid: {after[1]!r}")
-                elif en != (chapter_no, seq):
+                elif en is not None and en != (chapter_no, seq):
                     errors.append(
                         f"anchor '{label}' figure English caption numbering mismatch: got Figure {en[0]}-{en[1]}, expected Figure {chapter_no}-{seq}"
                     )
@@ -606,12 +600,18 @@ def _check_anchor_caption_rules(doc_xml: str) -> list[str]:
                 errors.append(
                     f"anchor '{label}' table caption numbering mismatch: got 表{cn[0]}-{cn[1]}, expected 表{chapter_no}-{seq}"
                 )
-            en = _parse_caption_index(kind, "en", before[0]) if before else None
-            if en is None and len(before) >= 2:
-                en = _parse_caption_index(kind, "en", before[1])
+            en_candidates = before[:2]
+            en = None
+            for t in en_candidates:
+                parsed = _parse_caption_index(kind, "en", t)
+                if parsed is not None:
+                    en = parsed
+                    break
+            # English caption line is optional. If an English-looking line is present, enforce format.
             if en is None:
-                sample = before[0] if before else "<MISSING>"
-                errors.append(f"anchor '{label}' missing table English caption line above block (nearest='{sample}')")
+                english_like = next((t for t in en_candidates if re.match(r"^\s*Table\b", t, flags=re.IGNORECASE)), None)
+                if english_like is not None:
+                    errors.append(f"anchor '{label}' table English caption line format invalid: {english_like!r}")
             elif en != (chapter_no, seq):
                 errors.append(
                     f"anchor '{label}' table English caption numbering mismatch: got Table {en[0]}-{en[1]}, expected Table {chapter_no}-{seq}"

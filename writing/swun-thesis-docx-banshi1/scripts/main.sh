@@ -27,22 +27,38 @@ if [[ ! -f "$THESIS_DIR/main.tex" ]]; then
   exit 1
 fi
 
+# --- Normalize reference template ---
+REFERENCE_DOCX="${SWUN_REFERENCE_DOCX:-$THESIS_DIR/网络与信息安全_高春琴.docx}"
+NORMALIZED_DOCX="$THESIS_DIR/.高春琴_normalized.docx"
+MAPPING_JSON="$SCRIPT_DIR/style_id_mapping.json"
+
+if [[ -f "$REFERENCE_DOCX" ]] && [[ -f "$MAPPING_JSON" ]]; then
+  echo "[1/6] Normalizing reference template style IDs..."
+  python3 "$SCRIPT_DIR/normalize_template.py" \
+    --input "$REFERENCE_DOCX" \
+    --mapping "$MAPPING_JSON" \
+    --output "$NORMALIZED_DOCX"
+  export SWUN_TEMPLATE_DOCX="$NORMALIZED_DOCX"
+else
+  echo "[1/6] SKIP: reference template or mapping not found, using default template"
+fi
+
 pushd "$THESIS_DIR" >/dev/null
 
-echo "[1/5] Building DOCX..."
+echo "[2/6] Building DOCX..."
 python3 "$SCRIPT_DIR/build_docx_banshi1.py" "$THESIS_DIR"
 
-echo "[2/5] Running ref normalization regression samples..."
+echo "[3/6] Running ref normalization regression samples..."
 python3 "$SCRIPT_DIR/ref_hyphen_regression.py"
 
-echo "[3/5] Running abstract section regression samples..."
+echo "[4/6] Running abstract section regression samples..."
 python3 "$SCRIPT_DIR/abstract_section_regression.py"
 
-echo "[4/5] Running general DOCX checks..."
+echo "[5/6] Running general DOCX checks..."
 python3 "$SCRIPT_DIR/verify_extra.py" \
   "$THESIS_DIR/main_版式1.docx"
 
-echo "[5/5] Running table layout/caption checks..."
+echo "[6/6] Running table layout/caption checks..."
 python3 - "$THESIS_DIR/main_版式1.docx" <<'PY'
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-

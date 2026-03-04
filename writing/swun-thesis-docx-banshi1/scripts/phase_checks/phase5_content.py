@@ -118,43 +118,67 @@ def _check_plus_connector(texts: list[str]) -> list[str]:
 def _check_three_line_tables(doc_xml: str) -> list[str]:
     """检查三线表边框（从 main.sh step 5 提取核心逻辑）。"""
     errors: list[str] = []
-    tables = re.findall(r"(<w:tbl[\s\S]*?</w:tbl>)", doc_xml)
-    data_tables = [t for t in tables if "<w:tblCaption" in t]
+    ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+    w_val = f"{{{ns['w']}}}val"
+    root = ET.fromstring(doc_xml)
 
-    for idx, t in enumerate(data_tables, 1):
-        m = re.search(r"(<w:tblBorders[\s\S]*?</w:tblBorders>)", t)
-        if not m:
-            errors.append(f"数据表 #{idx} 缺少 w:tblBorders（应为三线表）")
+    need = {
+        "top": "single",
+        "bottom": "single",
+        "left": "nil",
+        "right": "nil",
+        "insideH": "nil",
+        "insideV": "nil",
+    }
+
+    data_idx = 0
+    for tbl in root.findall(".//w:tbl", ns):
+        tbl_pr = tbl.find("w:tblPr", ns)
+        if tbl_pr is None or tbl_pr.find("w:tblCaption", ns) is None:
             continue
-        b = m.group(1)
-        need = [
-            'w:top w:val="single"',
-            'w:bottom w:val="single"',
-            'w:left w:val="nil"',
-            'w:right w:val="nil"',
-            'w:insideH w:val="nil"',
-            'w:insideV w:val="nil"',
-        ]
-        missing = [x for x in need if x not in b]
+        data_idx += 1
+
+        borders = tbl_pr.find("w:tblBorders", ns)
+        if borders is None:
+            errors.append(f"数据表 #{data_idx} 缺少 w:tblBorders（应为三线表）")
+            continue
+
+        missing: list[str] = []
+        for border_name, expect_val in need.items():
+            node = borders.find(f"w:{border_name}", ns)
+            got = node.get(w_val) if node is not None else None
+            if got != expect_val:
+                got_desc = got if got is not None else "missing"
+                missing.append(f"{border_name}={got_desc} (expect {expect_val})")
         if missing:
-            errors.append(f"数据表 #{idx} 边框不符合三线表: missing {', '.join(missing)}")
+            errors.append(f"数据表 #{data_idx} 边框不符合三线表: {', '.join(missing)}")
 
     return errors
 
 
 def run(docx_path: str) -> list[str]:
     """运行 Phase 5 检查，返回错误列表。"""
-    with zipfile.ZipFile(docx_path, "r") as zf:
-        doc = zf.read("word/document.xml").decode("utf-8", errors="ignore")
+    try:
+        with zipfile.ZipFile(docx_path, "r") as zf:
+            doc = zf.read("word/document.xml").decode("utf-8", errors="ignore")
 
-    errors: list[str] = []
-    texts = _iter_main_body_text(doc)
+        errors: list[str] = []
+        texts = _iter_main_body_text(doc)
 
-    errors.extend(_check_halfwidth_punctuation(texts))
-    errors.extend(_check_plus_connector(texts))
-    errors.extend(_check_three_line_tables(doc))
-
-    return errors
+        errors.extend(_check_halfwidth_punctuation(texts))
+        errors.extend(_check_plus_connector(texts))
+        errors.extend(_check_three_line_tables(doc))
+        return errors
+    except FileNotFoundError:
+        return [f"DOCX file not found: {docx_path}"]
+    except zipfile.BadZipFile:
+        return [f"invalid DOCX archive: {docx_path}"]
+    except KeyError as exc:
+        return [f"DOCX missing required OOXML part: {exc}"]
+    except ET.ParseError as exc:
+        return [f"failed to parse document.xml: {exc}"]
+    except Exception as exc:
+        return [f"phase5 runtime error: {exc}"]
 
 
 if __name__ == "__main__":
