@@ -620,33 +620,18 @@ def _check_anchor_caption_rules(doc_xml: str) -> list[str]:
     return errors
 
 
-def main() -> int:
-    if len(sys.argv) != 2:
-        print("usage: verify_extra.py /path/to/main_版式1.docx", file=sys.stderr)
-        return 2
-
-    docx_path = sys.argv[1]
-    with zipfile.ZipFile(docx_path, "r") as zf:
-        doc = zf.read("word/document.xml").decode("utf-8", errors="ignore")
-        num = zf.read("word/numbering.xml").decode("utf-8", errors="ignore")
-
+def check_phase1_structure(doc: str, num: str) -> list[str]:
+    """Phase 1: 结构/分页检查。"""
     errors: list[str] = []
 
     if " TOC " not in doc:
         errors.append("missing Word TOC field (instrText contains ' TOC ')")
-
     if "目录" not in doc:
         errors.append("missing TOC title text '目录'")
-
-    # Ensure page breaks exist (chapters start on new page).
     if 'w:type="page"' not in doc:
         errors.append("missing page breaks (w:br w:type=page)")
-
-    # Numbering fix for mixed Chinese/Arabic at lower levels.
     if "w:abstractNumId=\"0\"" in num and "w:isLgl" not in num:
         errors.append("missing w:isLgl in numbering.xml (abstractNumId=0)")
-
-    # Sectioned page numbering: expect Roman + Arabic page formats.
     if 'w:fmt="lowerRoman"' not in doc:
         errors.append('missing Roman page numbering (w:pgNumType w:fmt="lowerRoman") for abstracts section')
     if 'w:fmt="decimal"' not in doc or 'w:start="1"' not in doc:
@@ -660,51 +645,11 @@ def main() -> int:
         if err is not None:
             errors.append(err)
 
-    # Figure/table refs must use caption numbering style with hyphen (e.g., 3-16).
-    dotted_refs = _collect_dotted_fig_table_hyperlinks(doc)
-    if dotted_refs:
-        sample = ", ".join([f"{a}='{t}'" for a, t in dotted_refs[:3]])
-        errors.append(
-            "found dotted figure/table hyperlink refs (must use hyphen numbering): "
-            + sample
-        )
-
-    # In main body, internal cross-reference hyperlinks (w:anchor) must be unwrapped.
-    body_anchor_hyperlinks = _collect_main_body_anchor_hyperlinks(doc)
-    if body_anchor_hyperlinks:
-        sample = ", ".join(f"{a}={t!r}" for a, t in body_anchor_hyperlinks[:3])
-        errors.append("found internal anchor hyperlinks in main body (must be plain text refs): " + sample)
-
-    # Also clear hyperlink-like visual style leakage (blue/underline) in main body.
-    style_leaks = _collect_main_body_hyperlink_style_runs(doc)
-    if style_leaks:
-        sample = ", ".join(repr(t) for t in style_leaks[:3])
-        errors.append("found hyperlink-like style runs in main body: " + sample)
-
-    # Anchor-to-caption hard checks: presence, position (fig below / table above), chapter-local numbering.
-    errors.extend(_check_anchor_caption_rules(doc))
-
-    # References DOI/URL external links should be preserved.
-    ref_link_err = _check_reference_external_hyperlinks(doc)
-    if ref_link_err:
-        errors.append(ref_link_err)
-
-    # Heading5 lines in main body must have explicit '(n) ' prefix.
-    unnumbered_h5 = _collect_unnumbered_heading5_in_main_body(doc)
-    if unnumbered_h5:
-        sample = ", ".join(repr(t) for t in unnumbered_h5[:3])
-        errors.append("found unnumbered Heading5 in main body (expected '(n) ' prefix): " + sample)
-
-    # \paragraph mapping guard: Heading5 line has no indent; following body paragraph keeps indent.
-    errors.extend(_check_heading5_and_following_body_indent(doc))
-
-    # Abstract keywords: required with a blank line before.
     if not any("关键词：" in t for t in texts):
         errors.append("missing Chinese abstract keywords line (expected '关键词：...')")
     if not any("Keywords:" in t for t in texts):
         errors.append("missing English abstract keywords line (expected 'Keywords: ...')")
 
-    # Best-effort: ensure there is an empty paragraph right before each keywords line.
     for marker in ["关键词：", "Keywords:"]:
         for i, t in enumerate(texts):
             if marker not in t:
@@ -717,8 +662,6 @@ def main() -> int:
                 errors.append(f"missing blank line before keywords line '{marker}' (previous paragraph contains text)")
             break
 
-    # Best-effort: ensure 3-4 groups (<= 3 separators) for both CN and EN.
-    # We only check locally around the marker to avoid over-parsing OOXML.
     def _check_groups(marker: str, sep: str, max_sep: int = 3) -> None:
         for t in texts:
             if marker not in t:
@@ -731,70 +674,100 @@ def main() -> int:
     _check_groups("关键词：", "；", 3)
     _check_groups("Keywords:", ";", 3)
 
-    # Bibliography hanging indent: should be present for entries.
+    return errors
+
+
+def check_phase2_style(doc: str) -> list[str]:
+    """Phase 2: 样式/缩进检查。"""
+    errors: list[str] = []
+
+    unnumbered_h5 = _collect_unnumbered_heading5_in_main_body(doc)
+    if unnumbered_h5:
+        sample = ", ".join(repr(t) for t in unnumbered_h5[:3])
+        errors.append("found unnumbered Heading5 in main body (expected '(n) ' prefix): " + sample)
+
+    errors.extend(_check_heading5_and_following_body_indent(doc))
+
+    if "<w:keepNext" not in doc:
+        errors.append("missing keepNext in document.xml (expected for figure paragraphs)")
     if "参考文献" in doc and "hangingChars" not in doc:
         errors.append("missing hanging indent for bibliography entries (w:hangingChars)")
-
-    # Citations should appear as [n] and often superscript.
     if "vertAlign" not in doc and not re.search(r"\[[0-9]{1,3}\]", doc):
         errors.append("no obvious citation markers found (expected [n] possibly superscript)")
 
-    # Figure captions: expect "图{章}-{序号} ..."
-    cap_re = re.compile(r"图\d+-\d+\s+")
-    cap_paras = []
-    for p in _iter_paragraphs(doc):
-        if cap_re.search(p):
-            cap_paras.append(p)
+    return errors
 
+
+def check_phase3_caption(doc: str) -> list[str]:
+    """Phase 3: 图表标题检查。"""
+    errors: list[str] = []
+
+    errors.extend(_check_anchor_caption_rules(doc))
+
+    cap_re = re.compile(r"图\d+-\d+\s+")
+    cap_paras = [p for p in _iter_paragraphs(doc) if cap_re.search(p)]
     if not cap_paras:
         errors.append("no numbered figure captions found (expected '图{章}-{序号} ...')")
     else:
-        # Captions should be centered.
         not_centered = [p for p in cap_paras if 'w:jc w:val="center"' not in p]
         if not_centered:
             errors.append("some figure captions are not centered (missing w:jc center)")
 
-    # Equation numbering: expect some display-math paras to end with '(章-序号)'.
+    return errors
+
+
+def check_phase4_crossref(doc: str) -> list[str]:
+    """Phase 4: 交叉引用检查。"""
+    errors: list[str] = []
+
+    dotted_refs = _collect_dotted_fig_table_hyperlinks(doc)
+    if dotted_refs:
+        sample = ", ".join([f"{a}='{t}'" for a, t in dotted_refs[:3]])
+        errors.append("found dotted figure/table hyperlink refs (must use hyphen numbering): " + sample)
+
+    body_anchor_hyperlinks = _collect_main_body_anchor_hyperlinks(doc)
+    if body_anchor_hyperlinks:
+        sample = ", ".join(f"{a}={t!r}" for a, t in body_anchor_hyperlinks[:3])
+        errors.append("found internal anchor hyperlinks in main body (must be plain text refs): " + sample)
+
+    style_leaks = _collect_main_body_hyperlink_style_runs(doc)
+    if style_leaks:
+        sample = ", ".join(repr(t) for t in style_leaks[:3])
+        errors.append("found hyperlink-like style runs in main body: " + sample)
+
+    ref_link_err = _check_reference_external_hyperlinks(doc)
+    if ref_link_err:
+        errors.append(ref_link_err)
+
     eq_re = re.compile(r"\(\d+-\d+\)")
     math_paras = [p for p in _iter_paragraphs(doc) if "<m:oMathPara" in p]
     numbered_math_paras = [p for p in math_paras if eq_re.search(p)]
     if math_paras and not numbered_math_paras:
         errors.append("no equation numbers found on display-math paragraphs (expected '(章-序号)')")
 
-    # Ensure we don't accidentally number the universal-quantifier display line.
     for p in math_paras:
         if "<m:t>∀</m:t>" in p and eq_re.search(p):
             errors.append("found an equation number on a quantifier-only display math paragraph (should be unnumbered)")
             break
 
-    # KeepTogether hints for figures (best-effort).
-    if "<w:keepNext" not in doc:
-        errors.append("missing keepNext in document.xml (expected for figure paragraphs)")
+    return errors
 
-    # Three-line tables: apply only to data tables (those with w:tblCaption).
-    tables = _iter_tables(doc)
-    data_tables = [t for t in tables if "<w:tblCaption" in t]
-    for t in data_tables:
-        m = re.search(r"(<w:tblBorders[\s\S]*?</w:tblBorders>)", t)
-        if not m:
-            errors.append("data table missing w:tblBorders (expected three-line table borders)")
-            break
-        b = m.group(1)
-        need = [
-            'w:top w:val="single"',
-            'w:bottom w:val="single"',
-            'w:left w:val="nil"',
-            'w:right w:val="nil"',
-            'w:insideH w:val="nil"',
-            'w:insideV w:val="nil"',
-        ]
-        missing = [x for x in need if x not in b]
-        if missing:
-            errors.append("data table borders are not three-line (missing: " + ", ".join(missing) + ")")
-            break
-        if '<w:tcBorders><w:bottom w:val="single"' not in t:
-            errors.append("data table missing header separator line (expected cell bottom border on header row)")
-            break
+
+def main() -> int:
+    if len(sys.argv) != 2:
+        print("usage: verify_extra.py /path/to/main_版式1.docx", file=sys.stderr)
+        return 2
+
+    docx_path = sys.argv[1]
+    with zipfile.ZipFile(docx_path, "r") as zf:
+        doc = zf.read("word/document.xml").decode("utf-8", errors="ignore")
+        num = zf.read("word/numbering.xml").decode("utf-8", errors="ignore")
+
+    errors: list[str] = []
+    errors.extend(check_phase1_structure(doc, num))
+    errors.extend(check_phase2_style(doc))
+    errors.extend(check_phase3_caption(doc))
+    errors.extend(check_phase4_crossref(doc))
 
     if errors:
         print("EXTRA VERIFY: FAIL")

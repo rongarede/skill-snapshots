@@ -78,6 +78,8 @@ Generate a `.docx` from a SWUN thesis LaTeX project while treating the official 
 - Thin CLI entrypoints:
   - `scripts/build_docx_banshi1.py`
   - `scripts/verify_extra.py`
+  - `scripts/gate_loop.sh`
+  - `scripts/gate_loop_runner.py`
 - Core build module:
   - `scripts/modules/docx_builder.py`
 - Facade modules (phase 3/4 extraction):
@@ -94,6 +96,13 @@ Generate a `.docx` from a SWUN thesis LaTeX project while treating the official 
   - `scripts/verification/style_checker.py`
   - `scripts/verification/reference_checker.py`
   - `scripts/verification/content_checker.py`
+- Gate-loop phase modules:
+  - `scripts/phase_checks/phase1_structure.py`
+  - `scripts/phase_checks/phase2_style.py`
+  - `scripts/phase_checks/phase3_caption.py`
+  - `scripts/phase_checks/phase4_crossref.py`
+  - `scripts/phase_checks/phase5_content.py`
+  - `scripts/phase_checks/phase6_visual.py`
 
 ## Prerequisites
 
@@ -122,6 +131,23 @@ export SWUN_BIB="/path/to/references.bib"
 ```bash
 python3 /Users/bit/.claude/skills/swun-thesis-docx-banshi1/scripts/build_docx_banshi1.py /Users/bit/LaTeX/SWUN_Thesis
 python3 /Users/bit/.claude/skills/swun-thesis-docx-banshi1/scripts/verify_extra.py /Users/bit/LaTeX/SWUN_Thesis/main_版式1.docx
+```
+
+### Gate-Loop Usage (6-Phase)
+
+```bash
+# Run all phases (default)
+bash /Users/bit/.claude/skills/swun-thesis-docx-banshi1/scripts/gate_loop.sh /Users/bit/LaTeX/SWUN_Thesis --skip-build
+
+# Run only one phase
+python3 /Users/bit/.claude/skills/swun-thesis-docx-banshi1/scripts/gate_loop_runner.py \
+  /Users/bit/LaTeX/SWUN_Thesis \
+  --phase 1 --skip-build
+
+# Tune retry count (used when codex auto-fix is enabled)
+python3 /Users/bit/.claude/skills/swun-thesis-docx-banshi1/scripts/gate_loop_runner.py \
+  /Users/bit/LaTeX/SWUN_Thesis \
+  --max-retry 2
 ```
 
 ## Built-in Verification (via `main.sh`)
