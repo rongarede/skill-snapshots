@@ -16,9 +16,117 @@ description: "论文段落级仿写映射工具：在同领域同思想框架前
 ## 工作流程
 
 1. 接收目标文件路径
-2. 扫描 `mdfile/` 目录下的所有论文（Markdown 格式）
-3. 按四大维度判断映射关系
-4. 输出结果到 `<目标文件>_mapping.md`
+2. **本地分析**：读取目标文档，逐段落提取核心概念，聚类为 3-5 个主题关键词组
+3. **nb-query 轻量检索**：对每个主题 query 调用 nb-query 从 NotebookLM 论文库检索候选段落
+4. **源段落存档**：将 nb-query 返回的目标论文原文段落保存到 `source_paragraphs/` 目录
+5. **合并去重**：按「论文标题 + 章节位置」去重，保留来源主题标签
+6. 按四大维度判断映射关系
+7. 输出结果到 `<目标文件>_mapping.md`
+
+> **Fallback**: 若 NotebookLM 服务不可用，回退到扫描本地 `mdfile/` 目录下的 Markdown 文件
+
+## 本地分析阶段
+
+读取目标文档后，执行以下操作：
+
+1. 逐段落提取核心概念（方法名、机制名、数学符号、关键术语）
+2. 将概念聚类为 3-5 个主题关键词组
+3. 每组构造一个面向 NotebookLM 的检索 query
+
+**示例**（以 LightDAG 共识协议为例）：
+
+```
+T1: "DAG-based BFT consensus protocol leader election"
+T2: "reputation scoring mechanism Byzantine fault tolerance"
+T3: "RSU delegation vehicular network consensus"
+T4: "latency optimization partial synchrony consensus"
+T5: "experimental evaluation throughput latency BFT"
+```
+
+## nb-query 轻量检索模式
+
+在 mapping 内部调用 nb-query 时，只执行核心检索子集：
+
+| nb-query 阶段 | 执行? | 说明 |
+|---|---|---|
+| 阶段 -1: 同步知识库 | 首次一次 | 确保论文库最新，多次查询不重复同步 |
+| 阶段 0: 初始化 | 执行 | 创建临时工作目录 `mapping-query-<日期>/` |
+| 阶段 1: 准备 | 执行 | 获取 source 列表（`--json`），构建映射表 |
+| 阶段 2: 超富集查询 | 执行 | 使用下方映射专用 prompt 模板 |
+| 阶段 3: 引用对照表 | 执行 | 生成引用序号 → 论文标题映射 |
+| 阶段 3.1+: 后续阶段 | 全部跳过 | 不需要外部链接、图片溯源、外部核查、打包 |
+
+### 映射专用 prompt 模板
+
+```
+在论文库中检索与以下主题相关的具体段落和机制描述：{主题关键词}
+
+要求：
+1. 列出每个相关段落的来源论文、章节位置、核心概念
+2. 描述该段落的具体方法/机制/实验设计
+3. 标注该段落所属的研究范式（BFT增强/新协议设计/安全模型/性能优化）
+4. 如有数学定义或公式，简述其物理含义
+5. 【必须】逐字引用每个相关段落的原文（3-8句），用引用块标记
+```
+
+### 结果合并去重
+
+- 多个主题 query 的检索结果可能重叠
+- 按「论文标题 + 章节位置」去重
+- 保留每条结果的来源主题标签，用于后续映射类型判断
+
+## 源段落存档（步骤 4）
+
+nb-query 返回结果后，**必须**将目标论文的原文段落保存到本地，供后续编写阶段参考。
+
+### 目录结构
+
+```
+mapping/source_paragraphs/
+├── <映射ID>_<论文别名>_<章节>.md    # 每条映射一个文件
+├── M01_TECChain_§3.1.md
+├── M02_EBRC_§2.1.md
+├── ...
+└── index.md                         # 索引文件
+```
+
+### 单文件格式
+
+```markdown
+# M01: TECChain §3.1 — edge–edge collaboration management framework
+
+## 原文（逐字提取，保持原始语言）
+
+> In the classic edge computing model, the computing architecture is organized
+> as a Cloud-Edge-End hierarchy...
+> [3-8句原文]
+
+## 来源信息
+
+- 论文: A blockchain-based scheme for edge–edge collaboration management in TSN
+- 章节: §3.1
+- 检索主题: T1 (IoV RSU delegation consensus architecture)
+- 映射类型: Contextual
+- 仿写层: 问题表述
+```
+
+### 索引文件 `index.md`
+
+```markdown
+# 源段落索引
+
+| 映射ID | 论文 | 章节 | 文件 |
+|--------|------|------|------|
+| M01 | TECChain | §3.1 | M01_TECChain_§3.1.md |
+| M02 | EBRC | §2.1 | M02_EBRC_§2.1.md |
+```
+
+### 存档规则
+
+1. nb-query 返回的原文段落**必须逐字保存**，不得改写或翻译
+2. 若 nb-query 未返回原文（仅返回摘要），则从本地 `mdfile/` 中定位并提取对应段落
+3. 每条映射对应的原文控制在 3-8 句
+4. 目录不存在时自动创建
 
 ## 前置硬性约束
 
@@ -126,8 +234,8 @@ description: "论文段落级仿写映射工具：在同领域同思想框架前
 | ID | M01, M02... |
 | 源段落 | P1, P2-1, P2-2 等 |
 | 类型 | Intrinsic / Contextual / Complementary / Nominal |
-| 目标论文 | 文件名（不含路径） |
-| 目标位置 | §编号 + 行号范围 |
+| 目标论文 | 原始 PDF 文件名或别名（文件头定义别名表） |
+| 目标位置 | §原文章节标题: 关键术语（用于 NotebookLM 检索） |
 | 理由 | 一句话，≤30字 |
 | 仿写层 | 问题表述 / 方法思想 / 机制设计 / 实验范式 |
 
