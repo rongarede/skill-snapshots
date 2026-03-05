@@ -1,6 +1,6 @@
 ---
 name: collaborating-with-kimi
-description: 在 Claude Code 中非交互式调用 Kimi CLI，支持会话保存、上下文注入、Agent 角色注入。触发词：/kimi、kimi 协作、调用 kimi
+description: "[由 collaborating-hub 路由] Kimi CLI 后端实现。直接使用请通过 /collab 或 /kimi 触发 collaborating-hub。"
 ---
 
 ## Quick Start
