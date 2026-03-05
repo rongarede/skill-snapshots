@@ -376,6 +376,9 @@ def _preprocess_latex(s: str) -> str:
     # tabularx tables are parsed correctly as Word tables.
     s = _expand_custom_column_types(s)
 
+    # --- Expand \IfFileExists{path}{true}{false} so pandoc can see \includegraphics ---
+    s = _expand_if_file_exists(s)
+
     # --- Flatten subfigures so pandoc counts only main figure captions ---
     s = _flatten_subfigures(s)
     s = _prefer_png_for_docx_images(s)
@@ -417,6 +420,92 @@ def _find_unresolved_pdf_experiment_refs(s: str) -> list[str]:
         seen.add(p)
         out.append(p)
     return out
+
+
+def _expand_if_file_exists(s: str) -> str:
+    """展开 \\IfFileExists{path}{true-branch}{false-branch}，使 pandoc 能识别其中的图片。
+
+    Pandoc 不理解 LaTeX 的 \\IfFileExists 命令，会忽略整个结构导致图片丢失。
+    此函数在 DOCX 预处理阶段将其展开：
+    - 若对应的 PNG/PDF 文件在 ROOT 下存在，则替换为 true-branch 内容
+    - 否则替换为 false-branch 内容（占位文本）
+    """
+
+    def _read_brace_group(text: str, start: int) -> tuple[str, int] | None:
+        """读取从 start 开始的 {…} 括号组，返回 (内容, 结束位置后一位)。"""
+        if start >= len(text) or text[start] != "{":
+            return None
+        depth = 0
+        i = start
+        while i < len(text):
+            ch = text[i]
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[start + 1 : i], i + 1
+            i += 1
+        return None  # 未找到匹配括号
+
+    result = []
+    i = 0
+    pattern = r"\\IfFileExists\s*"
+    compiled = re.compile(pattern)
+
+    while i < len(s):
+        m = compiled.search(s, i)
+        if m is None:
+            result.append(s[i:])
+            break
+
+        # 追加命令前的内容
+        result.append(s[i : m.start()])
+
+        pos = m.end()
+        # 读取第一个参数：文件路径
+        r1 = _read_brace_group(s, pos)
+        if r1 is None:
+            result.append(s[m.start()])
+            i = m.start() + 1
+            continue
+        file_path_arg, pos = r1
+
+        # 读取第二个参数：true-branch
+        r2 = _read_brace_group(s, pos)
+        if r2 is None:
+            result.append(s[m.start()])
+            i = m.start() + 1
+            continue
+        true_branch, pos = r2
+
+        # 跳过可选空白
+        while pos < len(s) and s[pos] in (" ", "\t", "\n", "%"):
+            if s[pos] == "%":
+                # 跳过行注释
+                while pos < len(s) and s[pos] != "\n":
+                    pos += 1
+            else:
+                pos += 1
+
+        # 读取第三个参数：false-branch（可选）
+        r3 = _read_brace_group(s, pos)
+        if r3 is not None:
+            false_branch, pos = r3
+        else:
+            false_branch = ""
+
+        # 判断文件是否存在（优先检查 PNG，其次原路径）
+        fp = file_path_arg.strip()
+        png_fp = str(Path(fp).with_suffix(".png"))
+        if (ROOT / png_fp).exists() or (ROOT / fp).exists():
+            result.append(true_branch)
+        else:
+            result.append(false_branch)
+
+        i = pos
+
+    return "".join(result)
 
 
 def _prefer_png_for_docx_images(s: str) -> str:
@@ -1534,6 +1623,26 @@ def _make_run_text(ns: dict[str, str], text: str) -> ET.Element:
     w_r = _qn(ns, "w", "r")
     w_t = _qn(ns, "w", "t")
     r = ET.Element(w_r)
+    t = ET.SubElement(r, w_t)
+    t.text = text
+    return r
+
+
+def _make_equation_number_run(ns: dict[str, str], text: str) -> ET.Element:
+    """创建公式编号的 run，字体强制设为 Times New Roman。
+
+    公式编号如 (3-13) 需使用 Times New Roman 字体以符合排版规范。
+    """
+    w_r = _qn(ns, "w", "r")
+    w_rPr = _qn(ns, "w", "rPr")
+    w_rFonts = _qn(ns, "w", "rFonts")
+    w_t = _qn(ns, "w", "t")
+
+    r = ET.Element(w_r)
+    rPr = ET.SubElement(r, w_rPr)
+    fonts = ET.SubElement(rPr, w_rFonts)
+    fonts.set(_qn(ns, "w", "ascii"), "Times New Roman")
+    fonts.set(_qn(ns, "w", "hAnsi"), "Times New Roman")
     t = ET.SubElement(r, w_t)
     t.text = text
     return r
@@ -3250,9 +3359,9 @@ def _number_display_equations(
 
         _set_para_tabs_for_equation(ns, p, text_w)
 
-        # Append tab + number.
+        # Append tab + number（公式编号使用 Times New Roman 字体）.
         p.append(_make_run_tab(ns))
-        p.append(_make_run_text(ns, num_txt))
+        p.append(_make_equation_number_run(ns, num_txt))
 
 
 def _insert_toc_before_first_chapter(ns: dict[str, str], body: ET.Element) -> None:
