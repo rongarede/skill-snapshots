@@ -7,6 +7,13 @@
 
 set -e
 
+# ==================== 加载 Gemini 环境变量 ====================
+if [ -f "$HOME/.gemini/.env" ]; then
+    set -a
+    source "$HOME/.gemini/.env"
+    set +a
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="$(dirname "$SCRIPT_DIR")"
 SESSIONS_DIR="$SKILL_DIR/sessions"
@@ -25,8 +32,10 @@ MODEL=""
 APPROVAL_MODE="default"
 OUTPUT_FORMAT="text"
 SAVE_SESSION=true
-TIMEOUT_SECS=120
+TIMEOUT_SECS=600  # 默认 10 分钟
 EXTRA_ARGS=""
+ON_COMPLETE_HOOK=""
+NOTIFY_ON_COMPLETE=true
 
 # ==================== 显示帮助函数 ====================
 show_help() {
@@ -43,12 +52,14 @@ Gemini CLI Bridge - 非交互式调用 Gemini CLI
   --session, -s ID   续接会话
   --context, -c FILE 自定义上下文文件
   --model, -m MODEL  指定模型
-  --timeout, -t SECS 超时时间 (默认 120 秒)
+  --timeout, -t SECS 超时时间 (默认 600 秒 / 10 分钟)
   --yolo             自动批准所有操作
   --auto-edit        仅自动批准编辑操作
   --output-format    输出格式 (json|text|stream-json)
   --save             保存会话 (默认)
   --no-save          不保存会话
+  --on-complete CMD  完成后执行的回调命令
+  --no-notify        禁用完成通知
   --help, -h         显示帮助
 
 可用 agents:
@@ -111,6 +122,14 @@ while [[ $# -gt 0 ]]; do
             TIMEOUT_SECS="$2"
             shift 2
             ;;
+        --on-complete)
+            ON_COMPLETE_HOOK="$2"
+            shift 2
+            ;;
+        --no-notify)
+            NOTIFY_ON_COMPLETE=false
+            shift
+            ;;
         --help|-h)
             show_help
             exit 0
@@ -135,6 +154,52 @@ if [ ! -d "$PROJECT_DIR" ]; then
     echo '{"success": false, "error": "项目目录不存在: '"$PROJECT_DIR"'"}' | jq .
     exit 1
 fi
+
+# ==================== 完成通知函数 ====================
+send_notification() {
+    local title="$1"
+    local message="$2"
+    local success="$3"
+
+    if [ "$NOTIFY_ON_COMPLETE" != true ]; then
+        return
+    fi
+
+    # macOS 通知
+    if command -v terminal-notifier &> /dev/null; then
+        if [ "$success" = true ]; then
+            terminal-notifier -title "$title" -message "$message" -sound default -group "gemini-agent"
+        else
+            terminal-notifier -title "$title" -message "$message" -sound Basso -group "gemini-agent"
+        fi
+    elif command -v osascript &> /dev/null; then
+        osascript -e "display notification \"$message\" with title \"$title\""
+    fi
+}
+
+# ==================== Hook 回调函数 ====================
+execute_on_complete_hook() {
+    local session_id="$1"
+    local success="$2"
+    local task="$3"
+    local agent="$4"
+    local response_file="$5"
+
+    if [ -z "$ON_COMPLETE_HOOK" ]; then
+        return
+    fi
+
+    # 导出环境变量供 hook 使用
+    export GEMINI_SESSION_ID="$session_id"
+    export GEMINI_SUCCESS="$success"
+    export GEMINI_TASK="$task"
+    export GEMINI_AGENT="$agent"
+    export GEMINI_RESPONSE_FILE="$response_file"
+    export GEMINI_PROJECT_DIR="$PROJECT_DIR"
+
+    # 使用 bash -c 在子 shell 中执行，确保环境变量被展开
+    bash -c "$ON_COMPLETE_HOOK"
+}
 
 # ==================== 加载项目上下文 ====================
 PROJECT_CONTEXT=""
@@ -383,4 +448,32 @@ else
   "exit_code": $EXIT_CODE
 }
 EOJSON
+fi
+
+# ==================== 执行完成回调和通知 ====================
+# 保存响应到临时文件供 hook 使用
+RESPONSE_FILE=""
+if [ "$SAVE_SESSION" = true ]; then
+    RESPONSE_FILE="$SESSION_FILE"
+else
+    RESPONSE_FILE=$(mktemp)
+    echo "$RESPONSE" > "$RESPONSE_FILE"
+fi
+
+# 发送完成通知
+if [ "$SUCCESS" = true ]; then
+    NOTIFY_TITLE="Gemini 任务完成"
+    NOTIFY_MSG="[$AGENT] ${TASK:0:50}..."
+else
+    NOTIFY_TITLE="Gemini 任务失败"
+    NOTIFY_MSG="[$AGENT] $ERROR_MSG"
+fi
+send_notification "$NOTIFY_TITLE" "$NOTIFY_MSG" "$SUCCESS"
+
+# 执行 on-complete hook
+execute_on_complete_hook "$NEW_SESSION_ID" "$SUCCESS" "$TASK" "$AGENT" "$RESPONSE_FILE"
+
+# 清理非会话的临时响应文件
+if [ "$SAVE_SESSION" != true ] && [ -n "$RESPONSE_FILE" ]; then
+    rm -f "$RESPONSE_FILE"
 fi
