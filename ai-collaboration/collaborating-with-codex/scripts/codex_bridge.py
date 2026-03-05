@@ -300,6 +300,12 @@ def main():
     parser.add_argument("--instructions", default="", help="Direct system instructions string. Overrides --agent and --agent-file.")
     parser.add_argument("--instructions-file", default="", help="Path to custom instructions file. Overrides --agent.")
 
+    # Workspace 日志参数
+    parser.add_argument("--workspace", default="", help="Workspace root directory. Defaults to ~/agent-workspace. Set to 'none' to disable logging.")
+    parser.add_argument("--plan", default="", help="Plan file name (in workspace plans/ dir) for log association.")
+    parser.add_argument("--task-num", type=int, default=0, help="Task number within the plan (for log association).")
+    parser.add_argument("--project", default="", help="Project slug in workspace. Auto-detected from --cd if omitted.")
+
     # 进程管理参数
     parser.add_argument("--ps", action="store_true", help="List running Codex processes.")
     parser.add_argument("--kill", default="", help="Kill Codex process by PID or 'all' to kill all exec processes.")
@@ -422,6 +428,35 @@ def main():
 
     cmd += ['--', PROMPT]
 
+    # --- Workspace logging: task_start ---
+    _ws_log_path = None
+    _ws_start_time = None
+    if args.workspace != "none":
+        try:
+            from workspace_utils import (
+                get_workspace_root, resolve_project, get_project_dir,
+                now_iso, now_iso_full, write_log_event, slugify,
+            )
+            _ws_root = get_workspace_root(args.workspace or None)
+            if _ws_root.exists():
+                _ws_project = args.project or slugify(args.cd)
+                _ws_proj_dir = get_project_dir(_ws_root, _ws_project)
+                _ws_log_name = f"{now_iso()}_{args.SESSION_ID or 'new'}.jsonl"
+                _ws_log_path = _ws_proj_dir / "logs" / _ws_log_name
+                _ws_start_time = time.time()
+                write_log_event(_ws_log_path, {
+                    "ts": now_iso_full(),
+                    "event": "task_start",
+                    "plan": args.plan,
+                    "task_num": args.task_num,
+                    "prompt": PROMPT[:2000],
+                    "session_id": args.SESSION_ID or "",
+                    "working_dir": args.cd,
+                    "model": args.model,
+                })
+        except Exception as e:
+            sys.stderr.write(f"[workspace] Failed to write start log: {e}\n")
+
     # Execution Logic with model fallback
     FALLBACK_MODEL = "gpt-5.3-codex-spark"
     models_to_try = [args.model]
@@ -501,6 +536,22 @@ def main():
 
     if args.return_all_messages:
         result["all_messages"] = all_messages
+
+    # --- Workspace logging: task_end ---
+    if _ws_log_path is not None:
+        try:
+            from workspace_utils import write_log_event, now_iso_full
+            _duration = time.time() - _ws_start_time if _ws_start_time else 0
+            write_log_event(_ws_log_path, {
+                "ts": now_iso_full(),
+                "event": "task_end",
+                "session_id": thread_id or "",
+                "status": "success" if success else "failed",
+                "duration_s": round(_duration, 2),
+                "error": err_message[:500] if err_message else "",
+            })
+        except Exception as e:
+            sys.stderr.write(f"[workspace] Failed to write end log: {e}\n")
 
     print(json.dumps(result, indent=2, ensure_ascii=False))
 

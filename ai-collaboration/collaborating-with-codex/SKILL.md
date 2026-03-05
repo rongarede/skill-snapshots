@@ -147,3 +147,47 @@ python3 scripts/codex_monitor.py --session latest --json
 | `--watch` | 实时监控最新会话 |
 | `--messages N` | 显示消息数量（默认 20） |
 | `--json` | JSON 格式输出 |
+
+## Workspace Integration (NEW)
+
+Agent Workspace 提供任务交接与执行日志的持久化存储：
+
+### 目录结构
+
+```
+~/agent-workspace/
+├── config.json
+├── projects/{project-slug}/
+│   ├── plans/      # 任务计划文档
+│   ├── logs/       # 执行日志 (JSONL)
+│   └── artifacts/  # 中间产物
+└── templates/
+```
+
+### 使用方式
+
+```bash
+# 带 workspace 日志的 Codex 调用
+python3 scripts/codex_bridge.py --cd "/project" \
+  --project swun-thesis --plan ch3-expansion --task-num 1 \
+  --PROMPT "Your task"
+
+# 禁用日志
+python3 scripts/codex_bridge.py --cd "/project" --workspace none --PROMPT "Quick task"
+```
+
+### Workspace Manager
+
+```bash
+# 初始化项目
+python3 scripts/workspace_manager.py init --project my-project --path /path/to/project
+
+# 查看日志
+python3 scripts/workspace_manager.py logs --project swun-thesis --last 10
+
+# 查看 plan 执行状态
+python3 scripts/workspace_manager.py status --plan ch3-expansion
+
+# 清理 30 天前的文件
+python3 scripts/workspace_manager.py clean --project swun-thesis --before 30d
+```
