@@ -118,6 +118,171 @@ def _resolve_latex_refs(s: str, labels: dict[str, str]) -> str:
     return s
 
 
+def _convert_algorithms_to_plain_text(s: str) -> str:
+    """Convert \\begin{algorithm}...\\end{algorithm} to pandoc-friendly plain text.
+
+    Pandoc doesn't understand the algorithmic environment; it flattens the
+    content into a single unformatted paragraph.  This function rewrites each
+    algorithm block into structured paragraphs pandoc can render properly in
+    DOCX.
+    """
+    alg_re = re.compile(
+        r"\\begin\{algorithm\}[^\n]*\n(.*?)\\end\{algorithm\}",
+        re.DOTALL,
+    )
+    alg_counter = 0
+
+    def _parse_algorithmic_body(body: str) -> list[tuple[int, int, str]]:
+        """Return list of (line_number, indent_level, text)."""
+        lines: list[tuple[int, int, str]] = []
+        indent = 0
+        num = 0
+
+        # Strip \COMMENT{...} → ▷ ...
+        def _strip_comment(t: str) -> str:
+            return re.sub(r"\\COMMENT\{([^}]*)\}", r"  ▷ \1", t)
+
+        for raw in body.strip().splitlines():
+            raw = raw.strip()
+            if not raw:
+                continue
+
+            # \REQUIRE / \ENSURE — not numbered
+            m = re.match(r"\\REQUIRE\s+(.*)", raw)
+            if m:
+                lines.append((0, 0, "\\textbf{输入：}" + _strip_comment(m.group(1).strip())))
+                continue
+            m = re.match(r"\\ENSURE\s+(.*)", raw)
+            if m:
+                lines.append((0, 0, "\\textbf{输出：}" + _strip_comment(m.group(1).strip())))
+                continue
+
+            # \ENDIF / \ENDFOR / \ENDWHILE — decrease indent, numbered
+            if re.match(r"\\ENDIF\b", raw):
+                indent = max(0, indent - 1)
+                num += 1
+                lines.append((num, indent, "\\textbf{end if}"))
+                continue
+            if re.match(r"\\ENDFOR\b", raw):
+                indent = max(0, indent - 1)
+                num += 1
+                lines.append((num, indent, "\\textbf{end for}"))
+                continue
+            if re.match(r"\\ENDWHILE\b", raw):
+                indent = max(0, indent - 1)
+                num += 1
+                lines.append((num, indent, "\\textbf{end while}"))
+                continue
+
+            # \ELSIF{cond} — decrease then increase
+            m = re.match(r"\\ELSIF\{(.*)\}", raw)
+            if m:
+                indent = max(0, indent - 1)
+                num += 1
+                lines.append((num, indent, "\\textbf{else if} " + m.group(1).strip() + " \\textbf{then}"))
+                indent += 1
+                continue
+
+            # \ELSE — decrease then increase
+            if re.match(r"\\ELSE\b", raw):
+                indent = max(0, indent - 1)
+                num += 1
+                lines.append((num, indent, "\\textbf{else}"))
+                indent += 1
+                continue
+
+            # \IF{cond} — numbered, then increase indent
+            m = re.match(r"\\IF\{(.*)\}", raw)
+            if m:
+                num += 1
+                lines.append((num, indent, "\\textbf{if} " + m.group(1).strip() + " \\textbf{then}"))
+                indent += 1
+                continue
+
+            # \FOR{cond}
+            m = re.match(r"\\FOR\{(.*)\}", raw)
+            if m:
+                num += 1
+                lines.append((num, indent, "\\textbf{for} " + m.group(1).strip() + " \\textbf{do}"))
+                indent += 1
+                continue
+
+            # \WHILE{cond}
+            m = re.match(r"\\WHILE\{(.*)\}", raw)
+            if m:
+                num += 1
+                lines.append((num, indent, "\\textbf{while} " + m.group(1).strip() + " \\textbf{do}"))
+                indent += 1
+                continue
+
+            # \RETURN text
+            m = re.match(r"\\RETURN\s+(.*)", raw)
+            if m:
+                num += 1
+                lines.append((num, indent, "\\textbf{return} " + _strip_comment(m.group(1).strip())))
+                continue
+
+            # \STATE text
+            m = re.match(r"\\STATE\s+(.*)", raw)
+            if m:
+                num += 1
+                lines.append((num, indent, _strip_comment(m.group(1).strip())))
+                continue
+
+        return lines
+
+    def _repl_algorithm(m: re.Match) -> str:
+        nonlocal alg_counter
+        alg_counter += 1
+        block = m.group(1)
+
+        # Extract caption
+        cap_m = re.search(r"\\caption\{([^}]*)\}", block)
+        caption = cap_m.group(1) if cap_m else f"算法 {alg_counter}"
+
+        # Extract label
+        lab_m = re.search(r"\\label\{([^}]*)\}", block)
+        label_str = f"\\label{{{lab_m.group(1)}}}" if lab_m else ""
+
+        # Extract algorithmic body
+        alg_m = re.search(
+            r"\\begin\{algorithmic\}[^\n]*\n(.*?)\\end\{algorithmic\}",
+            block, re.DOTALL
+        )
+        if not alg_m:
+            return m.group(0)  # Can't parse, leave as-is
+
+        parsed = _parse_algorithmic_body(alg_m.group(1))
+
+        # Build output: centered title + rule + numbered lines + rule
+        out = []
+        out.append("")
+        out.append(f"\\begin{{center}}")
+        out.append(f"\\textbf{{算法 {alg_counter}}} {caption}{label_str}")
+        out.append(f"\\end{{center}}")
+        out.append("")
+        out.append("\\noindent\\rule{\\textwidth}{0.4pt}")
+        out.append("")
+
+        for num, indent, text in parsed:
+            indent_str = "\\quad " * indent
+            if num == 0:
+                # Input/Output lines — no number
+                out.append(f"\\noindent {indent_str}{text}")
+                out.append("")
+            else:
+                out.append(f"\\noindent {indent_str}\\textrm{{{num}:}} {text}")
+                out.append("")
+
+        out.append("")
+        out.append("\\noindent\\rule{\\textwidth}{0.4pt}")
+        out.append("")
+
+        return "\n".join(out)
+
+    return alg_re.sub(_repl_algorithm, s)
+
+
 def _preprocess_latex(s: str) -> str:
     # Pandoc LaTeX reader doesn't recognize \\< escape sequence.
     s = s.replace("\\<", "<")
@@ -154,6 +319,9 @@ def _preprocess_latex(s: str) -> str:
     labels = _parse_aux_labels(aux_path)
     if labels:
         s = _resolve_latex_refs(s, labels)
+
+    # --- Convert algorithm environments to pandoc-friendly plain text ---
+    s = _convert_algorithms_to_plain_text(s)
 
     # --- Flatten subfigures so pandoc counts only main figure captions ---
     s = _flatten_subfigures(s)
@@ -1318,6 +1486,68 @@ def _make_run_text(ns: dict[str, str], text: str) -> ET.Element:
     return r
 
 
+def _make_caption_run(ns: dict[str, str], text: str) -> ET.Element:
+    """Create a bold, 10.5pt, Times New Roman run for figure/table captions.
+
+    Matches the reference thesis caption run properties:
+      <w:rPr>
+        <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>
+        <w:b/><w:sz w:val="21"/><w:szCs w:val="21"/>
+      </w:rPr>
+    """
+    w_r = _qn(ns, "w", "r")
+    w_rPr = _qn(ns, "w", "rPr")
+    w_rFonts = _qn(ns, "w", "rFonts")
+    w_b = _qn(ns, "w", "b")
+    w_sz = _qn(ns, "w", "sz")
+    w_szCs = _qn(ns, "w", "szCs")
+    w_t = _qn(ns, "w", "t")
+    w_val = _qn(ns, "w", "val")
+
+    r = ET.Element(w_r)
+    rPr = ET.SubElement(r, w_rPr)
+    fonts = ET.SubElement(rPr, w_rFonts)
+    fonts.set(_qn(ns, "w", "ascii"), "Times New Roman")
+    fonts.set(_qn(ns, "w", "hAnsi"), "Times New Roman")
+    ET.SubElement(rPr, w_b)
+    sz = ET.SubElement(rPr, w_sz)
+    sz.set(w_val, "21")
+    szCs = ET.SubElement(rPr, w_szCs)
+    szCs.set(w_val, "21")
+    t = ET.SubElement(r, w_t)
+    t.text = text
+    if text and (text[0] == " " or text[-1] == " "):
+        t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+    return r
+
+
+def _set_para_single_line_spacing(ns: dict[str, str], p: ET.Element) -> None:
+    """Set paragraph line spacing to single (240 twips, lineRule=auto)."""
+    w_spacing = _qn(ns, "w", "spacing")
+    pPr = _ensure_ppr(ns, p)
+    sp = pPr.find(w_spacing)
+    if sp is None:
+        sp = ET.SubElement(pPr, w_spacing)
+    sp.set(_qn(ns, "w", "line"), "240")
+    sp.set(_qn(ns, "w", "lineRule"), "auto")
+
+
+def _clear_para_first_indent(ns: dict[str, str], p: ET.Element) -> None:
+    """Remove first-line indent from paragraph (override Normal style indent)."""
+    w_ind = _qn(ns, "w", "ind")
+    pPr = _ensure_ppr(ns, p)
+    ind = pPr.find(w_ind)
+    if ind is None:
+        ind = ET.SubElement(pPr, w_ind)
+    ind.set(_qn(ns, "w", "firstLine"), "0")
+    ind.set(_qn(ns, "w", "firstLineChars"), "0")
+    # Also remove hanging indent if present
+    for attr in ("hanging", "hangingChars"):
+        key = _qn(ns, "w", attr)
+        if key in ind.attrib:
+            del ind.attrib[key]
+
+
 def _clear_paragraph_runs_and_text(ns: dict[str, str], p: ET.Element) -> None:
     """Remove existing w:r children (keeps math, drawings, etc)."""
     w_r = _qn(ns, "w", "r")
@@ -1646,6 +1876,13 @@ def _number_paragraph_headings_in_main_body(ns: dict[str, str], body: ET.Element
             continue
         seq += 1
         _set_paragraph_text(ns, el, f"({seq}) {base}")
+        # Demote from Heading5 to Normal body text style so the paragraph
+        # renders with the same formatting as surrounding body paragraphs.
+        pPr = el.find(_qn(ns, "w", "pPr"))
+        if pPr is not None:
+            ps = pPr.find(_qn(ns, "w", "pStyle"))
+            if ps is not None:
+                ps.set(_qn(ns, "w", "val"), "a")
         touched += 1
 
     return touched
@@ -2108,7 +2345,7 @@ def _is_table_caption_para(ns: dict[str, str], p: ET.Element) -> bool:
     txt = _p_text(ns, p).strip()
     if style == "TableCaption":
         return True
-    return bool(re.match(r"^表[\s\xa0]*\d+(?:[\-\.．]\d+)?", txt))
+    return bool(re.match(r"^(表[\s\xa0]*\d+(?:[\-\.．]\d+)?|Table\s+\d+[\-\.－]\d+)", txt, re.IGNORECASE))
 
 
 def _find_caption_idx_near_table(
@@ -2393,12 +2630,50 @@ def _set_tbl_caption_value(ns: dict[str, str], tbl: ET.Element, cn_title: str) -
 
 
 def _make_caption_para(ns: dict[str, str], style: str, text: str, keep_next: bool) -> ET.Element:
-    p = _make_empty_para(ns, style)
+    """Build a caption paragraph matching the SWUN reference thesis format.
+
+    Properties applied (matching 高春琴.docx baseline):
+      - Style: Normal ("a") — ImageCaption/TableCaption don't exist in template
+      - Alignment: center
+      - Line spacing: single (240 twips, auto)
+      - First-line indent: 0 (override Normal's 480 twip indent)
+      - Run formatting: bold, Times New Roman, 10.5pt (sz=21)
+      - Keep-lines and optionally keep-next for page break control
+    """
+    # Always use Normal ("a") style — pandoc-generated ImageCaption/TableCaption
+    # styles are not present in the official SWUN template and render as unstyled.
+    p = _make_empty_para(ns, "a")
     _set_para_center(ns, p)
+    _set_para_single_line_spacing(ns, p)
+    _clear_para_first_indent(ns, p)
     _set_para_keep_lines(ns, p)
     if keep_next:
         _set_para_keep_next(ns, p)
-    _set_paragraph_text(ns, p, text)
+    # Set paragraph-level rPr (paragraph mark / default run properties)
+    # to match the reference thesis format: bold, Times New Roman, 10.5pt
+    w_rPr = _qn(ns, "w", "rPr")
+    w_rFonts = _qn(ns, "w", "rFonts")
+    w_b = _qn(ns, "w", "b")
+    w_sz = _qn(ns, "w", "sz")
+    w_szCs = _qn(ns, "w", "szCs")
+    w_val = _qn(ns, "w", "val")
+    pPr = _ensure_ppr(ns, p)
+    prRPr = pPr.find(w_rPr)
+    if prRPr is None:
+        prRPr = ET.SubElement(pPr, w_rPr)
+    # Clear existing and set fresh
+    prRPr.clear()
+    fonts = ET.SubElement(prRPr, w_rFonts)
+    fonts.set(_qn(ns, "w", "ascii"), "Times New Roman")
+    fonts.set(_qn(ns, "w", "hAnsi"), "Times New Roman")
+    ET.SubElement(prRPr, w_b)
+    sz = ET.SubElement(prRPr, w_sz)
+    sz.set(w_val, "21")
+    szCs = ET.SubElement(prRPr, w_szCs)
+    szCs.set(w_val, "21")
+    # Use caption-specific run with bold + Times New Roman + 10.5pt
+    _clear_paragraph_runs_and_text(ns, p)
+    p.append(_make_caption_run(ns, text))
     return p
 
 
@@ -2456,7 +2731,7 @@ def _inject_captions_from_meta(
                 else ""
             )
             lines = [cn_line] + ([en_line] if en_line else [])
-            style = "ImageCaption"
+            style = "a"  # Normal — template has no ImageCaption style
             insert_after = True
         else:
             cn_line = f"表{chapter_no}-{seq}" + (f" {cn_title}" if cn_title else "")
@@ -2466,7 +2741,7 @@ def _inject_captions_from_meta(
                 else ""
             )
             lines = [cn_line] + ([en_line] if en_line else [])
-            style = "TableCaption"
+            style = "a"  # Normal — template has no TableCaption style
             insert_after = False
             if block.tag == _qn(ns, "w", "tbl"):
                 _set_tbl_caption_value(ns, block, cn_title)
@@ -2923,12 +3198,18 @@ def _insert_toc_before_first_chapter(ns: dict[str, str], body: ET.Element) -> No
     children = list(body)
     first_h1_idx = None
     unnumbered = {"目录", "摘要", "Abstract"}
+    # Insert TOC before "摘要" heading so TOC is inside the Roman-numbered
+    # front-matter section (目录在前, 摘要在后).  Fall back to first numbered
+    # chapter if 摘要 heading is not found.
     for i, el in enumerate(children):
         if el.tag != w_p:
             continue
         if _p_style(ns, el) == "1":
-            # Insert TOC before the first *numbered* chapter, not before abstract/TOC headings.
-            if _p_text(ns, el).strip() in unnumbered:
+            txt = _p_text(ns, el).strip()
+            if txt == "摘要":
+                first_h1_idx = i
+                break
+            if txt in unnumbered:
                 continue
             first_h1_idx = i
             break
@@ -3016,8 +3297,8 @@ def _ensure_indent_for_body_paragraphs(ns: dict[str, str], body: ET.Element) -> 
     w_hangingChars = _qn(ns, "w", "hangingChars")
 
     # Pandoc + template mapping may emit Normal as styleId "a".
-    # Heading5 (\paragraph) also gets first-line indent to match PDF layout.
-    body_styles = {"BodyText", "FirstParagraph", "Compact", "a", "5", "Heading5"}
+    # Heading5 (\paragraph) is demoted to Normal ("a") before this runs.
+    body_styles = {"BodyText", "FirstParagraph", "Compact", "a"}
     # Heading2/3 (二级/三级子标题) must be flush-left; override numbering indent.
     flush_left_styles = {"Heading2", "2", "Heading3", "3"}
 
@@ -3199,11 +3480,20 @@ def _inject_heading_numbering(numbering_xml: bytes) -> bytes:
         if absn.get(f"{{{w_uri}}}abstractNumId") == _HEADING_ABSTRACT_NUM_ID:
             return numbering_xml  # Already injected
 
-    # Parse and inject abstractNum
+    # Parse abstractNum element
     absn_el = ET.fromstring(_HEADING_ABSTRACT_NUM_XML)
-    root.append(absn_el)
 
-    # Add num entry pointing to abstractNum
+    # Word requires: all abstractNum BEFORE all num.
+    # Find the index of the first w:num element and insert abstractNum before it.
+    w_num_tag = f"{{{w_uri}}}num"
+    insert_idx = len(root)  # default: end
+    for i, child in enumerate(root):
+        if child.tag == w_num_tag:
+            insert_idx = i
+            break
+    root.insert(insert_idx, absn_el)
+
+    # Append num entry at the end (after all other num elements)
     num_el = ET.SubElement(root, f"{{{w_uri}}}num")
     num_el.set(f"{{{w_uri}}}numId", _HEADING_NUM_ID)
     absn_ref = ET.SubElement(num_el, f"{{{w_uri}}}abstractNumId")
@@ -3304,6 +3594,7 @@ def _normalize_unknown_pstyles(
         "Compact",
         "ImageCaption",
         "CaptionedFigure",
+        "TableCaption",
         "Bibliography",
         "Caption",
     }
@@ -3350,25 +3641,9 @@ def _remove_docgrid_lines_type(ns: dict[str, str], body: ET.Element) -> None:
 # WPS Office embeds complex textbox drawing elements that render as phantom
 # "X" characters in LibreOffice.
 # ---------------------------------------------------------------------------
-_FOOTER_ROMAN_XML = (
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
-    '<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
-    ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-    '<w:p><w:pPr><w:jc w:val="center"/></w:pPr>'
-    '<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>'
-    '<w:sz w:val="18"/></w:rPr><w:fldChar w:fldCharType="begin"/></w:r>'
-    '<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>'
-    '<w:sz w:val="18"/></w:rPr><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r>'
-    '<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>'
-    '<w:sz w:val="18"/></w:rPr><w:fldChar w:fldCharType="separate"/></w:r>'
-    '<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>'
-    '<w:sz w:val="18"/></w:rPr><w:t>i</w:t></w:r>'
-    '<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>'
-    '<w:sz w:val="18"/></w:rPr><w:fldChar w:fldCharType="end"/></w:r>'
-    '</w:p></w:ftr>'
-)
 
-_FOOTER_ARABIC_XML = (
+# 单一 PAGE 字段 footer —— 实际显示格式由 sectPr 的 pgNumType 控制
+_FOOTER_PAGE_XML = (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
     '<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
     ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
@@ -3393,29 +3668,135 @@ _FOOTER_EMPTY_XML = (
 )
 
 
-def _replace_wps_footers(file_data: dict[str, bytes]) -> None:
-    """Replace all footer*.xml with clean PAGE field footers (no WPS artifacts)."""
-    footer_map: dict[str, bytes] = {}
+def _replace_wps_footers(
+    file_data: dict[str, bytes],
+    doc_xml: bytes,
+) -> None:
+    """Replace footer*.xml with clean PAGE field footers based on actual sectPr references.
+
+    封面 section 的 default footer 写空（不显示页码），
+    前置部分（摘要/目录）和正文 section 的 default footer 写 PAGE 字段。
+    pgNumType（lowerRoman / decimal）已在 sectPr 中设定，控制显示格式。
+
+    若封面和正文共享同一 default footer rId，则自动拆分：
+    把封面 sectPr 的 default footerReference 指向一个空闲 footer 文件。
+    """
+    footer_files: list[str] = []
     for name in list(file_data):
         if re.match(r"word/footer\d+\.xml$", name):
-            footer_map[name] = file_data[name]
-    if not footer_map:
+            footer_files.append(name)
+    if not footer_files:
         return
 
-    # 根据 sectPr 中 footerReference 映射：
-    # footer3 = Roman (摘要区), footer5 = Arabic (正文区), 其他 = empty
-    for fname in footer_map:
-        num = re.search(r"(\d+)", fname)
-        if num:
-            n = int(num.group(1))
-            if n == 3:
-                file_data[fname] = _FOOTER_ROMAN_XML.encode("utf-8")
-            elif n == 5:
-                file_data[fname] = _FOOTER_ARABIC_XML.encode("utf-8")
-            else:
-                file_data[fname] = _FOOTER_EMPTY_XML.encode("utf-8")
+    # --- 解析 document.xml 获取 sectPr → footerReference 映射 ---
+    dns = _collect_ns(doc_xml)
+    _register_ns(dns)
+    droot = ET.fromstring(doc_xml)
+    w_sectPr_tag = _qn(dns, "w", "sectPr")
+    w_footerRef_tag = _qn(dns, "w", "footerReference")
+    w_type_attr = _qn(dns, "w", "type")
+    w_pgNumType_tag = _qn(dns, "w", "pgNumType")
+    w_fmt_attr = _qn(dns, "w", "fmt")
+    r_id_attr = _qn(dns, "r", "id") if "r" in dns else (
+        "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
+    )
 
-    print(f"  [footer] Replaced {len(footer_map)} footer file(s) with clean XML")
+    all_sectPr = droot.findall(f".//{w_sectPr_tag}")
+
+    # 解析 rels 映射 rId → footer 文件名
+    rels_bytes = file_data.get("word/_rels/document.xml.rels", b"")
+    rid_to_footer: dict[str, str] = {}  # rId6 -> footer1.xml
+    if rels_bytes:
+        rns = _collect_ns(rels_bytes)
+        _register_ns(rns)
+        rroot = ET.fromstring(rels_bytes)
+        for rel in rroot:
+            target = rel.get("Target", "")
+            rid = rel.get("Id", "")
+            if re.match(r"footer\d+\.xml$", target):
+                rid_to_footer[rid] = target
+
+    # 收集每个 section 的 default footer rId 和 pgNumType fmt
+    sect_info: list[dict[str, str | None]] = []
+    for sp in all_sectPr:
+        default_rid = None
+        for fr in sp.findall(w_footerRef_tag):
+            if fr.get(w_type_attr) == "default":
+                default_rid = fr.get(r_id_attr)
+                break
+        pgnum = sp.find(w_pgNumType_tag)
+        fmt = pgnum.get(w_fmt_attr) if pgnum is not None else None
+        sect_info.append({"default_rid": default_rid, "fmt": fmt})
+
+    # 确定哪些 footer 文件需要 PAGE 字段，哪些需要空
+    # 规则：section 0（封面）的 default footer → 空
+    #        其余 section 的 default footer → PAGE 字段
+    page_footer_files: set[str] = set()  # 需要 PAGE 字段的 footer 文件
+    empty_footer_files: set[str] = set()  # 需要空的 footer 文件
+
+    # 找出非封面 section 使用的 default footer
+    for i, info in enumerate(sect_info):
+        rid = info["default_rid"]
+        if rid and rid in rid_to_footer:
+            fname = f"word/{rid_to_footer[rid]}"
+            if i == 0:
+                empty_footer_files.add(fname)
+            else:
+                page_footer_files.add(fname)
+
+    # 处理冲突：同一 footer 文件既需要空又需要 PAGE
+    conflict = page_footer_files & empty_footer_files
+    if conflict and len(sect_info) > 0:
+        # 封面 section 需要拆分到另一个 footer 文件
+        # 找一个没有被任何 section default 引用的空闲 footer 文件
+        used_footers = {f"word/{rid_to_footer[info['default_rid']]}"
+                        for info in sect_info
+                        if info["default_rid"] and info["default_rid"] in rid_to_footer}
+        free_footer = None
+        for ff in sorted(footer_files):
+            if ff not in used_footers:
+                free_footer = ff
+                break
+
+        if free_footer is not None:
+            # 把封面 section 的 default footerReference 指向这个空闲 footer
+            # 需要找到空闲 footer 对应的 rId
+            free_base = free_footer.replace("word/", "")
+            free_rid = None
+            for rid, target in rid_to_footer.items():
+                if target == free_base:
+                    free_rid = rid
+                    break
+
+            if free_rid is not None:
+                # 修改 document.xml 中封面 section 的 default footer rId
+                cover_sp = all_sectPr[0]
+                for fr in cover_sp.findall(w_footerRef_tag):
+                    if fr.get(w_type_attr) == "default":
+                        fr.set(r_id_attr, free_rid)
+                        break
+                # 更新映射
+                empty_footer_files.discard(next(iter(conflict)))
+                empty_footer_files.add(free_footer)
+                page_footer_files.discard(free_footer)
+
+                # 序列化修改后的 document.xml 回 file_data
+                file_data["word/document.xml"] = ET.tostring(
+                    droot, encoding="utf-8", xml_declaration=True
+                )
+                print(f"  [footer] Cover section default footer reassigned to {free_base} ({free_rid})")
+
+    # 写入 footer 文件内容
+    replaced = 0
+    for fname in footer_files:
+        if fname in page_footer_files:
+            file_data[fname] = _FOOTER_PAGE_XML.encode("utf-8")
+        else:
+            # 所有非 PAGE 的 footer 文件都写空（包括 first/even 类型、封面 default、未使用的）
+            file_data[fname] = _FOOTER_EMPTY_XML.encode("utf-8")
+        replaced += 1
+
+    print(f"  [footer] Replaced {replaced} footer file(s) with clean XML")
 
 
 # ---------------------------------------------------------------------------
@@ -3528,12 +3909,12 @@ def _postprocess_docx(
         _insert_toc_before_first_chapter(doc_ns, body)
         _add_page_breaks_before_h1(doc_ns, body)
         _apply_three_line_tables(doc_ns, root, body, table_style_id, latex_col_ratios=latex_col_ratios)
+        _number_paragraph_headings_in_main_body(doc_ns, body)
         _ensure_indent_for_body_paragraphs(doc_ns, body)
         _ensure_hanging_indent_for_bibliography(doc_ns, body)
         _inject_captions_from_meta(doc_ns, body, caption_meta)
         _fix_ref_dot_to_hyphen(doc_ns, body)
         _strip_anchor_hyperlinks_in_main_body(doc_ns, body, hyperlink_style_ids)
-        _number_paragraph_headings_in_main_body(doc_ns, body)
         _number_display_equations(doc_ns, root, body, display_math_flags)
         if known_styles:
             _normalize_unknown_pstyles(doc_ns, body, known_styles)
@@ -3565,8 +3946,15 @@ def _postprocess_docx(
         for name in files:
             file_data[name] = zin.read(name)
 
-        # Replace WPS-legacy footer XML with clean PAGE field footers
-        _replace_wps_footers(file_data)
+        # Replace WPS-legacy footer XML with clean PAGE field footers.
+        # Pass modified document.xml so footer mapping is based on actual sectPr.
+        # If cover section shares the same default footer rId as body sections,
+        # _replace_wps_footers reassigns cover's footerReference and updates
+        # file_data["word/document.xml"], which we pick up below.
+        file_data["word/document.xml"] = new_doc_xml
+        _replace_wps_footers(file_data, new_doc_xml)
+        # Pick up potentially updated document.xml from footer reassignment
+        new_doc_xml = file_data["word/document.xml"]
 
         # Write a new docx, copying everything else verbatim.
         tmp_out = output_docx.with_suffix(".docx.tmp")

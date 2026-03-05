@@ -59,7 +59,8 @@ Generate a `.docx` from a SWUN thesis LaTeX project while treating the official 
    - writes table metadata (`w:tblCaption`) from normalized Chinese table titles for stable downstream checks
    - normalizes unknown paragraph styles produced by pandoc back to template `Normal` (prevents template/style drift)
    - splits sections for page numbering:
-     - "摘要" + "Abstract" is a separate major chapter block with Roman numeral footer page numbers
+     - front matter (目录 + 摘要 + Abstract) is a separate section with Roman numeral footer page numbers
+     - TOC is inserted before 摘要 (目录在前, 摘要在后) inside the Roman-numbered section
      - the rest of the thesis uses Arabic numeral footer page numbers starting from 1
    - resolves abstract pagination conflicts:
      - removes stale `w:pageBreakBefore` from abstract anchor paragraphs before inserting Heading 1 ("摘要"/"Abstract")

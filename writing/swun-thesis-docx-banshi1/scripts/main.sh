@@ -231,21 +231,29 @@ def main() -> int:
                 fail(f"data table #{table_count} caption above format invalid: {cap_txt_1}")
             _idx_above_2, p_above_2 = above2
             cap_txt_2 = p_text(ns, p_above_2)
-            if cap_style_1 != "TableCaption" or p_style(ns, p_above_2) != "TableCaption":
-                fail(f"data table #{table_count} caption above is not TableCaption style")
+            # Accept both TableCaption (legacy) and Normal/"a" (current) caption style
+            _valid_cap_styles = {"TableCaption", "a"}
+            if cap_style_1 not in _valid_cap_styles or p_style(ns, p_above_2) not in _valid_cap_styles:
+                fail(f"data table #{table_count} caption above style invalid: {cap_style_1}")
             m = cap_re.match(cap_txt_2)
             if not m:
                 fail(f"data table #{table_count} caption format invalid: {cap_txt_2}")
         else:
-            if cap_style_1 != "TableCaption":
-                fail(f"data table #{table_count} caption above is not TableCaption style")
+            _valid_cap_styles = {"TableCaption", "a"}
+            if cap_style_1 not in _valid_cap_styles:
+                fail(f"data table #{table_count} caption above style invalid: {cap_style_1}")
 
         cap_nums.append((int(m.group(1)), int(m.group(2))))
 
         below = first_non_empty_para(children, i, 1, ns)
         if below is not None:
             _idx_below, p_below = below
-            if p_style(ns, p_below) == "TableCaption":
+            _below_style = p_style(ns, p_below)
+            _below_txt = p_text(ns, p_below).strip()
+            # Detect table caption below table by style or text pattern
+            _is_tbl_cap_below = (_below_style == "TableCaption" or
+                                 bool(re.match(r"^(表[\s\xa0]*\d+[\-\.．]\d+|Table\s+\d+[\-\.．]\d+)", _below_txt, re.IGNORECASE)))
+            if _is_tbl_cap_below:
                 fail(f"data table #{table_count} still has caption below table")
 
     allow_empty_tables = os.environ.get("SWUN_TABLE_VERIFY_ALLOW_EMPTY", "1").strip().lower() not in {
