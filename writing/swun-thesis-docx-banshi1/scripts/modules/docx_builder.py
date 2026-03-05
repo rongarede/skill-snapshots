@@ -3642,6 +3642,108 @@ def _bind_heading_styles_to_numbering(styles_xml: bytes) -> bytes:
     return ET.tostring(sroot, encoding="utf-8", xml_declaration=True)
 
 
+def _align_styles_to_reference(styles_xml: bytes) -> bytes:
+    """Align key styles in styles.xml to the SWUN reference thesis."""
+    if not styles_xml:
+        return styles_xml
+    sns = _collect_ns(styles_xml)
+    if "w" not in sns:
+        return styles_xml
+    _register_ns(sns)
+    sroot = ET.fromstring(styles_xml)
+
+    w_style = _qn(sns, "w", "style")
+    w_styleId = _qn(sns, "w", "styleId")
+    w_pPr = _qn(sns, "w", "pPr")
+    w_rPr = _qn(sns, "w", "rPr")
+    w_ind = _qn(sns, "w", "ind")
+    w_jc = _qn(sns, "w", "jc")
+    w_spacing = _qn(sns, "w", "spacing")
+    w_widowControl = _qn(sns, "w", "widowControl")
+    w_outlineLvl = _qn(sns, "w", "outlineLvl")
+    w_b = _qn(sns, "w", "b")
+    w_kern = _qn(sns, "w", "kern")
+    w_sz = _qn(sns, "w", "sz")
+    w_szCs = _qn(sns, "w", "szCs")
+    w_val = _qn(sns, "w", "val")
+
+    def _ensure(parent: ET.Element, tag: str) -> ET.Element:
+        el = parent.find(tag)
+        if el is None:
+            el = ET.SubElement(parent, tag)
+        return el
+
+    updated: list[str] = []
+    for st in sroot.findall(w_style):
+        sid = st.get(w_styleId, "")
+
+        # 1) Normal style (styleId='1')
+        if sid == "1":
+            pPr = _ensure(st, w_pPr)
+            ind = _ensure(pPr, w_ind)
+            ind.set(_qn(sns, "w", "firstLine"), "480")
+            ind.set(_qn(sns, "w", "firstLineChars"), "200")
+
+            jc = _ensure(pPr, w_jc)
+            jc.set(w_val, "both")
+
+            spacing = _ensure(pPr, w_spacing)
+            spacing.set(_qn(sns, "w", "line"), "360")
+            spacing.set(_qn(sns, "w", "lineRule"), "auto")
+            for attr in ("before", "beforeLines", "beforeAutospacing", "after", "afterLines", "afterAutospacing"):
+                q_attr = _qn(sns, "w", attr)
+                if q_attr in spacing.attrib:
+                    del spacing.attrib[q_attr]
+
+            widow = _ensure(pPr, w_widowControl)
+            widow.set(w_val, "0")
+
+            rPr = _ensure(st, w_rPr)
+            for b in list(rPr.findall(w_b)):
+                rPr.remove(b)
+
+            kern = _ensure(rPr, w_kern)
+            kern.set(w_val, "2")
+
+            sz = _ensure(rPr, w_sz)
+            sz.set(w_val, "24")
+            szCs = _ensure(rPr, w_szCs)
+            szCs.set(w_val, "24")
+
+            updated.append("Normal(styleId=1)")
+
+        # 2) Heading 3 style (styleId='5')
+        elif sid == "5":
+            pPr = _ensure(st, w_pPr)
+            ind = _ensure(pPr, w_ind)
+            ind.set(_qn(sns, "w", "firstLine"), "482")
+            fl_chars = _qn(sns, "w", "firstLineChars")
+            if fl_chars in ind.attrib:
+                del ind.attrib[fl_chars]
+
+            outline = _ensure(pPr, w_outlineLvl)
+            outline.set(w_val, "2")
+
+            spacing = _ensure(pPr, w_spacing)
+            spacing.set(_qn(sns, "w", "before"), "260")
+            spacing.set(_qn(sns, "w", "after"), "260")
+            spacing.set(_qn(sns, "w", "line"), "415")
+
+            rPr = st.find(w_rPr)
+            if rPr is not None:
+                for node in list(rPr.findall(w_sz)):
+                    rPr.remove(node)
+                for node in list(rPr.findall(w_szCs)):
+                    rPr.remove(node)
+
+            updated.append("Heading3(styleId=5)")
+
+    if updated:
+        print(f"  [styles] Aligned reference styles: {', '.join(updated)}")
+
+    return ET.tostring(sroot, encoding="utf-8", xml_declaration=True)
+
+
 def _collect_style_ids(styles_xml: bytes) -> set[str]:
     ns = _collect_ns(styles_xml)
     if "w" not in ns:
@@ -3880,11 +3982,10 @@ def _replace_wps_footers(
 
 
 # ---------------------------------------------------------------------------
-# Round 6 fix: Change Hyperlink character style to black, no underline.
-# Prevents DOI/URL text from rendering as blue underlined links.
+# Round 6 fix: Normalize Hyperlink character style to standard blue + underline.
 # ---------------------------------------------------------------------------
-def _fix_hyperlink_style_to_black(styles_xml: bytes) -> bytes:
-    """Modify Hyperlink char style: color=000000, remove underline, remove textFill."""
+def _fix_hyperlink_style(styles_xml: bytes) -> bytes:
+    """Modify Hyperlink char style: color=0563C1, underline=single, remove textFill."""
     if not styles_xml:
         return styles_xml
     sns = _collect_ns(styles_xml)
@@ -3916,20 +4017,23 @@ def _fix_hyperlink_style_to_black(styles_xml: bytes) -> bytes:
         if rPr is None:
             continue
 
-        # 设为黑色
+        # 设为 Word 默认链接蓝色
         color = rPr.find(w_color)
         if color is not None:
-            color.set(w_val, "000000")
+            color.set(w_val, "0563C1")
             if w_themeColor in color.attrib:
                 del color.attrib[w_themeColor]
         else:
             c = ET.SubElement(rPr, w_color)
-            c.set(w_val, "000000")
+            c.set(w_val, "0563C1")
 
-        # 移除下划线
+        # 添加单下划线
         u = rPr.find(w_u)
         if u is not None:
-            rPr.remove(u)
+            u.set(w_val, "single")
+        else:
+            u = ET.SubElement(rPr, w_u)
+            u.set(w_val, "single")
 
         # 移除 w14:textFill
         tf = rPr.find(w14_textFill)
@@ -3939,7 +4043,7 @@ def _fix_hyperlink_style_to_black(styles_xml: bytes) -> bytes:
         count += 1
 
     if count:
-        print(f"  [styles] Changed {count} Hyperlink style(s) to black, no underline")
+        print(f"  [styles] Changed {count} Hyperlink style(s) to blue + underline")
 
     return ET.tostring(sroot, encoding="utf-8", xml_declaration=True)
 
@@ -4317,11 +4421,12 @@ def _postprocess_docx(
             new_numbering_xml = _inject_heading_numbering(new_numbering_xml)
             new_numbering_xml = _fix_numbering_isLgl(doc_ns, new_numbering_xml)
 
-        # Bind heading styles to numbering + fix Hyperlink style to black
+        # Bind heading styles to numbering + align key style definitions + normalize Hyperlink style
         new_styles_xml = styles_xml
         if new_styles_xml:
             new_styles_xml = _bind_heading_styles_to_numbering(new_styles_xml)
-            new_styles_xml = _fix_hyperlink_style_to_black(new_styles_xml)
+            new_styles_xml = _align_styles_to_reference(new_styles_xml)
+            new_styles_xml = _fix_hyperlink_style(new_styles_xml)
 
         # Collect all file data for footer replacement
         file_data: dict[str, bytes] = {}
