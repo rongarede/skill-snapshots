@@ -1,19 +1,23 @@
 ---
 name: changelog
-description: "在当前工作目录创建 changelog 文件夹，每日新增一个以日期命名的变更记录文件。触发词：/changelog、记录变更、更新日志、changelog"
+description: "在当前工作目录创建 changelog 文件夹，每日新增一个以日期命名的变更记录文件。已配置为 PostToolUse hook，文件修改后自动触发。"
 ---
 
-# Changelog Skill
+# Changelog Skill (Hook 模式)
 
 在项目目录下自动管理每日变更记录，每个工作目录独立维护 `changelog/` 文件夹。
 
 ## 触发条件
 
-- `/changelog`
+**自动触发（PostToolUse Hook）：**
+- Edit 工具执行后
+- Write 工具执行后
+- MultiEdit 工具执行后
+- NotebookEdit 工具执行后
+
+**手动触发：**
+- `/changelog` - 手动记录变更
 - `/记录变更`
-- 「记录此次改动」
-- 「更新 changelog」
-- 任务完成后自动触发（见 hooks 配置）
 
 ## 核心规则
 
