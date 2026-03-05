@@ -3190,6 +3190,165 @@ def _normalize_unknown_pstyles(
             ps.set(w_val, "a")
 
 
+# ---------------------------------------------------------------------------
+# Round 8 fix: Remove docGrid type="lines" to prevent line-spacing inflation.
+# When type="lines" is set and paragraph line spacing (e.g. 360 twips = 1.5x)
+# exceeds linePitch (e.g. 312), LibreOffice snaps to the next grid multiple
+# (312×2 = 624 twips ≈ 2.6x), causing ~14 lines/page instead of ~30.
+# ---------------------------------------------------------------------------
+def _remove_docgrid_lines_type(ns: dict[str, str], body: ET.Element) -> None:
+    """Remove docGrid type='lines' from all sectPr to disable grid-snap inflation."""
+    w_sectPr = _qn(ns, "w", "sectPr")
+    w_docGrid = _qn(ns, "w", "docGrid")
+    w_type = _qn(ns, "w", "type")
+    count = 0
+    for sp in body.iter(w_sectPr):
+        grid = sp.find(w_docGrid)
+        if grid is not None and w_type in grid.attrib:
+            del grid.attrib[w_type]
+            count += 1
+    if count:
+        print(f"  [docGrid] Removed type='lines' from {count} section(s)")
+
+
+# ---------------------------------------------------------------------------
+# Round 3b fix: Replace WPS-legacy footer XML with clean PAGE field footers.
+# WPS Office embeds complex textbox drawing elements that render as phantom
+# "X" characters in LibreOffice.
+# ---------------------------------------------------------------------------
+_FOOTER_ROMAN_XML = (
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+    '<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+    ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+    '<w:p><w:pPr><w:jc w:val="center"/></w:pPr>'
+    '<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>'
+    '<w:sz w:val="18"/></w:rPr><w:fldChar w:fldCharType="begin"/></w:r>'
+    '<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>'
+    '<w:sz w:val="18"/></w:rPr><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r>'
+    '<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>'
+    '<w:sz w:val="18"/></w:rPr><w:fldChar w:fldCharType="separate"/></w:r>'
+    '<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>'
+    '<w:sz w:val="18"/></w:rPr><w:t>i</w:t></w:r>'
+    '<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>'
+    '<w:sz w:val="18"/></w:rPr><w:fldChar w:fldCharType="end"/></w:r>'
+    '</w:p></w:ftr>'
+)
+
+_FOOTER_ARABIC_XML = (
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+    '<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+    ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+    '<w:p><w:pPr><w:jc w:val="center"/></w:pPr>'
+    '<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>'
+    '<w:sz w:val="18"/></w:rPr><w:fldChar w:fldCharType="begin"/></w:r>'
+    '<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>'
+    '<w:sz w:val="18"/></w:rPr><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r>'
+    '<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>'
+    '<w:sz w:val="18"/></w:rPr><w:fldChar w:fldCharType="separate"/></w:r>'
+    '<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>'
+    '<w:sz w:val="18"/></w:rPr><w:t>1</w:t></w:r>'
+    '<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>'
+    '<w:sz w:val="18"/></w:rPr><w:fldChar w:fldCharType="end"/></w:r>'
+    '</w:p></w:ftr>'
+)
+
+_FOOTER_EMPTY_XML = (
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+    '<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+    '<w:p><w:pPr><w:jc w:val="center"/></w:pPr></w:p></w:ftr>'
+)
+
+
+def _replace_wps_footers(file_data: dict[str, bytes]) -> None:
+    """Replace all footer*.xml with clean PAGE field footers (no WPS artifacts)."""
+    footer_map: dict[str, bytes] = {}
+    for name in list(file_data):
+        if re.match(r"word/footer\d+\.xml$", name):
+            footer_map[name] = file_data[name]
+    if not footer_map:
+        return
+
+    # 根据 sectPr 中 footerReference 映射：
+    # footer3 = Roman (摘要区), footer5 = Arabic (正文区), 其他 = empty
+    for fname in footer_map:
+        num = re.search(r"(\d+)", fname)
+        if num:
+            n = int(num.group(1))
+            if n == 3:
+                file_data[fname] = _FOOTER_ROMAN_XML.encode("utf-8")
+            elif n == 5:
+                file_data[fname] = _FOOTER_ARABIC_XML.encode("utf-8")
+            else:
+                file_data[fname] = _FOOTER_EMPTY_XML.encode("utf-8")
+
+    print(f"  [footer] Replaced {len(footer_map)} footer file(s) with clean XML")
+
+
+# ---------------------------------------------------------------------------
+# Round 6 fix: Change Hyperlink character style to black, no underline.
+# Prevents DOI/URL text from rendering as blue underlined links.
+# ---------------------------------------------------------------------------
+def _fix_hyperlink_style_to_black(styles_xml: bytes) -> bytes:
+    """Modify Hyperlink char style: color=000000, remove underline, remove textFill."""
+    if not styles_xml:
+        return styles_xml
+    sns = _collect_ns(styles_xml)
+    _register_ns(sns)
+    sroot = ET.fromstring(styles_xml)
+
+    w_style = _qn(sns, "w", "style")
+    w_name = _qn(sns, "w", "name")
+    w_val = _qn(sns, "w", "val")
+    w_rPr = _qn(sns, "w", "rPr")
+    w_color = _qn(sns, "w", "color")
+    w_u = _qn(sns, "w", "u")
+    w_themeColor = _qn(sns, "w", "themeColor")
+
+    # w14:textFill (Word 2010+ gradient fill)
+    w14_uri = sns.get("w14", "http://schemas.microsoft.com/office/word/2010/wordml")
+    w14_textFill = f"{{{w14_uri}}}textFill"
+
+    count = 0
+    for s in sroot.iter(w_style):
+        name_el = s.find(w_name)
+        if name_el is None:
+            continue
+        name_val = (name_el.get(w_val) or "").lower()
+        if "hyperlink" not in name_val:
+            continue
+
+        rPr = s.find(w_rPr)
+        if rPr is None:
+            continue
+
+        # 设为黑色
+        color = rPr.find(w_color)
+        if color is not None:
+            color.set(w_val, "000000")
+            if w_themeColor in color.attrib:
+                del color.attrib[w_themeColor]
+        else:
+            c = ET.SubElement(rPr, w_color)
+            c.set(w_val, "000000")
+
+        # 移除下划线
+        u = rPr.find(w_u)
+        if u is not None:
+            rPr.remove(u)
+
+        # 移除 w14:textFill
+        tf = rPr.find(w14_textFill)
+        if tf is not None:
+            rPr.remove(tf)
+
+        count += 1
+
+    if count:
+        print(f"  [styles] Changed {count} Hyperlink style(s) to black, no underline")
+
+    return ET.tostring(sroot, encoding="utf-8", xml_declaration=True)
+
+
 def _postprocess_docx(
     input_docx: Path,
     output_docx: Path,
@@ -3250,6 +3409,9 @@ def _postprocess_docx(
         if sectPr2 is not None:
             _set_sect_pgnum(doc_ns, sectPr2, fmt="decimal", start=1)
 
+        # Remove docGrid type="lines" to prevent line-spacing inflation
+        _remove_docgrid_lines_type(doc_ns, body)
+
         new_doc_xml = ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
         numbering_xml = zin.read("word/numbering.xml") if "word/numbering.xml" in files else None
@@ -3257,17 +3419,31 @@ def _postprocess_docx(
             _fix_numbering_isLgl(doc_ns, numbering_xml) if numbering_xml else None
         )
 
+        # Fix Hyperlink character style to black (no blue underline)
+        new_styles_xml = _fix_hyperlink_style_to_black(styles_xml) if styles_xml else None
+
+        # Collect all file data for footer replacement
+        file_data: dict[str, bytes] = {}
+        for name in files:
+            file_data[name] = zin.read(name)
+
+        # Replace WPS-legacy footer XML with clean PAGE field footers
+        _replace_wps_footers(file_data)
+
         # Write a new docx, copying everything else verbatim.
         tmp_out = output_docx.with_suffix(".docx.tmp")
         if tmp_out.exists():
             tmp_out.unlink()
         with zipfile.ZipFile(tmp_out, "w", compression=zipfile.ZIP_DEFLATED) as zout:
             for name in files:
-                data = zin.read(name)
                 if name == "word/document.xml":
                     data = new_doc_xml
                 elif name == "word/numbering.xml" and new_numbering_xml is not None:
                     data = new_numbering_xml
+                elif name == "word/styles.xml" and new_styles_xml is not None:
+                    data = new_styles_xml
+                else:
+                    data = file_data[name]
                 zout.writestr(name, data)
         tmp_out.replace(output_docx)
 

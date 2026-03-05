@@ -1,7 +1,7 @@
 ---
 name: swun-thesis-docx-banshi1
 description: "Build SWUN thesis DOCX (Format 1 / 版式1) from LaTeX using the official SWUN reference template, with post-processing fixes (TOC, chapter page breaks, indents, isLgl numbering fix, and three-line table layout normalization)."
-version: 1.2.3
+version: 1.3.0
 ---
 
 # SWUN Thesis DOCX (版式1)
@@ -72,6 +72,15 @@ Generate a `.docx` from a SWUN thesis LaTeX project while treating the official 
    - validates experiment figure media type:
      - all `fig_3_*`/`fig_4_*` drawings must resolve to `media/*.png`
      - aborts build if any experiment figure is still embedded as PDF
+   - removes `docGrid type="lines"` from all sections to prevent line-spacing inflation:
+     - root cause: when `type="lines"` is set and paragraph `line` value exceeds `linePitch`, LibreOffice snaps to the next grid multiple (e.g. 312×2=624 twips ≈ 2.6x instead of 1.5x)
+     - fix reduces page count from ~151 to ~114 (matching reference thesis density of ~25 lines/page)
+   - replaces WPS-legacy footer XML with clean PAGE field footers:
+     - WPS Office embeds complex textbox drawing elements that render as phantom "X" characters in LibreOffice
+     - footer3 = Roman (摘要区), footer5 = Arabic (正文区), others = empty
+   - changes Hyperlink character style to black with no underline:
+     - prevents DOI/URL text from rendering as blue underlined links in references
+     - removes `w14:textFill` gradient fill if present
 
 ## Refactored Architecture
 
