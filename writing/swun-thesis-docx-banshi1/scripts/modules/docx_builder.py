@@ -4271,6 +4271,8 @@ def _format_algorithm_blocks(ns: dict[str, str], root: ET.Element, body: ET.Elem
         return False
 
     INDENT_SPACES = 4
+    # 行号匹配：以 "数字:" 开头（可能后面有空格），用于区分有行号的行
+    lineno_re = re.compile(r"^(\d+:)\s*")
 
     alg_title_re = re.compile(r"^算法\s*\d+")
     alg_count = 0
@@ -4325,10 +4327,23 @@ def _format_algorithm_blocks(ns: dict[str, str], root: ET.Element, body: ET.Elem
                 continue
             indent_level = _strip_indent_markers(bp)
             if indent_level > 0:
+                indent_str = " " * (indent_level * INDENT_SPACES)
+                # 行号始终左对齐：缩进空格应插入到行号之后，而不是行号之前。
+                # 遍历所有 <w:t>，找到第一个有内容的文本元素：
+                #   - 若文本以 "数字: " 开头（行号行），把缩进插在行号之后
+                #   - 否则（输入/输出行等无行号行），把缩进插在文本开头
                 for t_el in bp.findall(f".//{w_t}"):
-                    if t_el.text is not None:
-                        t_el.text = " " * (indent_level * INDENT_SPACES) + t_el.text
-                        break
+                    if not t_el.text:
+                        continue
+                    lm = lineno_re.match(t_el.text)
+                    if lm:
+                        # 行号行：在行号之后插入缩进，保持行号左对齐
+                        after_lineno = t_el.text[lm.end():]
+                        t_el.text = lm.group(1) + " " + indent_str + after_lineno
+                    else:
+                        # 无行号行（输入/输出）：在开头插入缩进
+                        t_el.text = indent_str + t_el.text
+                    break
             _format_algo_runs(ns, bp)
             _set_algo_para_props(ns, bp)
 
