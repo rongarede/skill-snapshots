@@ -70,22 +70,27 @@ def _run(cmd: list[str], cwd: Path) -> None:
 # ---------------------------------------------------------------------------
 
 def _parse_aux_labels(aux_path: Path) -> dict[str, str]:
-    """Parse main.aux and return {label: number} for alg:/eq: labels."""
+    """Parse main.aux and return {label: number} for alg:/eq:/tab:/fig:/sec: labels."""
     if not aux_path.exists():
         return {}
     text = aux_path.read_text(encoding="utf-8", errors="ignore")
     labels: dict[str, str] = {}
-    for m in re.finditer(r"\\newlabel\{((?:alg|eq):[^}]+)\}\{\{([^}]+)\}", text):
+    for m in re.finditer(
+        r"\\newlabel\{((?:alg|eq|tab|fig|sec):[^}]+)\}\{\{([^}]+)\}", text
+    ):
         labels[m.group(1)] = m.group(2)
     return labels
 
 
 def _resolve_latex_refs(s: str, labels: dict[str, str]) -> str:
-    """Replace \\ref{alg:...}, \\eqref{eq:...}, \\ref{eq:...} with resolved text.
+    """Replace \\ref{alg/eq/tab/fig/sec:...} and \\eqref{eq:...} with resolved text.
 
     - \\eqref{eq:X} where aux gives "4.2" → (4-2)
     - \\ref{eq:X}   where aux gives "4.2" → (4-2)
     - \\ref{alg:X}  where aux gives "2"   → 2
+    - \\ref{tab:X}  where aux gives "3-4" → 3-4
+    - \\ref{fig:X}  where aux gives "3-1" → 3-1
+    - \\ref{sec:X}  where aux gives "2.2.4" → 2.2.4
     Tilde before \\ref/\\eqref is consumed to avoid double spacing.
     """
     if not labels:
@@ -109,12 +114,17 @@ def _resolve_latex_refs(s: str, labels: dict[str, str]) -> str:
             return m.group(0)  # leave unresolved
         if label.startswith("eq:"):
             return f"({_eq_num(num)})"
-        return num  # alg: returns plain number
+        # tab:/fig: numbers already use hyphens (e.g. "3-4") from the cls
+        # sec: numbers use dots (e.g. "2.2.4") — keep as-is
+        # alg: returns plain number
+        return num
 
     # \\eqref{eq:X} — with optional preceding tilde
     s = re.sub(r"~?\\eqref\{(eq:[^}]+)\}", _repl_eqref, s)
-    # \\ref{alg:X} or \\ref{eq:X} — with optional preceding tilde
-    s = re.sub(r"~?\\ref\{((?:alg|eq):[^}]+)\}", _repl_ref, s)
+    # \\ref{alg/eq/tab/fig/sec:X} — with optional preceding tilde
+    s = re.sub(
+        r"~?\\ref\{((?:alg|eq|tab|fig|sec):[^}]+)\}", _repl_ref, s
+    )
     return s
 
 
@@ -254,24 +264,26 @@ def _convert_algorithms_to_plain_text(s: str) -> str:
 
         parsed = _parse_algorithmic_body(alg_m.group(1))
 
-        # Build output: centered title + rule + numbered lines + rule
+        # Build output: title + rule + numbered lines + rule
+        # Use Unicode markers ⌊N⌋ to encode indent level for OOXML post-processing.
+        # Title is left-aligned (matching PDF algorithmic package rendering).
         out = []
         out.append("")
-        out.append(f"\\begin{{center}}")
+        # Algorithm title — the marker ⟦ALGTITLE⟧ is stripped in OOXML postprocess
         out.append(f"\\textbf{{算法 {alg_counter}}} {caption}{label_str}")
-        out.append(f"\\end{{center}}")
         out.append("")
         out.append("\\noindent\\rule{\\textwidth}{0.4pt}")
         out.append("")
 
         for num, indent, text in parsed:
-            indent_str = "\\quad " * indent
+            # Encode indent level as ⌊N⌋ prefix — survives pandoc as plain text
+            indent_marker = f"\u230AN\u230B".replace("N", str(indent))
             if num == 0:
                 # Input/Output lines — no number
-                out.append(f"\\noindent {indent_str}{text}")
+                out.append(f"\\noindent {indent_marker}{text}")
                 out.append("")
             else:
-                out.append(f"\\noindent {indent_str}\\textrm{{{num}:}} {text}")
+                out.append(f"\\noindent {indent_marker}\\textrm{{{num}:}} {text}")
                 out.append("")
 
         out.append("")
@@ -281,6 +293,41 @@ def _convert_algorithms_to_plain_text(s: str) -> str:
         return "\n".join(out)
 
     return alg_re.sub(_repl_algorithm, s)
+
+
+def _expand_custom_column_types(s: str) -> str:
+    """Replace custom column type Y with X in tabularx column specifications.
+
+    The SWUN thesis defines ``\\newcolumntype{Y}{>{\\centering\\arraybackslash}X}``
+    which is a centered variant of the standard ``X`` column.  Pandoc's LaTeX reader
+    does not evaluate ``\\newcolumntype`` so tables using ``Y`` are not parsed as
+    tables at all—they appear as raw text with ``&`` separators.
+
+    This function rewrites every ``\\begin{tabularx}{width}{colspec}`` occurrence
+    by replacing ``Y`` characters in the colspec with ``X`` so pandoc can recognise
+    them.  The ``\\newcolumntype{Y}`` definition line (if present) is also stripped
+    to avoid pandoc warnings.
+    """
+    # Strip the \newcolumntype{Y}{...} definition itself
+    s = re.sub(r"\\newcolumntype\{Y\}\{[^}]*\}", "", s)
+
+    # Replace Y with X inside tabularx column spec arguments.
+    # Pattern: \begin{tabularx}{<width>}{<colspec>}
+    # We need to find the second {...} group after \begin{tabularx} and replace
+    # Y with X only inside that group.
+    def _repl_tabularx(m: re.Match) -> str:
+        prefix = m.group(1)  # \begin{tabularx}{width}{
+        colspec = m.group(2)  # column spec chars
+        suffix = m.group(3)  # }
+        return prefix + colspec.replace("Y", "X") + suffix
+
+    s = re.sub(
+        r"(\\begin\{tabularx\}\{[^}]*\}\{)([^}]*)(})",
+        _repl_tabularx,
+        s,
+    )
+
+    return s
 
 
 def _preprocess_latex(s: str) -> str:
@@ -314,7 +361,7 @@ def _preprocess_latex(s: str) -> str:
         s,
     )
 
-    # --- Resolve \ref{alg:...} and \eqref{eq:...} cross-references ---
+    # --- Resolve \ref{alg/eq/tab/fig/sec:...} and \eqref{eq:...} cross-references ---
     aux_path = ROOT / "main.aux"
     labels = _parse_aux_labels(aux_path)
     if labels:
@@ -322,6 +369,12 @@ def _preprocess_latex(s: str) -> str:
 
     # --- Convert algorithm environments to pandoc-friendly plain text ---
     s = _convert_algorithms_to_plain_text(s)
+
+    # --- Expand custom \newcolumntype{Y} to X in tabularx column specs ---
+    # Y is defined as >{\centering\arraybackslash}X in main.tex.
+    # Pandoc does not understand custom column types; replace Y with X so
+    # tabularx tables are parsed correctly as Word tables.
+    s = _expand_custom_column_types(s)
 
     # --- Flatten subfigures so pandoc counts only main figure captions ---
     s = _flatten_subfigures(s)
@@ -575,8 +628,8 @@ def _parse_latex_table_col_specs(latex_src: str) -> dict[str, list[float]]:
             if ch in "lcr":
                 cols.append(0.0)  # 自动列
                 i += 1
-            elif ch == "X" and is_tabularx:
-                cols.append(-1.0)  # X 列
+            elif ch in "XY" and is_tabularx:
+                cols.append(-1.0)  # X 列（Y 是 X 的居中变体）
                 i += 1
             elif ch == "p" and i + 1 < len(spec) and spec[i + 1] == "{":
                 # p{宽度定义}
@@ -2820,10 +2873,16 @@ def _apply_three_line_tables(
     w_tcPr = _qn(ns, "w", "tcPr")
     w_tcBorders = _qn(ns, "w", "tcBorders")
     w_tblBorders = _qn(ns, "w", "tblBorders")
+    w_r = _qn(ns, "w", "r")
+    w_t = _qn(ns, "w", "t")
+    w_rPr = _qn(ns, "w", "rPr")
+    w_sz = _qn(ns, "w", "sz")
+    w_szCs = _qn(ns, "w", "szCs")
     w_val = _qn(ns, "w", "val")
 
     # Word border size unit is 1/8 pt. Template examples use w:sz="6" (0.75pt).
     rule_sz = "6"
+    table_run_sz = "21"  # 五号 10.5pt in half-points
     text_w = _sect_text_width_dxa(ns, root) or 9356
 
     # 预构建 tbl body index → [labels] 映射，用于匹配 LaTeX 列宽比例
@@ -2876,6 +2935,21 @@ def _apply_three_line_tables(
             tcBorders = tcPr.find(w_tcBorders)
             if tcBorders is not None:
                 tcPr.remove(tcBorders)
+            # Restrict font-size normalization to text runs inside data-table cells.
+            for r in tc.iter(w_r):
+                if r.find(w_t) is None:
+                    continue
+                rPr = r.find(w_rPr)
+                if rPr is None:
+                    rPr = ET.SubElement(r, w_rPr)
+                sz = rPr.find(w_sz)
+                if sz is None:
+                    sz = ET.SubElement(rPr, w_sz)
+                sz.set(w_val, table_run_sz)
+                szCs = rPr.find(w_szCs)
+                if szCs is None:
+                    szCs = ET.SubElement(rPr, w_szCs)
+                szCs.set(w_val, table_run_sz)
 
         # Table-level borders: only top and bottom.
         borders = pr.find(w_tblBorders)
@@ -3302,11 +3376,17 @@ def _ensure_indent_for_body_paragraphs(ns: dict[str, str], body: ET.Element) -> 
     # Heading2/3 (二级/三级子标题) must be flush-left; override numbering indent.
     flush_left_styles = {"Heading2", "2", "Heading3", "3"}
 
+    w_firstLine = _qn(ns, "w", "firstLine")
+
     for p in body.iter(w_p):
         style = _p_style(ns, p)
         if style in body_styles:
             pPr = _ensure_ppr(ns, p)
             ind = pPr.find(w_ind)
+            # Skip paragraphs already formatted by _format_algorithm_blocks
+            # (they have explicit firstLine="0")
+            if ind is not None and ind.get(w_firstLine) == "0":
+                continue
             if ind is None:
                 ind = ET.SubElement(pPr, w_ind)
             # Keep other indentation attributes intact; only enforce first-line indent.
@@ -3864,6 +3944,307 @@ def _fix_hyperlink_style_to_black(styles_xml: bytes) -> bytes:
     return ET.tostring(sroot, encoding="utf-8", xml_declaration=True)
 
 
+def _build_algorithm_table(
+    ns: dict[str, str],
+    title_p: ET.Element,
+    body_paragraphs: list[ET.Element],
+    table_width_dxa: int,
+) -> ET.Element:
+    w_tbl = _qn(ns, "w", "tbl")
+    w_tblPr = _qn(ns, "w", "tblPr")
+    w_tblStyle = _qn(ns, "w", "tblStyle")
+    w_tblW = _qn(ns, "w", "tblW")
+    w_jc = _qn(ns, "w", "jc")
+    w_tblLook = _qn(ns, "w", "tblLook")
+    w_tblGrid = _qn(ns, "w", "tblGrid")
+    w_gridCol = _qn(ns, "w", "gridCol")
+    w_tr = _qn(ns, "w", "tr")
+    w_tc = _qn(ns, "w", "tc")
+    w_tcPr = _qn(ns, "w", "tcPr")
+    w_tcW = _qn(ns, "w", "tcW")
+    w_val = _qn(ns, "w", "val")
+    w_w = _qn(ns, "w", "w")
+    w_type = _qn(ns, "w", "type")
+    tw_str = str(table_width_dxa)
+    tbl = ET.Element(w_tbl)
+    tblPr = ET.SubElement(tbl, w_tblPr)
+    style_el = ET.SubElement(tblPr, w_tblStyle)
+    style_el.set(w_val, "55")
+    tw_el = ET.SubElement(tblPr, w_tblW)
+    tw_el.set(w_w, tw_str)
+    tw_el.set(w_type, "dxa")
+    jc_el = ET.SubElement(tblPr, w_jc)
+    jc_el.set(w_val, "center")
+    look_el = ET.SubElement(tblPr, w_tblLook)
+    look_el.set(w_val, "04A0")
+    look_el.set(_qn(ns, "w", "firstRow"), "1")
+    look_el.set(_qn(ns, "w", "lastRow"), "0")
+    look_el.set(_qn(ns, "w", "firstColumn"), "0")
+    look_el.set(_qn(ns, "w", "lastColumn"), "0")
+    look_el.set(_qn(ns, "w", "noHBand"), "0")
+    look_el.set(_qn(ns, "w", "noVBand"), "1")
+    grid = ET.SubElement(tbl, w_tblGrid)
+    col = ET.SubElement(grid, w_gridCol)
+    col.set(w_w, tw_str)
+    tr0 = ET.SubElement(tbl, w_tr)
+    tc0 = ET.SubElement(tr0, w_tc)
+    tcPr0 = ET.SubElement(tc0, w_tcPr)
+    tcW0 = ET.SubElement(tcPr0, w_tcW)
+    tcW0.set(w_w, tw_str)
+    tcW0.set(w_type, "dxa")
+    tc0.append(title_p)
+    tr1 = ET.SubElement(tbl, w_tr)
+    tc1 = ET.SubElement(tr1, w_tc)
+    tcPr1 = ET.SubElement(tc1, w_tcPr)
+    tcW1 = ET.SubElement(tcPr1, w_tcW)
+    tcW1.set(w_w, tw_str)
+    tcW1.set(w_type, "dxa")
+    for bp in body_paragraphs:
+        tc1.append(bp)
+    return tbl
+
+
+def _format_algo_runs(ns: dict[str, str], p: ET.Element) -> None:
+    """Format all runs: Times New Roman 10.5pt, remove bold."""
+    w_r = _qn(ns, "w", "r")
+    w_rPr = _qn(ns, "w", "rPr")
+    w_rFonts = _qn(ns, "w", "rFonts")
+    w_sz = _qn(ns, "w", "sz")
+    w_szCs = _qn(ns, "w", "szCs")
+    w_b = _qn(ns, "w", "b")
+    w_bCs = _qn(ns, "w", "bCs")
+    w_val = _qn(ns, "w", "val")
+    w_ascii = _qn(ns, "w", "ascii")
+    w_hAnsi = _qn(ns, "w", "hAnsi")
+    for r in p.findall(f".//{w_r}"):
+        rPr = r.find(w_rPr)
+        if rPr is None:
+            rPr = ET.Element(w_rPr)
+            r.insert(0, rPr)
+        rFonts = rPr.find(w_rFonts)
+        if rFonts is None:
+            rFonts = ET.SubElement(rPr, w_rFonts)
+        rFonts.set(w_ascii, "Times New Roman")
+        rFonts.set(w_hAnsi, "Times New Roman")
+        sz_el = rPr.find(w_sz)
+        if sz_el is None:
+            sz_el = ET.SubElement(rPr, w_sz)
+        sz_el.set(w_val, "21")
+        szCs_el = rPr.find(w_szCs)
+        if szCs_el is None:
+            szCs_el = ET.SubElement(rPr, w_szCs)
+        szCs_el.set(w_val, "21")
+        for b_tag in (w_b, w_bCs):
+            b_el = rPr.find(b_tag)
+            if b_el is not None:
+                rPr.remove(b_el)
+
+
+def _set_algo_para_props(ns: dict[str, str], p: ET.Element) -> None:
+    """Set algorithm paragraph properties: left-aligned, single spacing, no indent."""
+    w_jc = _qn(ns, "w", "jc")
+    w_val = _qn(ns, "w", "val")
+    w_spacing = _qn(ns, "w", "spacing")
+    w_ind = _qn(ns, "w", "ind")
+    w_pBdr = _qn(ns, "w", "pBdr")
+    pPr = _ensure_ppr(ns, p)
+    jc = pPr.find(w_jc)
+    if jc is None:
+        jc = ET.SubElement(pPr, w_jc)
+    jc.set(w_val, "left")
+    sp = pPr.find(w_spacing)
+    if sp is None:
+        sp = ET.SubElement(pPr, w_spacing)
+    sp.set(_qn(ns, "w", "line"), "240")
+    sp.set(_qn(ns, "w", "lineRule"), "auto")
+    sp.set(_qn(ns, "w", "before"), "0")
+    sp.set(_qn(ns, "w", "after"), "0")
+    ind = pPr.find(w_ind)
+    if ind is not None:
+        pPr.remove(ind)
+    ind = ET.SubElement(pPr, w_ind)
+    ind.set(_qn(ns, "w", "firstLine"), "0")
+    ind.set(_qn(ns, "w", "firstLineChars"), "0")
+    pBdr = pPr.find(w_pBdr)
+    if pBdr is not None:
+        pPr.remove(pBdr)
+
+
+def _format_algorithm_blocks(ns: dict[str, str], root: ET.Element, body: ET.Element) -> None:
+    """Detect algorithm blocks and apply academic formatting.
+
+    Each algorithm block in the DOCX consists of:
+      1. Title paragraph: text starts with "算法 N ..." (bold "算法 N" + caption)
+      2. VML horizontal rule paragraph (top rule)
+      3. Body paragraphs: input/output lines + numbered algorithm lines
+         Each body line has a ⌊N⌋ indent marker prefix where N is the indent level
+      4. VML horizontal rule paragraph (bottom rule)
+
+    This function:
+      - Replaces VML horizontal rules with proper paragraph top/bottom borders
+      - Adds a top border to the title paragraph
+      - Strips ⌊N⌋ markers and applies proper left indent
+      - Removes first-line indent from algorithm paragraphs
+      - Sets compact line spacing (single, no after spacing)
+      - Applies 小五 (9pt) font size for algorithm body
+    """
+    w_p = _qn(ns, "w", "p")
+    w_r = _qn(ns, "w", "r")
+    w_t = _qn(ns, "w", "t")
+    w_pPr = _qn(ns, "w", "pPr")
+    w_rPr = _qn(ns, "w", "rPr")
+    w_pStyle = _qn(ns, "w", "pStyle")
+    w_val = _qn(ns, "w", "val")
+    w_ind = _qn(ns, "w", "ind")
+    w_left = _qn(ns, "w", "left")
+    w_firstLine = _qn(ns, "w", "firstLine")
+    w_firstLineChars = _qn(ns, "w", "firstLineChars")
+    w_spacing = _qn(ns, "w", "spacing")
+    w_line = _qn(ns, "w", "line")
+    w_lineRule = _qn(ns, "w", "lineRule")
+    w_before = _qn(ns, "w", "before")
+    w_after = _qn(ns, "w", "after")
+    w_pBdr = _qn(ns, "w", "pBdr")
+    w_top = _qn(ns, "w", "top")
+    w_bottom = _qn(ns, "w", "bottom")
+    w_sz_attr = _qn(ns, "w", "sz")
+    w_space = _qn(ns, "w", "space")
+    w_color = _qn(ns, "w", "color")
+    w_sz = _qn(ns, "w", "sz")
+    w_szCs = _qn(ns, "w", "szCs")
+    w_jc = _qn(ns, "w", "jc")
+    w_pict = _qn(ns, "w", "pict")
+    w_b = _qn(ns, "w", "b")
+    w_bCs = _qn(ns, "w", "bCs")
+    text_w = _sect_text_width_dxa(ns, root) or 8277
+
+    # Indent marker regex: ⌊N⌋ where N is a digit
+    indent_marker_re = re.compile(r"\u230A(\d+)\u230B")
+
+    children = list(body)
+    total = len(children)
+
+    def _is_vml_hrule(el: ET.Element) -> bool:
+        """Check if a paragraph contains only a VML horizontal rule."""
+        if el.tag != w_p:
+            return False
+        pict = el.find(f".//{w_pict}")
+        if pict is None:
+            return False
+        # VML hrule: <v:rect ... o:hr="t" />
+        for child in pict:
+            hr_attr = child.get("{urn:schemas-microsoft-com:office:office}hr")
+            if hr_attr == "t":
+                return True
+        return False
+
+    def _strip_indent_markers(p: ET.Element) -> int:
+        """Find and remove ⌊N⌋ indent markers from text runs. Return indent level."""
+        indent_level = 0
+        for t in p.findall(f".//{w_t}"):
+            if t.text and indent_marker_re.search(t.text):
+                m = indent_marker_re.search(t.text)
+                indent_level = int(m.group(1))
+                t.text = indent_marker_re.sub("", t.text)
+        return indent_level
+
+    def _has_bold_alg_prefix(p: ET.Element) -> bool:
+        """Check if paragraph starts with bold '算法' text (distinguishes
+        algorithm titles from body text that mentions algorithms)."""
+        for r in p.findall(f".//{w_r}"):
+            rPr = r.find(w_rPr)
+            if rPr is None:
+                continue
+            b_el = rPr.find(w_b)
+            if b_el is None:
+                continue
+            b_val = b_el.get(w_val)
+            if b_val is not None and b_val not in ("true", "1", ""):
+                continue
+            t_el = r.find(w_t)
+            if t_el is not None and t_el.text and "算法" in t_el.text:
+                return True
+        return False
+
+    INDENT_SPACES = 4
+
+    alg_title_re = re.compile(r"^算法\s*\d+")
+    alg_count = 0
+    i = 0
+    while i < total:
+        el = children[i]
+        if el.tag != w_p:
+            i += 1
+            continue
+
+        text = _p_text(ns, el).strip()
+        if not alg_title_re.match(text):
+            i += 1
+            continue
+
+        # Verify this is an algorithm title (bold "算法") not body text mentioning algorithms
+        if not _has_bold_alg_prefix(el):
+            i += 1
+            continue
+
+        title_idx = i
+
+        # Next paragraph should be VML horizontal rule (top rule)
+        top_rule_idx = i + 1
+        if top_rule_idx >= total or not _is_vml_hrule(children[top_rule_idx]):
+            i += 1
+            continue
+
+        bottom_rule_idx = None
+        j = top_rule_idx + 1
+        while j < total:
+            if _is_vml_hrule(children[j]):
+                bottom_rule_idx = j
+                break
+            j += 1
+
+        if bottom_rule_idx is None:
+            i += 1
+            continue
+
+        alg_count += 1
+        title_p = children[title_idx]
+        body_ps = [children[k] for k in range(top_rule_idx + 1, bottom_rule_idx)]
+
+        # Format title paragraph
+        _format_algo_runs(ns, title_p)
+        _set_algo_para_props(ns, title_p)
+
+        # Format body paragraphs
+        for bp in body_ps:
+            if bp.tag != w_p:
+                continue
+            indent_level = _strip_indent_markers(bp)
+            if indent_level > 0:
+                for t_el in bp.findall(f".//{w_t}"):
+                    if t_el.text is not None:
+                        t_el.text = " " * (indent_level * INDENT_SPACES) + t_el.text
+                        break
+            _format_algo_runs(ns, bp)
+            _set_algo_para_props(ns, bp)
+
+        # Remove all elements from body
+        for idx in sorted(range(title_idx, bottom_rule_idx + 1), reverse=True):
+            body.remove(children[idx])
+
+        # Build and insert three-line table
+        tbl = _build_algorithm_table(ns, title_p, body_ps, text_w)
+        body.insert(title_idx, tbl)
+
+        # Refresh children list
+        children = list(body)
+        total = len(children)
+        i = title_idx + 1
+
+    if alg_count:
+        print(f"  [algorithms] Wrapped {alg_count} algorithm block(s) in three-line tables")
+
+
 def _postprocess_docx(
     input_docx: Path,
     output_docx: Path,
@@ -3910,6 +4291,7 @@ def _postprocess_docx(
         _add_page_breaks_before_h1(doc_ns, body)
         _apply_three_line_tables(doc_ns, root, body, table_style_id, latex_col_ratios=latex_col_ratios)
         _number_paragraph_headings_in_main_body(doc_ns, body)
+        _format_algorithm_blocks(doc_ns, root, body)
         _ensure_indent_for_body_paragraphs(doc_ns, body)
         _ensure_hanging_indent_for_bibliography(doc_ns, body)
         _inject_captions_from_meta(doc_ns, body, caption_meta)
