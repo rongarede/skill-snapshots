@@ -3138,6 +3138,140 @@ def _fix_numbering_isLgl(ns: dict[str, str], numbering_xml: bytes) -> bytes:
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
 
+# ---------------------------------------------------------------------------
+# Bind heading styles to multi-level numbering (第1章 / 1.1 / 1.1.1).
+# pandoc strips numPr from heading style definitions during conversion;
+# this function restores them using the official template's numbering scheme.
+# ---------------------------------------------------------------------------
+_HEADING_ABSTRACT_NUM_XML = '''\
+<w:abstractNum w:abstractNumId="88880" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:multiLevelType w:val="multilevel"/>
+  <w:lvl w:ilvl="0">
+    <w:start w:val="1"/>
+    <w:numFmt w:val="chineseCounting"/>
+    <w:lvlText w:val="第%1章"/>
+    <w:lvlJc w:val="left"/>
+    <w:isLgl/>
+    <w:suff w:val="space"/>
+  </w:lvl>
+  <w:lvl w:ilvl="1">
+    <w:start w:val="1"/>
+    <w:numFmt w:val="decimal"/>
+    <w:isLgl/>
+    <w:lvlText w:val="%1.%2"/>
+    <w:lvlJc w:val="left"/>
+    <w:suff w:val="space"/>
+  </w:lvl>
+  <w:lvl w:ilvl="2">
+    <w:start w:val="1"/>
+    <w:numFmt w:val="decimal"/>
+    <w:isLgl/>
+    <w:lvlText w:val="%1.%2.%3"/>
+    <w:lvlJc w:val="left"/>
+    <w:suff w:val="space"/>
+  </w:lvl>
+  <w:lvl w:ilvl="3">
+    <w:start w:val="1"/>
+    <w:numFmt w:val="decimal"/>
+    <w:isLgl/>
+    <w:lvlText w:val="%1.%2.%3.%4"/>
+    <w:lvlJc w:val="left"/>
+    <w:suff w:val="space"/>
+  </w:lvl>
+</w:abstractNum>'''
+
+_HEADING_NUM_ID = "8888"
+_HEADING_ABSTRACT_NUM_ID = "88880"
+
+
+def _inject_heading_numbering(numbering_xml: bytes) -> bytes:
+    """Inject multi-level chapter numbering definition into numbering.xml."""
+    ns2 = _collect_ns(numbering_xml)
+    if "w" not in ns2:
+        return numbering_xml
+    _register_ns(ns2)
+    w_uri = ns2["w"]
+
+    root = ET.fromstring(numbering_xml)
+
+    # Check if our abstractNum already exists
+    for absn in root.findall(f"{{{w_uri}}}abstractNum"):
+        if absn.get(f"{{{w_uri}}}abstractNumId") == _HEADING_ABSTRACT_NUM_ID:
+            return numbering_xml  # Already injected
+
+    # Parse and inject abstractNum
+    absn_el = ET.fromstring(_HEADING_ABSTRACT_NUM_XML)
+    root.append(absn_el)
+
+    # Add num entry pointing to abstractNum
+    num_el = ET.SubElement(root, f"{{{w_uri}}}num")
+    num_el.set(f"{{{w_uri}}}numId", _HEADING_NUM_ID)
+    absn_ref = ET.SubElement(num_el, f"{{{w_uri}}}abstractNumId")
+    absn_ref.set(f"{{{w_uri}}}val", _HEADING_ABSTRACT_NUM_ID)
+
+    print(f"  [numbering] Injected heading abstractNum={_HEADING_ABSTRACT_NUM_ID} num={_HEADING_NUM_ID}")
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def _bind_heading_styles_to_numbering(styles_xml: bytes) -> bytes:
+    """Add numPr to heading 1/2/3 style definitions so they pick up chapter numbering."""
+    if not styles_xml:
+        return styles_xml
+    sns = _collect_ns(styles_xml)
+    if "w" not in sns:
+        return styles_xml
+    _register_ns(sns)
+    w_uri = sns["w"]
+
+    sroot = ET.fromstring(styles_xml)
+
+    # Map: styleId -> (numId, ilvl)
+    heading_bindings = {
+        "1": ("0",),       # heading 1 -> ilvl=0
+        "Heading2": ("1",),  # heading 2 -> ilvl=1
+        "Heading3": ("2",),  # heading 3 -> ilvl=2
+    }
+
+    w_style = f"{{{w_uri}}}style"
+    w_styleId = f"{{{w_uri}}}styleId"
+    w_pPr = f"{{{w_uri}}}pPr"
+    w_numPr = f"{{{w_uri}}}numPr"
+    w_numId = f"{{{w_uri}}}numId"
+    w_ilvl = f"{{{w_uri}}}ilvl"
+    w_val = f"{{{w_uri}}}val"
+
+    count = 0
+    for s in sroot.findall(w_style):
+        sid = s.get(w_styleId, "")
+        if sid not in heading_bindings:
+            continue
+
+        ilvl_val = heading_bindings[sid][0]
+
+        pPr = s.find(w_pPr)
+        if pPr is None:
+            pPr = ET.SubElement(s, w_pPr)
+
+        # Remove existing numPr if any
+        old_numPr = pPr.find(w_numPr)
+        if old_numPr is not None:
+            pPr.remove(old_numPr)
+
+        # Add numPr
+        numPr = ET.SubElement(pPr, w_numPr)
+        ilvl_el = ET.SubElement(numPr, w_ilvl)
+        ilvl_el.set(w_val, ilvl_val)
+        numId_el = ET.SubElement(numPr, w_numId)
+        numId_el.set(w_val, _HEADING_NUM_ID)
+
+        count += 1
+
+    if count:
+        print(f"  [styles] Bound {count} heading style(s) to numId={_HEADING_NUM_ID}")
+
+    return ET.tostring(sroot, encoding="utf-8", xml_declaration=True)
+
+
 def _collect_style_ids(styles_xml: bytes) -> set[str]:
     ns = _collect_ns(styles_xml)
     if "w" not in ns:
@@ -3415,12 +3549,16 @@ def _postprocess_docx(
         new_doc_xml = ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
         numbering_xml = zin.read("word/numbering.xml") if "word/numbering.xml" in files else None
-        new_numbering_xml = (
-            _fix_numbering_isLgl(doc_ns, numbering_xml) if numbering_xml else None
-        )
+        new_numbering_xml = numbering_xml
+        if new_numbering_xml:
+            new_numbering_xml = _inject_heading_numbering(new_numbering_xml)
+            new_numbering_xml = _fix_numbering_isLgl(doc_ns, new_numbering_xml)
 
-        # Fix Hyperlink character style to black (no blue underline)
-        new_styles_xml = _fix_hyperlink_style_to_black(styles_xml) if styles_xml else None
+        # Bind heading styles to numbering + fix Hyperlink style to black
+        new_styles_xml = styles_xml
+        if new_styles_xml:
+            new_styles_xml = _bind_heading_styles_to_numbering(new_styles_xml)
+            new_styles_xml = _fix_hyperlink_style_to_black(new_styles_xml)
 
         # Collect all file data for footer replacement
         file_data: dict[str, bytes] = {}
