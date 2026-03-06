@@ -8,8 +8,12 @@ This avoids relying on styleId string-matching in styles.xml, which can vary acr
 
 from __future__ import annotations
 
+import os
 import re
+import shutil
+import subprocess
 import sys
+import tempfile
 import zipfile
 import xml.etree.ElementTree as ET
 
@@ -65,6 +69,139 @@ def _check_no_forced_break_after_heading(
     if "<w:pageBreakBefore" in first_content_p:
         return f"first content paragraph under '{heading_text}' has pageBreakBefore (can create an empty page)"
     return None
+
+
+def _check_blank_pages(docx_path: str) -> list[str]:
+    """Render DOCX to PDF and fail if a page is visually blank except footer page number."""
+    office_bin = shutil.which("soffice") or shutil.which("libreoffice")
+    pdftotext_bin = shutil.which("pdftotext")
+    pdfinfo_bin = shutil.which("pdfinfo")
+    pdftoppm_bin = shutil.which("pdftoppm")
+    if not office_bin or not pdftotext_bin or not pdfinfo_bin:
+        return []
+
+    def _normalize_page_text(text: str) -> str:
+        lines = [(line or "").strip() for line in text.splitlines()]
+        lines = [line for line in lines if line]
+        while lines and re.fullmatch(r"[0-9]+|[ivxlcdmIVXLCDM]+", lines[-1]):
+            lines.pop()
+        return "".join(lines).strip()
+
+    def _page_has_visual_content(pdf_path: str, page_no: int) -> bool | None:
+        if not pdftoppm_bin:
+            return None
+        prefix = os.path.join(tmpdir, f"page-{page_no}")
+        try:
+            rendered = subprocess.run(
+                [
+                    pdftoppm_bin,
+                    "-f",
+                    str(page_no),
+                    "-l",
+                    str(page_no),
+                    "-gray",
+                    "-singlefile",
+                    pdf_path,
+                    prefix,
+                ],
+                capture_output=True,
+                timeout=30,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            return None
+        if rendered.returncode != 0:
+            return None
+
+        pgm_path = f"{prefix}.pgm"
+        if not os.path.exists(pgm_path):
+            return None
+
+        raw = open(pgm_path, "rb").read()
+        header = re.match(br"^P5\s+(?:#.*\s+)*(\d+)\s+(\d+)\s+(\d+)\s", raw, flags=re.MULTILINE)
+        if header is None:
+            return None
+        width = int(header.group(1))
+        height = int(header.group(2))
+        maxval = int(header.group(3))
+        if width <= 0 or height <= 0 or maxval <= 0:
+            return None
+        data = raw[header.end():]
+        if len(data) < width * height:
+            return None
+        data = data[: width * height]
+
+        left = int(width * 0.05)
+        right = int(width * 0.95)
+        top = int(height * 0.05)
+        bottom = int(height * 0.90)  # ignore footer page number region
+        dark_pixels = 0
+        sampled = 0
+        threshold = int(maxval * 0.96)
+        for y in range(top, bottom):
+            row = data[y * width:(y + 1) * width]
+            crop = row[left:right]
+            sampled += len(crop)
+            dark_pixels += sum(1 for px in crop if px < threshold)
+
+        return dark_pixels > max(200, int(sampled * 0.0005))
+
+    with tempfile.TemporaryDirectory(prefix="swun-blank-page-") as tmpdir:
+        try:
+            result = subprocess.run(
+                [
+                    office_bin,
+                    "--headless",
+                    "--convert-to",
+                    "pdf",
+                    "--outdir",
+                    tmpdir,
+                    docx_path,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                check=False,
+            )
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return []
+        if result.returncode != 0:
+            return []
+
+        pdf_path = f"{tmpdir}/{re.sub(r'\.docx$', '', os.path.basename(docx_path), flags=re.IGNORECASE)}.pdf"
+        if not os.path.exists(pdf_path):
+            return []
+
+        info = subprocess.run(
+            [pdfinfo_bin, pdf_path],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        if info.returncode != 0:
+            return []
+        m = re.search(r"^Pages:\s+(\d+)\s*$", info.stdout, flags=re.MULTILINE)
+        if not m:
+            return []
+
+        errors: list[str] = []
+        total_pages = int(m.group(1))
+        for page_no in range(1, total_pages + 1):
+            page_text = subprocess.run(
+                [pdftotext_bin, "-f", str(page_no), "-l", str(page_no), pdf_path, "-"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            if page_text.returncode != 0:
+                continue
+            normalized = _normalize_page_text(page_text.stdout)
+            visual_state = _page_has_visual_content(pdf_path, page_no)
+            if not normalized and visual_state is False:
+                errors.append(f"rendered blank page detected at PDF page {page_no}")
+        return errors
 
 
 def _collect_dotted_fig_table_hyperlinks(doc_xml: str) -> list[tuple[str, str]]:
@@ -764,6 +901,7 @@ def main() -> int:
         num = zf.read("word/numbering.xml").decode("utf-8", errors="ignore")
 
     errors: list[str] = []
+    errors.extend(_check_blank_pages(docx_path))
     errors.extend(check_phase1_structure(doc, num))
     errors.extend(check_phase2_style(doc))
     errors.extend(check_phase3_caption(doc))

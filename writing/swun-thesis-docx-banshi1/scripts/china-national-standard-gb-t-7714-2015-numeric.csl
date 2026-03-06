@@ -167,7 +167,7 @@
       <if variable="medium">
         <text variable="medium"/>
       </if>
-      <else-if variable="URL DOI" match="any">
+      <else-if variable="URL" match="any">
         <text value="OL"/>
       </else-if>
     </choose>
@@ -285,7 +285,7 @@
         </group>
         <text macro="accessed-date"/>
       </else-if>
-      <else-if variable="URL DOI" match="any">
+      <else-if variable="URL" match="any">
         <text macro="issued-date" prefix="(" suffix=")"/>
         <text macro="accessed-date"/>
       </else-if>
@@ -319,16 +319,13 @@
   </macro>
   <macro name="accessed-date">
     <choose>
-      <if variable="URL DOI" match="any">
+      <if variable="URL" match="any">
         <date variable="accessed" form="numeric" prefix="[" suffix="]"/>
       </if>
     </choose>
   </macro>
   <macro name="access">
-    <group delimiter=". ">
-      <text variable="URL"/>
-      <text variable="DOI" prefix="DOI:"/>
-    </group>
+    <text variable="URL"/>
   </macro>
   <macro name="entry-layout">
     <group delimiter=". ">

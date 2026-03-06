@@ -121,8 +121,8 @@ def run_phase_check(phase_id: int, docx_path: str) -> list[str]:
         if phase_id == 6:
             result = mod.run(docx_path)
             if result["status"] == "conversion_failed":
-                return ["DOCX→PDF 转换失败，无法进行视觉审查（需要安装 libreoffice）"]
-            return []
+                return ["DOCX→PDF 转换失败，无法进行视觉审查（需要安装 soffice/libreoffice）"]
+            return list(result.get("errors", []))
 
         return mod.run(docx_path)
     except FileNotFoundError:

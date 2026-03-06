@@ -49,8 +49,6 @@ BIB = ROOT / "backmatter" / "references.bib"
 FLAT_TEX = ROOT / ".main.flat.tex"
 INTERMEDIATE_DOCX = ROOT / ".main.pandoc.docx"
 OUTPUT_DOCX = ROOT / "main_版式1.docx"
-
-
 @dataclass
 class CaptionMeta:
     kind: str  # "figure" | "table"
@@ -2753,6 +2751,68 @@ def _remove_adjacent_caption_paragraphs(ns: dict[str, str], body: ET.Element, bl
             pass
 
 
+def _dedupe_body_level_anchor_bookmarks(ns: dict[str, str], body: ET.Element) -> int:
+    """Remove duplicate top-level fig/tab/tbl bookmarks when the same anchor exists inside a block.
+
+    Pandoc may emit two bookmarks for the same LaTeX label:
+    1. a body-level ``w:bookmarkStart``/``w:bookmarkEnd`` pair around the figure/table block
+    2. an inline bookmark nested inside the actual drawing/table block
+
+    Word is stricter about duplicate bookmark names than LibreOffice, so keep the
+    block-local bookmark and remove the top-level duplicate pair.
+    """
+    w_bookmarkStart = _qn(ns, "w", "bookmarkStart")
+    w_bookmarkEnd = _qn(ns, "w", "bookmarkEnd")
+    w_name = _qn(ns, "w", "name")
+    w_id = _qn(ns, "w", "id")
+    prefixes = ("fig:", "tab:", "tbl:")
+
+    children = list(body)
+    nested_names: set[str] = set()
+    for el in children:
+        if el.tag in {w_bookmarkStart, w_bookmarkEnd}:
+            continue
+        for bm in el.iter(w_bookmarkStart):
+            name = (bm.get(w_name) or bm.get("name") or "").strip()
+            if name.startswith(prefixes):
+                nested_names.add(name)
+
+    remove_ids: set[str] = set()
+    remove_nodes: list[ET.Element] = []
+    for el in children:
+        if el.tag != w_bookmarkStart:
+            continue
+        name = (el.get(w_name) or el.get("name") or "").strip()
+        if not name.startswith(prefixes):
+            continue
+        if name not in nested_names:
+            continue
+        bid = el.get(w_id) or el.get("id") or ""
+        if not bid:
+            continue
+        remove_ids.add(bid)
+        remove_nodes.append(el)
+
+    if not remove_ids:
+        return 0
+
+    for el in children:
+        if el.tag != w_bookmarkEnd:
+            continue
+        bid = el.get(w_id) or el.get("id") or ""
+        if bid in remove_ids:
+            remove_nodes.append(el)
+
+    removed = 0
+    for el in remove_nodes:
+        try:
+            body.remove(el)
+            removed += 1
+        except ValueError:
+            pass
+    return removed
+
+
 def _strip_latex_escapes_for_docx(s: str) -> str:
     """移除 caption 文本中的 LaTeX 转义符号，使其适合 DOCX 纯文本显示。"""
     # $n=25$ → n=25（去掉数学模式定界符）
@@ -2985,6 +3045,9 @@ def _apply_three_line_tables(
     w_r = _qn(ns, "w", "r")
     w_t = _qn(ns, "w", "t")
     w_rPr = _qn(ns, "w", "rPr")
+    w_rFonts = _qn(ns, "w", "rFonts")
+    w_ascii = _qn(ns, "w", "ascii")
+    w_hAnsi = _qn(ns, "w", "hAnsi")
     w_sz = _qn(ns, "w", "sz")
     w_szCs = _qn(ns, "w", "szCs")
     w_val = _qn(ns, "w", "val")
@@ -3051,6 +3114,11 @@ def _apply_three_line_tables(
                 rPr = r.find(w_rPr)
                 if rPr is None:
                     rPr = ET.SubElement(r, w_rPr)
+                rFonts = rPr.find(w_rFonts)
+                if rFonts is None:
+                    rFonts = ET.SubElement(rPr, w_rFonts)
+                rFonts.set(w_ascii, "Times New Roman")
+                rFonts.set(w_hAnsi, "Times New Roman")
                 sz = rPr.find(w_sz)
                 if sz is None:
                     sz = ET.SubElement(rPr, w_sz)
@@ -3549,6 +3617,209 @@ def _ensure_hanging_indent_for_bibliography(ns: dict[str, str], body: ET.Element
         i += 1
 
 
+def _contains_cjk(text: str) -> bool:
+    return any(
+        "\u4e00" <= ch <= "\u9fff"
+        or "\u3400" <= ch <= "\u4dbf"
+        or "\u3040" <= ch <= "\u30ff"
+        or "\uac00" <= ch <= "\ud7af"
+        for ch in text
+    )
+
+
+def _is_ascii_token_char(ch: str) -> bool:
+    return ord(ch) < 128 and (ch.isalnum() or ch in " ./,:;%+-_/()[]")
+
+
+def _split_mixed_script_runs(ns: dict[str, str], body: ET.Element) -> None:
+    """Split mixed CJK/ASCII runs so Latin tokens can use explicit Latin fonts."""
+    w_p = _qn(ns, "w", "p")
+    w_r = _qn(ns, "w", "r")
+    w_rPr = _qn(ns, "w", "rPr")
+    w_t = _qn(ns, "w", "t")
+
+    split_count = 0
+
+    for p in body.findall(f".//{w_p}"):
+        children = list(p)
+        i = 0
+        while i < len(children):
+            r = children[i]
+            if r.tag != w_r:
+                i += 1
+                continue
+
+            parts = list(r)
+            if any(part.tag not in {w_rPr, w_t} for part in parts):
+                i += 1
+                continue
+            t_nodes = [part for part in parts if part.tag == w_t]
+            if len(t_nodes) != 1:
+                i += 1
+                continue
+
+            text = t_nodes[0].text or ""
+            if not text or not _contains_cjk(text) or not re.search(r"[A-Za-z0-9]", text):
+                i += 1
+                continue
+
+            segments: list[tuple[str, str]] = []
+            buf = []
+            kind: str | None = None
+            for ch in text:
+                next_kind = "ascii" if _is_ascii_token_char(ch) else "cjk"
+                if kind is None or next_kind == kind:
+                    buf.append(ch)
+                    kind = next_kind
+                    continue
+                segments.append((kind, "".join(buf)))
+                buf = [ch]
+                kind = next_kind
+            if buf:
+                segments.append((kind or "cjk", "".join(buf)))
+
+            if len(segments) <= 1:
+                i += 1
+                continue
+
+            insert_at = i
+            for _, seg in segments:
+                if not seg:
+                    continue
+                new_r = copy.deepcopy(r)
+                for child in list(new_r):
+                    if child.tag == w_t:
+                        new_r.remove(child)
+                new_t = ET.SubElement(new_r, w_t)
+                new_t.text = seg
+                if seg[0] == " " or seg[-1] == " ":
+                    new_t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+                p.insert(insert_at, new_r)
+                insert_at += 1
+            p.remove(r)
+            split_count += 1
+            children = list(p)
+            i = insert_at
+
+    if split_count:
+        print(f"  [fonts] Split {split_count} mixed-script run(s)")
+
+
+def _normalize_ascii_run_fonts(ns: dict[str, str], body: ET.Element) -> None:
+    """Force English letters and Arabic numerals to use Times New Roman."""
+    w_r = _qn(ns, "w", "r")
+    w_t = _qn(ns, "w", "t")
+    w_rPr = _qn(ns, "w", "rPr")
+    w_rFonts = _qn(ns, "w", "rFonts")
+    w_ascii = _qn(ns, "w", "ascii")
+    w_hAnsi = _qn(ns, "w", "hAnsi")
+    w_eastAsia = _qn(ns, "w", "eastAsia")
+    w_hint = _qn(ns, "w", "hint")
+    w_cs = _qn(ns, "w", "cs")
+    changed = 0
+    ascii_re = re.compile(r"[0-9A-Za-z]")
+
+    for r in body.findall(f".//{w_r}"):
+        texts = [t.text or "" for t in r.findall(f".//{w_t}")]
+        if not texts:
+            continue
+        joined = "".join(texts)
+        if not ascii_re.search(joined):
+            continue
+
+        rPr = r.find(w_rPr)
+        if rPr is None:
+            rPr = ET.Element(w_rPr)
+            r.insert(0, rPr)
+
+        rFonts = rPr.find(w_rFonts)
+        if rFonts is None:
+            rFonts = ET.SubElement(rPr, w_rFonts)
+
+        if rFonts.get(w_ascii) != "Times New Roman":
+            rFonts.set(w_ascii, "Times New Roman")
+            changed += 1
+        if rFonts.get(w_hAnsi) != "Times New Roman":
+            rFonts.set(w_hAnsi, "Times New Roman")
+        if not _contains_cjk(joined):
+            for attr in (w_eastAsia, w_hint, w_cs):
+                if attr in rFonts.attrib:
+                    del rFonts.attrib[attr]
+
+    if changed:
+        print(f"  [fonts] Normalized {changed} ASCII/numeric run(s) to Times New Roman")
+
+
+def _normalize_bibliography_run_style(ns: dict[str, str], body: ET.Element) -> None:
+    """Set bibliography entry runs to 五号 and ensure Latin text uses Times New Roman."""
+    w_p = _qn(ns, "w", "p")
+    w_r = _qn(ns, "w", "r")
+    w_rPr = _qn(ns, "w", "rPr")
+    w_rFonts = _qn(ns, "w", "rFonts")
+    w_sz = _qn(ns, "w", "sz")
+    w_szCs = _qn(ns, "w", "szCs")
+    w_val = _qn(ns, "w", "val")
+    w_ascii = _qn(ns, "w", "ascii")
+    w_hAnsi = _qn(ns, "w", "hAnsi")
+    w_cs = _qn(ns, "w", "cs")
+
+    children = list(body)
+    ref_idx = None
+    for i, el in enumerate(children):
+        if el.tag != w_p:
+            continue
+        if _p_text(ns, el).strip() == "参考文献":
+            ref_idx = i
+            break
+    if ref_idx is None:
+        return
+
+    bib_entry_re = re.compile(r"^(\[[0-9]{1,4}\]|［[0-9]{1,4}］)")
+    changed = 0
+    i = ref_idx + 1
+    while i < len(children):
+        el = children[i]
+        if el.tag != w_p:
+            i += 1
+            continue
+        style = _p_style(ns, el)
+        if style == "1" and _p_text(ns, el).strip() not in {"参考文献"}:
+            break
+        txt = _p_text(ns, el).strip()
+        if not bib_entry_re.match(txt):
+            i += 1
+            continue
+
+        for r in el.findall(f".//{w_r}"):
+            rPr = r.find(w_rPr)
+            if rPr is None:
+                rPr = ET.Element(w_rPr)
+                r.insert(0, rPr)
+
+            rFonts = rPr.find(w_rFonts)
+            if rFonts is None:
+                rFonts = ET.SubElement(rPr, w_rFonts)
+            rFonts.set(w_ascii, "Times New Roman")
+            rFonts.set(w_hAnsi, "Times New Roman")
+            if rFonts.get(w_cs) is None:
+                rFonts.set(w_cs, "Times New Roman")
+
+            sz = rPr.find(w_sz)
+            if sz is None:
+                sz = ET.SubElement(rPr, w_sz)
+            sz.set(w_val, "21")
+
+            szCs = rPr.find(w_szCs)
+            if szCs is None:
+                szCs = ET.SubElement(rPr, w_szCs)
+            szCs.set(w_val, "21")
+            changed += 1
+        i += 1
+
+    if changed:
+        print(f"  [fonts] Normalized {changed} bibliography run(s) to 五号")
+
+
 def _fix_numbering_isLgl(ns: dict[str, str], numbering_xml: bytes) -> bytes:
     ns2 = _collect_ns(numbering_xml)
     if "w" not in ns2:
@@ -3605,6 +3876,90 @@ def _fix_numbering_isLgl(ns: dict[str, str], numbering_xml: bytes) -> bytes:
 
     if not changed:
         return numbering_xml
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def _normalize_list_indents(numbering_xml: bytes) -> bytes:
+    """Pull pandoc-generated list indents closer to the LaTeX PDF layout."""
+    if not numbering_xml:
+        return numbering_xml
+
+    ns = _collect_ns(numbering_xml)
+    if "w" not in ns:
+        return numbering_xml
+    _register_ns(ns)
+    w_uri = ns["w"]
+    w_abstractNum = f"{{{w_uri}}}abstractNum"
+    w_abstractNumId = f"{{{w_uri}}}abstractNumId"
+    w_lvl = f"{{{w_uri}}}lvl"
+    w_ilvl = f"{{{w_uri}}}ilvl"
+    w_numFmt = f"{{{w_uri}}}numFmt"
+    w_pPr = f"{{{w_uri}}}pPr"
+    w_ind = f"{{{w_uri}}}ind"
+    w_val = f"{{{w_uri}}}val"
+    w_left = f"{{{w_uri}}}left"
+    w_hanging = f"{{{w_uri}}}hanging"
+    w_firstLine = f"{{{w_uri}}}firstLine"
+    w_firstLineChars = f"{{{w_uri}}}firstLineChars"
+    w_hangingChars = f"{{{w_uri}}}hangingChars"
+
+    root = ET.fromstring(numbering_xml)
+    list_numfmts = {"bullet", "decimal", "lowerLetter", "lowerRoman"}
+    # Calibrated against the current SWUN DOCX->PDF output so level-0 list
+    # body text lands on the same x coordinate as the LaTeX PDF.
+    left_shift = 362
+    min_left = 358
+    target_hanging = "360"
+    changed = 0
+
+    for absn in root.findall(w_abstractNum):
+        abs_id = absn.get(w_abstractNumId, "")
+        if abs_id in {"0", _HEADING_ABSTRACT_NUM_ID}:
+            continue
+
+        lvls = absn.findall(w_lvl)
+        if not lvls:
+            continue
+
+        sample_fmt = None
+        for lvl in lvls:
+            numfmt = lvl.find(w_numFmt)
+            if numfmt is not None:
+                sample_fmt = numfmt.get(w_val, "")
+                if sample_fmt:
+                    break
+        if sample_fmt not in list_numfmts:
+            continue
+
+        for lvl in lvls:
+            ilvl_raw = lvl.get(w_ilvl, "0")
+            try:
+                ilvl = int(ilvl_raw)
+            except ValueError:
+                ilvl = 0
+
+            pPr = lvl.find(w_pPr)
+            if pPr is None:
+                pPr = ET.SubElement(lvl, w_pPr)
+            ind = pPr.find(w_ind)
+            if ind is None:
+                ind = ET.SubElement(pPr, w_ind)
+
+            old_left = ind.get(w_left)
+            try:
+                base_left = int(old_left) if old_left is not None else 720 * (ilvl + 1)
+            except ValueError:
+                base_left = 720 * (ilvl + 1)
+
+            ind.set(w_left, str(max(min_left, base_left - left_shift)))
+            ind.set(w_hanging, target_hanging)
+            for attr in (w_firstLine, w_firstLineChars, w_hangingChars):
+                if attr in ind.attrib:
+                    del ind.attrib[attr]
+            changed += 1
+
+    if changed:
+        print(f"  [numbering] Normalized {changed} list level indent(s)")
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
 
@@ -3775,6 +4130,7 @@ def _align_styles_to_reference(styles_xml: bytes) -> bytes:
     w_sz = _qn(sns, "w", "sz")
     w_szCs = _qn(sns, "w", "szCs")
     w_val = _qn(sns, "w", "val")
+    w_name = _qn(sns, "w", "name")
 
     def _ensure(parent: ET.Element, tag: str) -> ET.Element:
         el = parent.find(tag)
@@ -3782,12 +4138,25 @@ def _align_styles_to_reference(styles_xml: bytes) -> bytes:
             el = ET.SubElement(parent, tag)
         return el
 
+    def _style_key(st: ET.Element) -> tuple[str, str]:
+        sid = (st.get(w_styleId, "") or "").strip()
+        name_el = st.find(w_name)
+        name = ""
+        if name_el is not None:
+            name = (name_el.get(w_val, "") or "").strip()
+        sid_norm = sid.replace(" ", "").lower()
+        name_norm = name.replace(" ", "").lower()
+        return sid_norm, name_norm
+
     updated: list[str] = []
     for st in sroot.findall(w_style):
         sid = st.get(w_styleId, "")
+        sid_norm, name_norm = _style_key(st)
 
-        # 1) Normal style (styleId='1')
-        if sid == "1":
+        # 1) Normal style (template styleId='a', style name='Normal').
+        # Some previous builds incorrectly assumed styleId='1', which is actually
+        # Heading 1 in this template family and corrupts chapter titles.
+        if sid_norm == "a" or name_norm == "normal":
             pPr = _ensure(st, w_pPr)
             ind = _ensure(pPr, w_ind)
             ind.set(_qn(sns, "w", "firstLine"), "480")
@@ -3819,10 +4188,10 @@ def _align_styles_to_reference(styles_xml: bytes) -> bytes:
             szCs = _ensure(rPr, w_szCs)
             szCs.set(w_val, "24")
 
-            updated.append("Normal(styleId=1)")
+            updated.append(f"Normal(styleId={sid or 'unknown'})")
 
-        # 2) Heading 3 style (styleId='5')
-        elif sid == "5":
+        # 2) Heading 3 style (styleId='Heading3', style name='heading 3').
+        elif sid_norm in {"heading3", "3"} or name_norm == "heading3":
             pPr = _ensure(st, w_pPr)
             ind = _ensure(pPr, w_ind)
             ind.set(_qn(sns, "w", "firstLine"), "482")
@@ -3845,7 +4214,7 @@ def _align_styles_to_reference(styles_xml: bytes) -> bytes:
                 for node in list(rPr.findall(w_szCs)):
                     rPr.remove(node)
 
-            updated.append("Heading3(styleId=5)")
+            updated.append(f"Heading3(styleId={sid or 'unknown'})")
 
     if updated:
         print(f"  [styles] Aligned reference styles: {', '.join(updated)}")
@@ -4522,7 +4891,11 @@ def _postprocess_docx(
         _format_algorithm_blocks(doc_ns, root, body)
         _ensure_indent_for_body_paragraphs(doc_ns, body)
         _ensure_hanging_indent_for_bibliography(doc_ns, body)
+        _split_mixed_script_runs(doc_ns, body)
+        _normalize_ascii_run_fonts(doc_ns, body)
+        _normalize_bibliography_run_style(doc_ns, body)
         _inject_captions_from_meta(doc_ns, body, caption_meta)
+        _dedupe_body_level_anchor_bookmarks(doc_ns, body)
         _fix_ref_dot_to_hyphen(doc_ns, body)
         _strip_anchor_hyperlinks_in_main_body(doc_ns, body, hyperlink_style_ids)
         _number_display_equations(doc_ns, root, body, display_math_flags)
@@ -4544,6 +4917,7 @@ def _postprocess_docx(
         if new_numbering_xml:
             new_numbering_xml = _inject_heading_numbering(new_numbering_xml)
             new_numbering_xml = _fix_numbering_isLgl(doc_ns, new_numbering_xml)
+            new_numbering_xml = _normalize_list_indents(new_numbering_xml)
 
         # Bind heading styles to numbering + align key style definitions + normalize Hyperlink style
         new_styles_xml = styles_xml
