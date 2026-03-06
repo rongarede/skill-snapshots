@@ -3432,7 +3432,9 @@ def _number_display_equations(
         p.append(_make_equation_number_run(ns, num_txt))
 
 
-def _insert_toc_before_first_chapter(ns: dict[str, str], body: ET.Element) -> None:
+def _insert_toc_before_first_chapter(
+    ns: dict[str, str], body: ET.Element, sectPr_proto: ET.Element | None = None
+) -> None:
     w_p = _qn(ns, "w", "p")
     w_pPr = _qn(ns, "w", "pPr")
     w_pStyle = _qn(ns, "w", "pStyle")
@@ -3504,12 +3506,22 @@ def _insert_toc_before_first_chapter(ns: dict[str, str], body: ET.Element) -> No
     fld_end = ET.SubElement(r5, w_fldChar)
     fld_end.set(w_fldCharType, "end")
 
-    # Page break after TOC so first chapter starts on a new page.
-    pb = _make_page_break_p(ns)
-
-    body.insert(first_h1_idx, toc_title_p)
-    body.insert(first_h1_idx + 1, toc_field_p)
-    body.insert(first_h1_idx + 2, pb)
+    # Section break after TOC: ends the TOC section (no page numbers).
+    # 摘要 starts a new section with Roman numerals.
+    if sectPr_proto is not None:
+        sect_toc = copy.deepcopy(sectPr_proto)
+        _set_sect_break_next_page(ns, sect_toc)
+        # No explicit start → footer will be empty (no page numbers on TOC pages).
+        _set_sect_pgnum(ns, sect_toc, fmt="decimal", start=None)
+        sb = _make_section_break_paragraph(ns, sect_toc)
+        body.insert(first_h1_idx, toc_title_p)
+        body.insert(first_h1_idx + 1, toc_field_p)
+        body.insert(first_h1_idx + 2, sb)
+    else:
+        pb = _make_page_break_p(ns)
+        body.insert(first_h1_idx, toc_title_p)
+        body.insert(first_h1_idx + 1, toc_field_p)
+        body.insert(first_h1_idx + 2, pb)
 
 
 def _add_page_breaks_before_h1(ns: dict[str, str], body: ET.Element) -> None:
@@ -4356,12 +4368,12 @@ def _replace_wps_footers(
 ) -> None:
     """Replace footer*.xml with clean PAGE field footers based on actual sectPr references.
 
-    封面 section 的 default footer 写空（不显示页码），
-    前置部分（摘要/目录）和正文 section 的 default footer 写 PAGE 字段。
+    封面 section (0) 和目录 section (1) 的 default footer 写空（不显示页码），
+    摘要 section (lowerRoman) 和正文 section (decimal) 的 default footer 写 PAGE 字段。
     pgNumType（lowerRoman / decimal）已在 sectPr 中设定，控制显示格式。
 
-    若封面和正文共享同一 default footer rId，则自动拆分：
-    把封面 sectPr 的 default footerReference 指向一个空闲 footer 文件。
+    若空 footer section 和 PAGE footer section 共享同一 default footer rId，则自动拆分：
+    把空 footer section 的 default footerReference 指向一个空闲 footer 文件。
     """
     footer_files: list[str] = []
     for name in list(file_data):
@@ -4411,26 +4423,26 @@ def _replace_wps_footers(
         sect_info.append({"default_rid": default_rid, "fmt": fmt})
 
     # 确定哪些 footer 文件需要 PAGE 字段，哪些需要空
-    # 规则：section 0（封面）的 default footer → 空
-    #        其余 section 的 default footer → PAGE 字段
+    # 规则：section 0（封面）和 section 1（目录）的 default footer → 空（不显示页码）
+    #        其余 section（摘要=lowerRoman、正文=decimal）的 default footer → PAGE 字段
     page_footer_files: set[str] = set()  # 需要 PAGE 字段的 footer 文件
     empty_footer_files: set[str] = set()  # 需要空的 footer 文件
+    empty_sect_indices: list[int] = []  # 需要空 footer 的 section 索引
 
-    # 找出非封面 section 使用的 default footer
     for i, info in enumerate(sect_info):
         rid = info["default_rid"]
         if rid and rid in rid_to_footer:
             fname = f"word/{rid_to_footer[rid]}"
-            if i == 0:
+            if i <= 1:  # 封面 (0) + 目录 (1) 不显示页码
                 empty_footer_files.add(fname)
+                empty_sect_indices.append(i)
             else:
                 page_footer_files.add(fname)
 
     # 处理冲突：同一 footer 文件既需要空又需要 PAGE
     conflict = page_footer_files & empty_footer_files
     if conflict and len(sect_info) > 0:
-        # 封面 section 需要拆分到另一个 footer 文件
-        # 找一个没有被任何 section default 引用的空闲 footer 文件
+        # 需要拆分：把需要空 footer 的 section 指向一个空闲 footer 文件
         used_footers = {f"word/{rid_to_footer[info['default_rid']]}"
                         for info in sect_info
                         if info["default_rid"] and info["default_rid"] in rid_to_footer}
@@ -4441,8 +4453,6 @@ def _replace_wps_footers(
                 break
 
         if free_footer is not None:
-            # 把封面 section 的 default footerReference 指向这个空闲 footer
-            # 需要找到空闲 footer 对应的 rId
             free_base = free_footer.replace("word/", "")
             free_rid = None
             for rid, target in rid_to_footer.items():
@@ -4451,14 +4461,16 @@ def _replace_wps_footers(
                     break
 
             if free_rid is not None:
-                # 修改 document.xml 中封面 section 的 default footer rId
-                cover_sp = all_sectPr[0]
-                for fr in cover_sp.findall(w_footerRef_tag):
-                    if fr.get(w_type_attr) == "default":
-                        fr.set(r_id_attr, free_rid)
-                        break
+                # 把所有需要空 footer 的 section 的 default footerReference 指向空闲 footer
+                for sect_idx in empty_sect_indices:
+                    sp = all_sectPr[sect_idx]
+                    for fr in sp.findall(w_footerRef_tag):
+                        if fr.get(w_type_attr) == "default":
+                            fr.set(r_id_attr, free_rid)
+                            break
                 # 更新映射
-                empty_footer_files.discard(next(iter(conflict)))
+                for cf in conflict:
+                    empty_footer_files.discard(cf)
                 empty_footer_files.add(free_footer)
                 page_footer_files.discard(free_footer)
 
@@ -4466,7 +4478,7 @@ def _replace_wps_footers(
                 file_data["word/document.xml"] = ET.tostring(
                     droot, encoding="utf-8", xml_declaration=True
                 )
-                print(f"  [footer] Cover section default footer reassigned to {free_base} ({free_rid})")
+                print(f"  [footer] Sections {empty_sect_indices} default footer reassigned to {free_base} ({free_rid})")
 
     # 写入 footer 文件内容
     replaced = 0
@@ -4906,7 +4918,7 @@ def _postprocess_docx(
 
         _insert_abstract_keywords(doc_ns, body, cn_keywords, en_keywords)
 
-        _insert_toc_before_first_chapter(doc_ns, body)
+        _insert_toc_before_first_chapter(doc_ns, body, sectPr_proto)
         _add_page_breaks_before_h1(doc_ns, body)
         _apply_three_line_tables(doc_ns, root, body, table_style_id, latex_col_ratios=latex_col_ratios)
         _number_paragraph_headings_in_main_body(doc_ns, body)
