@@ -3554,22 +3554,42 @@ def _ensure_indent_for_body_paragraphs(ns: dict[str, str], body: ET.Element) -> 
     flush_left_styles = {"Heading2", "2", "Heading3", "3"}
 
     w_firstLine = _qn(ns, "w", "firstLine")
+    m_uri = ns.get("m")
+    m_oMathPara = f"{{{m_uri}}}oMathPara" if m_uri else None
+    m_oMath = f"{{{m_uri}}}oMath" if m_uri else None
 
-    for p in body.iter(w_p):
-        style = _p_style(ns, p)
+    def is_display_math_para(p: ET.Element) -> bool:
+        if p.tag != w_p or not m_uri:
+            return False
+        if p.find(m_oMathPara) is not None:
+            return True
+        # Pandoc may emit display math as a bare oMath paragraph with no prose text.
+        return p.find(m_oMath) is not None and not _p_text(ns, p).strip()
+
+    prev_sig: ET.Element | None = None
+
+    for child in list(body):
+        if child.tag != w_p:
+            continue
+        style = _p_style(ns, child)
         if style in body_styles:
-            pPr = _ensure_ppr(ns, p)
+            pPr = _ensure_ppr(ns, child)
             ind = pPr.find(w_ind)
             # Skip paragraphs already formatted by _format_algorithm_blocks
             # (they have explicit firstLine="0")
             if ind is not None and ind.get(w_firstLine) == "0":
+                prev_sig = child
+                continue
+            if prev_sig is not None and is_display_math_para(prev_sig):
+                _clear_para_first_indent(ns, child)
+                prev_sig = child
                 continue
             if ind is None:
                 ind = ET.SubElement(pPr, w_ind)
             # Keep other indentation attributes intact; only enforce first-line indent.
             ind.set(w_firstLineChars, "200")
         elif style in flush_left_styles:
-            pPr = _ensure_ppr(ns, p)
+            pPr = _ensure_ppr(ns, child)
             ind = pPr.find(w_ind)
             if ind is None:
                 ind = ET.SubElement(pPr, w_ind)
@@ -3578,6 +3598,8 @@ def _ensure_indent_for_body_paragraphs(ns: dict[str, str], body: ET.Element) -> 
             for attr in (w_hanging, w_hangingChars):
                 if attr in ind.attrib:
                     del ind.attrib[attr]
+
+        prev_sig = child
 
 
 def _ensure_hanging_indent_for_bibliography(ns: dict[str, str], body: ET.Element) -> None:

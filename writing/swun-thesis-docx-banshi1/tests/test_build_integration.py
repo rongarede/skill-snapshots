@@ -47,6 +47,49 @@ def get_docx_semantic_hash(filepath: Path) -> str:
     return sha256_hash.hexdigest()
 
 
+def _build_swun_docx() -> Path:
+    """Build the SWUN DOCX and return the generated path."""
+    result = subprocess.run(
+        ["python3", str(SKILL_DIR / "scripts/build_docx_banshi1.py")],
+        cwd="/Users/bit/LaTeX/SWUN_Thesis",
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"Build failed: {result.stderr}"
+
+    output = Path("/Users/bit/LaTeX/SWUN_Thesis/main_版式1.docx")
+    assert output.exists(), "Output DOCX not found"
+    return output
+
+
+def _load_document_paragraphs(docx_path: Path) -> tuple[dict[str, str], list[ET.Element]]:
+    """Return document.xml paragraph nodes from a built DOCX."""
+    with zipfile.ZipFile(docx_path, "r") as zf:
+        root = ET.fromstring(zf.read("word/document.xml"))
+
+    ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+    paragraphs = root.findall(".//w:body/w:p", ns)
+    return ns, paragraphs
+
+
+def _paragraph_text(paragraph: ET.Element, ns: dict[str, str]) -> str:
+    return "".join(t.text or "" for t in paragraph.findall(".//w:t", ns)).strip()
+
+
+def _paragraph_indent(paragraph: ET.Element, ns: dict[str, str]) -> dict[str, str]:
+    ind = paragraph.find("./w:pPr/w:ind", ns)
+    if ind is None:
+        return {}
+    return {key.split("}")[-1]: value for key, value in ind.attrib.items()}
+
+
+def _find_paragraph_index(paragraphs: list[ET.Element], ns: dict[str, str], predicate) -> int:
+    for idx, paragraph in enumerate(paragraphs):
+        if predicate(_paragraph_text(paragraph, ns), paragraph):
+            return idx
+    pytest.fail("Expected paragraph was not found in document.xml")
+
+
 def test_build_produces_identical_output():
     """Golden test: refactored code must produce semantically identical DOCX."""
 
@@ -128,3 +171,42 @@ def test_build_deduplicates_anchor_bookmark_names():
 
     assert "fig:dag_structure" in anchor_names
     assert not dup_names, f"Duplicate anchor bookmark names found: {dup_names}"
+
+
+def test_build_clears_indent_for_equation_explanation_but_keeps_following_body_indent():
+    """The explanation paragraph after a display equation should not keep body first-line indent."""
+
+    output = _build_swun_docx()
+    ns, paragraphs = _load_document_paragraphs(output)
+
+    eq_idx = _find_paragraph_index(
+        paragraphs,
+        ns,
+        lambda text, _: text in {"(2-1)", "（2-1）"},
+    )
+    explanation_idx = _find_paragraph_index(
+        paragraphs[eq_idx + 1:],
+        ns,
+        lambda text, _: text.startswith("其中"),
+    )
+    explanation_idx += eq_idx + 1
+
+    followup_idx = _find_paragraph_index(
+        paragraphs[explanation_idx + 1:],
+        ns,
+        lambda text, _: text.startswith("HotStuff[38]"),
+    )
+    followup_idx += explanation_idx + 1
+
+    explanation_indent = _paragraph_indent(paragraphs[explanation_idx], ns)
+    followup_indent = _paragraph_indent(paragraphs[followup_idx], ns)
+
+    assert explanation_indent.get("firstLine") == "0", (
+        "The chapter2 '(2-1)' explanation paragraph should clear w:firstLine in document.xml"
+    )
+    assert explanation_indent.get("firstLineChars") == "0", (
+        "The chapter2 '(2-1)' explanation paragraph should clear w:firstLineChars in document.xml"
+    )
+    assert followup_indent.get("firstLineChars") not in {None, "0"}, (
+        "A later true body paragraph should retain its normal first-line indent"
+    )
