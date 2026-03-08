@@ -4787,6 +4787,66 @@ def _fix_hyperlink_style(styles_xml: bytes) -> bytes:
     return ET.tostring(sroot, encoding="utf-8", xml_declaration=True)
 
 
+def _inject_figure_table_style(styles_xml: bytes) -> bytes:
+    """Inject a FigureTable table style with zero cell margins.
+
+    Pandoc generates ``w:tblStyle="FigureTable"`` for two-column figure
+    wrapper tables, but this style is not defined in the reference template.
+    Without the definition Word/LibreOffice falls back to Normal Table which
+    has 108-twip left/right cell margins, causing images to be clipped by ~9%.
+    """
+    if not styles_xml:
+        return styles_xml
+
+    sns = _collect_ns(styles_xml)
+    _register_ns(sns)
+    sroot = ET.fromstring(styles_xml)
+
+    w_uri = sns["w"]
+    q_style = f"{{{w_uri}}}style"
+    q_styleId = f"{{{w_uri}}}styleId"
+
+    # Check if FigureTable style already exists
+    for s in sroot.findall(q_style):
+        if s.get(q_styleId) == "FigureTable":
+            return styles_xml  # already present, nothing to do
+
+    # Build the style element:
+    # <w:style w:type="table" w:customStyle="1" w:styleId="FigureTable">
+    #   <w:name w:val="FigureTable"/>
+    #   <w:tblPr>
+    #     <w:tblCellMar>
+    #       <w:top    w:type="dxa" w:w="0"/>
+    #       <w:left   w:type="dxa" w:w="0"/>
+    #       <w:bottom w:type="dxa" w:w="0"/>
+    #       <w:right  w:type="dxa" w:w="0"/>
+    #     </w:tblCellMar>
+    #   </w:tblPr>
+    # </w:style>
+    def _q(local: str) -> str:
+        return f"{{{w_uri}}}{local}"
+
+    style_el = ET.SubElement(sroot, _q("style"))
+    style_el.set(_q("type"), "table")
+    style_el.set(_q("customStyle"), "1")
+    style_el.set(_q("styleId"), "FigureTable")
+
+    name_el = ET.SubElement(style_el, _q("name"))
+    name_el.set(_q("val"), "FigureTable")
+
+    tblPr = ET.SubElement(style_el, _q("tblPr"))
+    tblCellMar = ET.SubElement(tblPr, _q("tblCellMar"))
+
+    for side in ("top", "left", "bottom", "right"):
+        margin_el = ET.SubElement(tblCellMar, _q(side))
+        margin_el.set(_q("type"), "dxa")
+        margin_el.set(_q("w"), "0")
+
+    print("  [styles] Injected FigureTable style (zero cell margins)")
+
+    return ET.tostring(sroot, encoding="utf-8", xml_declaration=True)
+
+
 def _build_algorithm_table(
     ns: dict[str, str],
     title_p: ET.Element,
@@ -5188,6 +5248,7 @@ def _postprocess_docx(
             new_styles_xml = _bind_heading_styles_to_numbering(new_styles_xml)
             new_styles_xml = _align_styles_to_reference(new_styles_xml)
             new_styles_xml = _fix_hyperlink_style(new_styles_xml)
+            new_styles_xml = _inject_figure_table_style(new_styles_xml)
 
         # Collect all file data for footer replacement
         file_data: dict[str, bytes] = {}
