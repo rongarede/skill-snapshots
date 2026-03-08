@@ -16,6 +16,13 @@ import sys
 import tempfile
 import zipfile
 import xml.etree.ElementTree as ET
+from pathlib import Path
+
+from modules.caption_profile import (
+    extract_caption_profiles,
+    paragraph_signature,
+    profile_signature,
+)
 
 
 def _iter_paragraphs(doc_xml: str) -> list[str]:
@@ -374,32 +381,30 @@ def _iter_reference_blocks(root: ET.Element, ns: dict[str, str]) -> list[ET.Elem
 
 def _check_reference_external_hyperlinks(doc_xml: str) -> str | None:
     """
-    Guardrail: if references contain DOI/URL text, they should retain external
-    hyperlinks (w:hyperlink with r:id).
+    Guardrail: references must NOT contain DOI external hyperlinks.
+    The builder strips DOI hyperlinks; if any remain, report as a problem.
     """
     ns = {
         "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
         "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
     }
+    doi_re = re.compile(r"(10\.\d{4,9}/\S+|https?://doi\.org/\S*)", re.IGNORECASE)
     root = ET.fromstring(doc_xml)
     ref_blocks = _iter_reference_blocks(root, ns)
     if not ref_blocks:
         return None
 
-    ref_text = "".join(
-        "".join((t.text or "") for t in block.findall(".//w:t", ns)) for block in ref_blocks
-    )
-    has_doi_or_url = bool(re.search(r"(10\.\d{4,9}/\S+|https?://\S+)", ref_text, flags=re.IGNORECASE))
-    if not has_doi_or_url:
-        return None
-
-    rid_links = 0
+    doi_links = 0
     for block in ref_blocks:
         for hl in block.findall(".//w:hyperlink", ns):
-            if hl.get(f"{{{ns['r']}}}id"):
-                rid_links += 1
-    if rid_links == 0:
-        return "references contain DOI/URL text but no external hyperlinks (w:hyperlink r:id)"
+            if not hl.get(f"{{{ns['r']}}}id"):
+                continue
+            hl_text = "".join((t.text or "") for t in hl.findall(".//w:t", ns)).strip()
+            if doi_re.search(hl_text):
+                doi_links += 1
+
+    if doi_links > 0:
+        return f"references still contain {doi_links} DOI external hyperlink(s) (should have been stripped)"
     return None
 
 
@@ -672,6 +677,61 @@ def _parse_caption_index(kind: str, lang: str, text: str) -> tuple[int, int] | N
     return int(m.group(1)), int(m.group(2))
 
 
+def _resolve_caption_profile_docx(docx_path: str | None) -> Path:
+    env_path = os.environ.get("SWUN_CAPTION_PROFILE_DOCX")
+    if env_path:
+        return Path(env_path).expanduser()
+    if docx_path:
+        return Path(docx_path).expanduser().resolve().parent / "网络与信息安全_高春琴.docx"
+    return Path("/Users/bit/LaTeX/SWUN_Thesis/网络与信息安全_高春琴.docx")
+
+
+def _collect_caption_paragraph(root: ET.Element, prefix: str) -> ET.Element | None:
+    ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+    body = root.find("w:body", ns)
+    if body is None:
+        return None
+    for paragraph in body.findall(".//w:p", ns):
+        text = "".join(t.text or "" for t in paragraph.findall(".//w:t", ns)).strip()
+        if text.startswith(prefix):
+            return paragraph
+    return None
+
+
+def _check_caption_profile_alignment(doc_xml: str, docx_path: str | None) -> list[str]:
+    ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+    profile_docx = _resolve_caption_profile_docx(docx_path)
+    try:
+        profiles = extract_caption_profiles(profile_docx)
+    except Exception as exc:
+        return [f"caption profile source invalid: {profile_docx} ({exc})"]
+
+    try:
+        root = ET.fromstring(doc_xml)
+    except ET.ParseError as exc:
+        return [f"failed to parse document.xml for caption profile alignment: {exc}"]
+
+    errors: list[str] = []
+    for kind, prefix in (("figure", "图"), ("table", "表")):
+        paragraph = _collect_caption_paragraph(root, prefix)
+        if paragraph is None:
+            errors.append(f"missing {kind} caption paragraph for profile comparison")
+            continue
+        actual = paragraph_signature(paragraph, ns)
+        expected = profile_signature(profiles[kind])
+        if actual != expected:
+            mismatches = [
+                f"{field}: got {actual[field]!r}, expected {expected[field]!r}"
+                for field in expected
+                if actual.get(field) != expected.get(field)
+            ]
+            errors.append(
+                f"{kind} caption formatting mismatch vs reference profile: " + "; ".join(mismatches)
+            )
+    return errors
+    return int(m.group(1)), int(m.group(2))
+
+
 def _check_anchor_caption_rules(doc_xml: str) -> list[str]:
     ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
     try:
@@ -686,6 +746,28 @@ def _check_anchor_caption_rules(doc_xml: str) -> list[str]:
 
     counters: dict[tuple[int, str], int] = {}
 
+    def _wrapper_figure_caption_lines(block: ET.Element) -> list[str]:
+        w_tbl = f"{{{ns['w']}}}tbl"
+        w_tc = f"{{{ns['w']}}}tc"
+        w_p = f"{{{ns['w']}}}p"
+        lines: list[str] = []
+        if block.tag != w_tbl:
+            return lines
+        for cell in block.findall(f".//{w_tc}"):
+            seen_figure = False
+            for child in list(cell):
+                if child.tag == w_tbl and _block_has_drawing(child, ns):
+                    seen_figure = True
+                    continue
+                if child.tag != w_p or not seen_figure:
+                    continue
+                text = "".join((t.text or "") for t in child.findall(".//w:t", ns)).strip()
+                if text.startswith(("图", "Figure")):
+                    lines.append(text)
+            if lines:
+                return lines
+        return lines
+
     for kind, label, block_idx in placements:
         chapter_no = chapter_by_idx.get(block_idx)
         if chapter_no is None:
@@ -698,7 +780,10 @@ def _check_anchor_caption_rules(doc_xml: str) -> list[str]:
         after = _neighbor_nonempty_paras(children, block_idx, ns, before=False, limit=2)
 
         if kind == "figure":
-            cn = _parse_caption_index(kind, "cn", after[0]) if after else None
+            block = children[block_idx]
+            internal = _wrapper_figure_caption_lines(block)
+            figure_lines = internal or after
+            cn = _parse_caption_index(kind, "cn", figure_lines[0]) if figure_lines else None
             if cn is None:
                 misplaced = any(_parse_caption_index(kind, "cn", t) is not None for t in before)
                 if misplaced:
@@ -710,12 +795,12 @@ def _check_anchor_caption_rules(doc_xml: str) -> list[str]:
                 errors.append(
                     f"anchor '{label}' figure caption numbering mismatch: got 图{cn[0]}-{cn[1]}, expected 图{chapter_no}-{seq}"
                 )
-            if len(after) >= 2:
-                en = _parse_caption_index(kind, "en", after[1])
+            if len(figure_lines) >= 2:
+                en = _parse_caption_index(kind, "en", figure_lines[1])
                 # English caption line is optional (plain \\caption may only have Chinese line).
                 # If an English-looking line exists, enforce its format/numbering.
-                if en is None and re.match(r"^\s*Figure\b", after[1], flags=re.IGNORECASE):
-                    errors.append(f"anchor '{label}' figure English caption line format invalid: {after[1]!r}")
+                if en is None and re.match(r"^\s*Figure\b", figure_lines[1], flags=re.IGNORECASE):
+                    errors.append(f"anchor '{label}' figure English caption line format invalid: {figure_lines[1]!r}")
                 elif en is not None and en != (chapter_no, seq):
                     errors.append(
                         f"anchor '{label}' figure English caption numbering mismatch: got Figure {en[0]}-{en[1]}, expected Figure {chapter_no}-{seq}"
@@ -835,11 +920,12 @@ def check_phase2_style(doc: str) -> list[str]:
     return errors
 
 
-def check_phase3_caption(doc: str) -> list[str]:
+def check_phase3_caption(doc: str, docx_path: str | None = None) -> list[str]:
     """Phase 3: 图表标题检查。"""
     errors: list[str] = []
 
     errors.extend(_check_anchor_caption_rules(doc))
+    errors.extend(_check_caption_profile_alignment(doc, docx_path))
 
     cap_re = re.compile(r"图\d+-\d+\s+")
     cap_paras = [p for p in _iter_paragraphs(doc) if cap_re.search(p)]
@@ -904,7 +990,7 @@ def main() -> int:
     errors.extend(_check_blank_pages(docx_path))
     errors.extend(check_phase1_structure(doc, num))
     errors.extend(check_phase2_style(doc))
-    errors.extend(check_phase3_caption(doc))
+    errors.extend(check_phase3_caption(doc, docx_path))
     errors.extend(check_phase4_crossref(doc))
 
     if errors:

@@ -30,6 +30,11 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 
+from modules.caption_profile import (
+    CaptionFormatProfile,
+    build_caption_paragraph,
+    extract_caption_profiles,
+)
 
 ROOT = Path("/Users/bit/LaTeX/SWUN_Thesis")
 
@@ -42,6 +47,12 @@ TEMPLATE_DOCX = Path(
         "/Users/bit/LaTeX/SWUN_Thesis/.高春琴_normalized.docx",
     )
 ).expanduser()
+CAPTION_PROFILE_DOCX = Path(
+    os.environ.get(
+        "SWUN_CAPTION_PROFILE_DOCX",
+        "/Users/bit/LaTeX/SWUN_Thesis/网络与信息安全_高春琴.docx",
+    )
+).expanduser()
 MAIN_TEX = ROOT / "main.tex"
 CSL = ROOT / "china-national-standard-gb-t-7714-2015-numeric.csl"
 BIB = ROOT / "backmatter" / "references.bib"
@@ -49,6 +60,9 @@ BIB = ROOT / "backmatter" / "references.bib"
 FLAT_TEX = ROOT / ".main.flat.tex"
 INTERMEDIATE_DOCX = ROOT / ".main.pandoc.docx"
 OUTPUT_DOCX = ROOT / "main_版式1.docx"
+
+
+_DEFAULT_CAPTION_PROFILES: dict[str, CaptionFormatProfile] | None = None
 @dataclass
 class CaptionMeta:
     kind: str  # "figure" | "table"
@@ -56,6 +70,34 @@ class CaptionMeta:
     cn_title: str
     en_title: str | None
     source: str  # "bilingualcaption" | "caption"
+
+
+def _load_caption_profiles(profile_docx: Path) -> dict[str, CaptionFormatProfile]:
+    try:
+        return extract_caption_profiles(profile_docx)
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            f"missing caption profile source: {profile_docx} "
+            "(override with SWUN_CAPTION_PROFILE_DOCX)"
+        ) from exc
+    except Exception as exc:
+        raise RuntimeError(
+            f"failed to extract caption profile from {profile_docx}: {exc}"
+        ) from exc
+
+
+def _default_caption_profiles() -> dict[str, CaptionFormatProfile]:
+    global _DEFAULT_CAPTION_PROFILES  # noqa: PLW0603
+    if _DEFAULT_CAPTION_PROFILES is None:
+        _DEFAULT_CAPTION_PROFILES = _load_caption_profiles(CAPTION_PROFILE_DOCX)
+    return _DEFAULT_CAPTION_PROFILES
+
+
+def _infer_caption_kind(text: str) -> str:
+    stripped = (text or "").strip()
+    if stripped.startswith(("表", "Table")):
+        return "table"
+    return "figure"
 
 
 def _run(cmd: list[str], cwd: Path) -> None:
@@ -1646,39 +1688,16 @@ def _make_equation_number_run(ns: dict[str, str], text: str) -> ET.Element:
     return r
 
 
-def _make_caption_run(ns: dict[str, str], text: str) -> ET.Element:
-    """Create a bold, 10.5pt, Times New Roman run for figure/table captions.
-
-    Matches the reference thesis caption run properties:
-      <w:rPr>
-        <w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>
-        <w:b/><w:sz w:val="21"/><w:szCs w:val="21"/>
-      </w:rPr>
-    """
-    w_r = _qn(ns, "w", "r")
-    w_rPr = _qn(ns, "w", "rPr")
-    w_rFonts = _qn(ns, "w", "rFonts")
-    w_b = _qn(ns, "w", "b")
-    w_sz = _qn(ns, "w", "sz")
-    w_szCs = _qn(ns, "w", "szCs")
-    w_t = _qn(ns, "w", "t")
-    w_val = _qn(ns, "w", "val")
-
-    r = ET.Element(w_r)
-    rPr = ET.SubElement(r, w_rPr)
-    fonts = ET.SubElement(rPr, w_rFonts)
-    fonts.set(_qn(ns, "w", "ascii"), "Times New Roman")
-    fonts.set(_qn(ns, "w", "hAnsi"), "Times New Roman")
-    ET.SubElement(rPr, w_b)
-    sz = ET.SubElement(rPr, w_sz)
-    sz.set(w_val, "21")
-    szCs = ET.SubElement(rPr, w_szCs)
-    szCs.set(w_val, "21")
-    t = ET.SubElement(r, w_t)
-    t.text = text
-    if text and (text[0] == " " or text[-1] == " "):
-        t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
-    return r
+def _make_caption_run(
+    ns: dict[str, str], text: str, profile: CaptionFormatProfile | None = None
+) -> ET.Element:
+    """Create a caption run using the reference-derived profile."""
+    profile = profile or _default_caption_profiles()[_infer_caption_kind(text)]
+    paragraph = build_caption_paragraph(ns, text, profile, keep_next=False)
+    run = paragraph.find(_qn(ns, "w", "r"))
+    if run is None:
+        raise RuntimeError("caption profile application failed to create a run")
+    return run
 
 
 def _set_para_single_line_spacing(ns: dict[str, str], p: ET.Element) -> None:
@@ -1988,6 +2007,100 @@ def _strip_anchor_hyperlinks_in_main_body(
         # applies the Hyperlink character style directly without wrapping in w:hyperlink).
         _strip_hyperlink_run_style(ns, el, hyperlink_style_ids)
 
+    return removed
+
+
+def _strip_doi_hyperlinks_in_bibliography(
+    ns: dict[str, str],
+    body: ET.Element,
+) -> int:
+    """Remove DOI external hyperlinks from the bibliography section.
+
+    In the bibliography area (after the "参考文献" heading), find all
+    ``<w:hyperlink r:id="...">`` elements whose visible text matches a DOI
+    pattern (``10.\\d{4,9}/`` or ``https://doi.org/``).  The hyperlink wrapper
+    is removed and, if the text is a pure DOI URL, the run nodes are deleted
+    entirely so that no DOI text appears in the final output.
+    """
+    w_p = _qn(ns, "w", "p")
+    w_hyperlink = _qn(ns, "w", "hyperlink")
+    w_t = _qn(ns, "w", "t")
+    r_id_attr = _qn(ns, "r", "id") if "r" in ns else (
+        "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
+    )
+
+    # --- 定位参考文献区域 ---
+    stop_h1 = {"致谢", "攻读硕士学位期间所取得的相关科研成果"}
+    children = list(body)
+    ref_start: int | None = None
+    ref_end: int = len(children)
+
+    for idx, el in enumerate(children):
+        if el.tag != w_p:
+            continue
+        style = _p_style(ns, el)
+        txt = _p_text(ns, el).strip()
+        if style == "1":
+            if txt == "参考文献":
+                ref_start = idx + 1
+            elif ref_start is not None and txt in stop_h1:
+                ref_end = idx
+                break
+
+    if ref_start is None:
+        return 0
+
+    doi_re = re.compile(r"(10\.\d{4,9}/\S+|https?://doi\.org/\S*)", re.IGNORECASE)
+    pure_doi_url_re = re.compile(r"^https?://doi\.org/\S+$", re.IGNORECASE)
+
+    removed = 0
+    for el in children[ref_start:ref_end]:
+        # 遍历所有层级的父节点，查找 w:hyperlink
+        for parent in el.iter():
+            child_list = list(parent)
+            if not child_list:
+                continue
+
+            changed = False
+            new_children: list[ET.Element] = []
+            for child in child_list:
+                if child.tag != w_hyperlink:
+                    new_children.append(child)
+                    continue
+
+                # 仅处理外部超链接（有 r:id 属性）
+                rid = child.get(r_id_attr, "")
+                if not rid:
+                    new_children.append(child)
+                    continue
+
+                # 提取超链接内的可见文本
+                hl_text = "".join(
+                    (t.text or "") for t in child.iter(w_t)
+                ).strip()
+
+                if not doi_re.search(hl_text):
+                    new_children.append(child)
+                    continue
+
+                # 匹配到 DOI 超链接
+                changed = True
+                removed += 1
+
+                # 如果文本是纯 DOI URL，直接丢弃所有 run 节点（不显示 DOI）
+                if pure_doi_url_re.match(hl_text):
+                    # 丢弃：不将子元素加入 new_children
+                    pass
+                else:
+                    # 非纯 DOI URL（如混合文本），保留 run 但解除超链接包裹
+                    for sub in list(child):
+                        new_children.append(sub)
+
+            if changed:
+                parent[:] = new_children
+
+    if removed:
+        print(f"  [bib] Removed {removed} DOI hyperlink(s) from bibliography")
     return removed
 
 
@@ -2851,56 +2964,148 @@ def _set_tbl_caption_value(ns: dict[str, str], tbl: ET.Element, cn_title: str) -
     cap.set(w_val, cn_title)
 
 
-def _make_caption_para(ns: dict[str, str], style: str, text: str, keep_next: bool) -> ET.Element:
-    """Build a caption paragraph matching the SWUN reference thesis format.
+def _make_caption_para(
+    ns: dict[str, str],
+    style: str | None,
+    text: str,
+    keep_next: bool,
+    profile: CaptionFormatProfile | None = None,
+) -> ET.Element:
+    """Build a caption paragraph from the reference-derived profile."""
+    _ = style  # legacy argument kept for compatibility with existing call sites/tests
+    profile = profile or _default_caption_profiles()[_infer_caption_kind(text)]
+    return build_caption_paragraph(ns, text, profile, keep_next=keep_next)
 
-    Properties applied (matching 高春琴.docx baseline):
-      - Style: Normal ("a") — ImageCaption/TableCaption don't exist in template
-      - Alignment: center
-      - Line spacing: single (240 twips, auto)
-      - First-line indent: 0 (override Normal's 480 twip indent)
-      - Run formatting: bold, Times New Roman, 10.5pt (sz=21)
-      - Keep-lines and optionally keep-next for page break control
-    """
-    # Always use Normal ("a") style — pandoc-generated ImageCaption/TableCaption
-    # styles are not present in the official SWUN template and render as unstyled.
-    p = _make_empty_para(ns, "a")
-    _set_para_center(ns, p)
-    _set_para_single_line_spacing(ns, p)
-    _clear_para_first_indent(ns, p)
-    _set_para_keep_lines(ns, p)
-    if keep_next:
-        _set_para_keep_next(ns, p)
-    # Set paragraph-level rPr (paragraph mark / default run properties)
-    # to match the reference thesis format: bold, Times New Roman, 10.5pt
-    w_rPr = _qn(ns, "w", "rPr")
-    w_rFonts = _qn(ns, "w", "rFonts")
-    w_b = _qn(ns, "w", "b")
-    w_sz = _qn(ns, "w", "sz")
-    w_szCs = _qn(ns, "w", "szCs")
+
+def _is_figure_table_block(ns: dict[str, str], block: ET.Element) -> bool:
+    if block.tag != _qn(ns, "w", "tbl"):
+        return False
+    pr = block.find(_qn(ns, "w", "tblPr"))
+    if pr is None:
+        return False
+    style = pr.find(_qn(ns, "w", "tblStyle"))
+    if style is None:
+        return False
+    return (style.get(_qn(ns, "w", "val")) or "").strip() == "FigureTable"
+
+
+def _table_width_dxa(ns: dict[str, str], tbl: ET.Element) -> int | None:
+    w_tblW = _qn(ns, "w", "tblW")
+    w_type = _qn(ns, "w", "type")
+    w_w = _qn(ns, "w", "w")
+    w_tblGrid = _qn(ns, "w", "tblGrid")
+    w_gridCol = _qn(ns, "w", "gridCol")
+    pr = tbl.find(_qn(ns, "w", "tblPr"))
+    if pr is None:
+        pr = _ensure_tbl_pr(ns, tbl)
+    width = pr.find(w_tblW)
+    if width is not None and (width.get(w_type) or "") == "dxa":
+        try:
+            val = int(width.get(w_w) or "0")
+        except ValueError:
+            val = 0
+        if val > 0:
+            return val
+    grid = tbl.find(w_tblGrid)
+    if grid is not None:
+        vals: list[int] = []
+        for col in grid.findall(w_gridCol):
+            try:
+                w = int(col.get(w_w) or "0")
+            except ValueError:
+                w = 0
+            if w > 0:
+                vals.append(w)
+        if vals:
+            return sum(vals)
+    return None
+
+
+def _set_row_cant_split(ns: dict[str, str], tr: ET.Element) -> None:
+    w_trPr = _qn(ns, "w", "trPr")
+    w_cantSplit = _qn(ns, "w", "cantSplit")
+    trPr = tr.find(w_trPr)
+    if trPr is None:
+        trPr = ET.SubElement(tr, w_trPr)
+    if trPr.find(w_cantSplit) is None:
+        ET.SubElement(trPr, w_cantSplit)
+
+
+def _build_figure_caption_wrapper(
+    ns: dict[str, str],
+    figure_block: ET.Element,
+    caption_paragraphs: list[ET.Element],
+) -> ET.Element:
+    """Wrap a figure block plus its caption lines into one non-splittable outer table."""
+    w_tbl = _qn(ns, "w", "tbl")
+    w_tblPr = _qn(ns, "w", "tblPr")
+    w_tblW = _qn(ns, "w", "tblW")
+    w_tblLayout = _qn(ns, "w", "tblLayout")
+    w_jc = _qn(ns, "w", "jc")
+    w_tblGrid = _qn(ns, "w", "tblGrid")
+    w_gridCol = _qn(ns, "w", "gridCol")
+    w_tr = _qn(ns, "w", "tr")
+    w_tc = _qn(ns, "w", "tc")
+    w_tcPr = _qn(ns, "w", "tcPr")
+    w_tcW = _qn(ns, "w", "tcW")
+    w_tblBorders = _qn(ns, "w", "tblBorders")
     w_val = _qn(ns, "w", "val")
-    pPr = _ensure_ppr(ns, p)
-    prRPr = pPr.find(w_rPr)
-    if prRPr is None:
-        prRPr = ET.SubElement(pPr, w_rPr)
-    # Clear existing and set fresh
-    prRPr.clear()
-    fonts = ET.SubElement(prRPr, w_rFonts)
-    fonts.set(_qn(ns, "w", "ascii"), "Times New Roman")
-    fonts.set(_qn(ns, "w", "hAnsi"), "Times New Roman")
-    ET.SubElement(prRPr, w_b)
-    sz = ET.SubElement(prRPr, w_sz)
-    sz.set(w_val, "21")
-    szCs = ET.SubElement(prRPr, w_szCs)
-    szCs.set(w_val, "21")
-    # Use caption-specific run with bold + Times New Roman + 10.5pt
-    _clear_paragraph_runs_and_text(ns, p)
-    p.append(_make_caption_run(ns, text))
-    return p
+    w_type = _qn(ns, "w", "type")
+    w_w = _qn(ns, "w", "w")
+
+    width = _table_width_dxa(ns, figure_block) or 8640
+    width_str = str(width)
+
+    outer = ET.Element(w_tbl)
+    tblPr = ET.SubElement(outer, w_tblPr)
+    tblW = ET.SubElement(tblPr, w_tblW)
+    tblW.set(w_type, "dxa")
+    tblW.set(w_w, width_str)
+    layout = ET.SubElement(tblPr, w_tblLayout)
+    layout.set(w_type, "fixed")
+    jc = ET.SubElement(tblPr, w_jc)
+    jc.set(w_val, "center")
+    borders = ET.SubElement(tblPr, w_tblBorders)
+    for side in ("top", "left", "bottom", "right", "insideH", "insideV"):
+        edge = ET.SubElement(borders, _qn(ns, "w", side))
+        edge.set(w_val, "nil")
+
+    grid = ET.SubElement(outer, w_tblGrid)
+    col = ET.SubElement(grid, w_gridCol)
+    col.set(w_w, width_str)
+
+    tr = ET.SubElement(outer, w_tr)
+    _set_row_cant_split(ns, tr)
+    tc = ET.SubElement(tr, w_tc)
+    tcPr = ET.SubElement(tc, w_tcPr)
+    tcW = ET.SubElement(tcPr, w_tcW)
+    tcW.set(w_type, "dxa")
+    tcW.set(w_w, width_str)
+
+    tc.append(figure_block)
+    for para in caption_paragraphs:
+        tc.append(para)
+    return outer
+
+
+def _wrap_figure_with_captions(
+    ns: dict[str, str],
+    body: ET.Element,
+    block_idx: int,
+    figure_block: ET.Element,
+    caption_paragraphs: list[ET.Element],
+) -> None:
+    """Replace body-level figure+caption siblings with a single wrapper table."""
+    wrapper = _build_figure_caption_wrapper(ns, figure_block, caption_paragraphs)
+    body.remove(figure_block)
+    body.insert(block_idx, wrapper)
 
 
 def _inject_captions_from_meta(
-    ns: dict[str, str], body: ET.Element, caption_meta: dict[str, CaptionMeta]
+    ns: dict[str, str],
+    body: ET.Element,
+    caption_meta: dict[str, CaptionMeta],
+    caption_profiles: dict[str, CaptionFormatProfile],
 ) -> None:
     placements, chapter_by_index = _collect_anchor_block_positions(ns, body)
     if not placements:
@@ -2953,7 +3158,8 @@ def _inject_captions_from_meta(
                 else ""
             )
             lines = [cn_line] + ([en_line] if en_line else [])
-            style = "a"  # Normal — template has no ImageCaption style
+            profile = caption_profiles["figure"]
+            style = profile.style
             insert_after = True
         else:
             cn_line = f"表{chapter_no}-{seq}" + (f" {cn_title}" if cn_title else "")
@@ -2963,7 +3169,8 @@ def _inject_captions_from_meta(
                 else ""
             )
             lines = [cn_line] + ([en_line] if en_line else [])
-            style = "a"  # Normal — template has no TableCaption style
+            profile = caption_profiles["table"]
+            style = profile.style
             insert_after = False
             if block.tag == _qn(ns, "w", "tbl"):
                 _set_tbl_caption_value(ns, block, cn_title)
@@ -2973,15 +3180,28 @@ def _inject_captions_from_meta(
         block_idx = children.index(block)
 
         if insert_after:
-            pos = block_idx + 1
+            caption_paras: list[ET.Element] = []
             for i, line in enumerate(lines):
-                para = _make_caption_para(ns, style, line, keep_next=(i < len(lines) - 1))
-                body.insert(pos, para)
-                pos += 1
+                caption_paras.append(
+                    _make_caption_para(
+                        ns,
+                        style,
+                        line,
+                        keep_next=(i < len(lines) - 1),
+                        profile=profile,
+                    )
+                )
+            if _is_figure_table_block(ns, block):
+                _wrap_figure_with_captions(ns, body, block_idx, block, caption_paras)
+            else:
+                pos = block_idx + 1
+                for para in caption_paras:
+                    body.insert(pos, para)
+                    pos += 1
         else:
             for i, line in enumerate(reversed(lines)):
                 keep_next = True  # caption above table should stay with following lines/table
-                para = _make_caption_para(ns, style, line, keep_next=keep_next)
+                para = _make_caption_para(ns, style, line, keep_next=keep_next, profile=profile)
                 body.insert(block_idx, para)
 
 
@@ -3525,30 +3745,30 @@ def _insert_toc_before_first_chapter(
 
 
 def _add_page_breaks_before_h1(ns: dict[str, str], body: ET.Element) -> None:
+    """Ensure each Heading 1 starts on a new page.
+
+    Uses ``pageBreakBefore`` on the heading paragraph itself instead of
+    inserting a separate page-break paragraph, which avoids blank pages
+    when preceding content does not fill the previous page.
+    """
     w_p = _qn(ns, "w", "p")
+    w_pPr = _qn(ns, "w", "pPr")
+    w_pageBreakBefore = _qn(ns, "w", "pageBreakBefore")
     children = list(body)
-    i = 0
-    while i < len(children):
-        el = children[i]
-        if el.tag == w_p and _p_style(ns, el) == "1":
-            title = _p_text(ns, el).strip()
-            if title == "目录":
-                i += 1
-                continue
-            if i == 0:
-                i += 1
-                continue
-            prev = children[i - 1]
-            if prev.tag == w_p and (_p_has_page_break(ns, prev) or _p_has_sectPr(ns, prev)):
-                i += 1
-                continue
-            # Insert a separate page-break paragraph to avoid blank pages at document start.
-            pb = _make_page_break_p(ns)
-            body.insert(i, pb)
-            children.insert(i, pb)
-            i += 2
+    for el in children:
+        if el.tag != w_p or _p_style(ns, el) != "1":
             continue
-        i += 1
+        title = _p_text(ns, el).strip()
+        if title == "目录":
+            continue
+        # Ensure <w:pPr> exists
+        pPr = el.find(w_pPr)
+        if pPr is None:
+            pPr = ET.SubElement(el, w_pPr)
+            el.insert(0, pPr)
+        # Add pageBreakBefore if not already present
+        if pPr.find(w_pageBreakBefore) is None:
+            ET.SubElement(pPr, w_pageBreakBefore)
 
 
 def _ensure_indent_for_body_paragraphs(ns: dict[str, str], body: ET.Element) -> None:
@@ -4497,7 +4717,7 @@ def _replace_wps_footers(
 # Round 6 fix: Normalize Hyperlink character style to standard blue + underline.
 # ---------------------------------------------------------------------------
 def _fix_hyperlink_style(styles_xml: bytes) -> bytes:
-    """Modify Hyperlink char style: color=0563C1, underline=single, remove textFill."""
+    """Modify Hyperlink char style: color=000000 (black), underline=none, remove textFill."""
     if not styles_xml:
         return styles_xml
     sns = _collect_ns(styles_xml)
@@ -4529,23 +4749,23 @@ def _fix_hyperlink_style(styles_xml: bytes) -> bytes:
         if rPr is None:
             continue
 
-        # 设为 Word 默认链接蓝色
+        # 设为黑色（不显示为蓝色链接）
         color = rPr.find(w_color)
         if color is not None:
-            color.set(w_val, "0563C1")
+            color.set(w_val, "000000")
             if w_themeColor in color.attrib:
                 del color.attrib[w_themeColor]
         else:
             c = ET.SubElement(rPr, w_color)
-            c.set(w_val, "0563C1")
+            c.set(w_val, "000000")
 
-        # 添加单下划线
+        # 移除下划线
         u = rPr.find(w_u)
         if u is not None:
-            u.set(w_val, "single")
+            u.set(w_val, "none")
         else:
             u = ET.SubElement(rPr, w_u)
-            u.set(w_val, "single")
+            u.set(w_val, "none")
 
         # 移除 w14:textFill
         tf = rPr.find(w14_textFill)
@@ -4555,7 +4775,7 @@ def _fix_hyperlink_style(styles_xml: bytes) -> bytes:
         count += 1
 
     if count:
-        print(f"  [styles] Changed {count} Hyperlink style(s) to blue + underline")
+        print(f"  [styles] Changed {count} Hyperlink style(s) to black + no underline")
 
     return ET.tostring(sroot, encoding="utf-8", xml_declaration=True)
 
@@ -4883,6 +5103,7 @@ def _postprocess_docx(
     cn_keywords: str | None,
     en_keywords: str | None,
     caption_meta: dict[str, CaptionMeta],
+    caption_profiles: dict[str, CaptionFormatProfile],
     latex_col_ratios: dict[str, list[float]] | None = None,
 ) -> None:
     with zipfile.ZipFile(input_docx, "r") as zin:
@@ -4928,10 +5149,11 @@ def _postprocess_docx(
         _split_mixed_script_runs(doc_ns, body)
         _normalize_ascii_run_fonts(doc_ns, body)
         _normalize_bibliography_run_style(doc_ns, body)
-        _inject_captions_from_meta(doc_ns, body, caption_meta)
+        _inject_captions_from_meta(doc_ns, body, caption_meta, caption_profiles)
         _dedupe_body_level_anchor_bookmarks(doc_ns, body)
         _fix_ref_dot_to_hyphen(doc_ns, body)
         _strip_anchor_hyperlinks_in_main_body(doc_ns, body, hyperlink_style_ids)
+        _strip_doi_hyperlinks_in_bibliography(doc_ns, body)
         _number_display_equations(doc_ns, root, body, display_math_flags)
         if known_styles:
             _normalize_unknown_pstyles(doc_ns, body, known_styles)
@@ -4996,6 +5218,7 @@ def _postprocess_docx(
 def _resolve_paths(thesis_dir: Path) -> None:
     """Rebind module-level paths to point at the provided thesis directory."""
     global ROOT, MAIN_TEX, CSL, BIB, FLAT_TEX, INTERMEDIATE_DOCX, OUTPUT_DOCX  # noqa: PLW0603
+    global CAPTION_PROFILE_DOCX, _DEFAULT_CAPTION_PROFILES  # noqa: PLW0603
 
     ROOT = thesis_dir
     MAIN_TEX = ROOT / "main.tex"
@@ -5008,6 +5231,13 @@ def _resolve_paths(thesis_dir: Path) -> None:
         CSL = SCRIPT_DIR / "china-national-standard-gb-t-7714-2015-numeric.csl"
 
     BIB = Path(os.environ.get("SWUN_BIB", str(ROOT / "backmatter" / "references.bib"))).expanduser()
+    CAPTION_PROFILE_DOCX = Path(
+        os.environ.get(
+            "SWUN_CAPTION_PROFILE_DOCX",
+            str(ROOT / "网络与信息安全_高春琴.docx"),
+        )
+    ).expanduser()
+    _DEFAULT_CAPTION_PROFILES = None
 
     FLAT_TEX = ROOT / ".main.flat.tex"
     INTERMEDIATE_DOCX = ROOT / ".main.pandoc.docx"
@@ -5032,8 +5262,13 @@ def main(argv: list[str] | None = None) -> None:
         global CSL  # noqa: PLW0603
         CSL = Path(csl_override).expanduser()
 
-    for p in [TEMPLATE_DOCX, MAIN_TEX, CSL, BIB]:
+    for p in [TEMPLATE_DOCX, CAPTION_PROFILE_DOCX, MAIN_TEX, CSL, BIB]:
         if not p.exists():
+            if p == CAPTION_PROFILE_DOCX:
+                raise SystemExit(
+                    f"missing required caption profile source: {p} "
+                    "(override with SWUN_CAPTION_PROFILE_DOCX)"
+                )
             raise SystemExit(f"missing required file: {p}")
 
     # Backup existing output.
@@ -5054,6 +5289,7 @@ def main(argv: list[str] | None = None) -> None:
     flat = _preprocess_latex(flat)
     FLAT_TEX.write_text(flat, encoding="utf-8")
     caption_meta = _extract_caption_meta(flat)
+    caption_profiles = _load_caption_profiles(CAPTION_PROFILE_DOCX)
     display_math_flags = _extract_display_math_number_flags(flat)
     cn_kw, en_kw = _extract_keywords(flat)
     latex_col_ratios = _parse_latex_table_col_specs(flat)
@@ -5087,6 +5323,7 @@ def main(argv: list[str] | None = None) -> None:
         cn_kw,
         en_kw,
         caption_meta,
+        caption_profiles,
         latex_col_ratios=latex_col_ratios,
     )
     exp_total, exp_bad = _verify_docx_experiment_images_are_png(OUTPUT_DOCX)

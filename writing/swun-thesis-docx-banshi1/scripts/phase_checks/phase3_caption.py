@@ -15,7 +15,7 @@ def run(docx_path: str) -> list[str]:
     try:
         with zipfile.ZipFile(docx_path, "r") as zf:
             doc = zf.read("word/document.xml").decode("utf-8", errors="ignore")
-        return check_phase3_caption(doc)
+        return check_phase3_caption(doc, docx_path)
     except FileNotFoundError:
         return [f"DOCX file not found: {docx_path}"]
     except zipfile.BadZipFile:
