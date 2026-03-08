@@ -36,6 +36,11 @@ from modules.caption_profile import (
     extract_caption_profiles,
 )
 
+try:
+    from utils.text_utils import normalize_chinese_double_quotes
+except ModuleNotFoundError:  # pragma: no cover - pytest imports via scripts.modules
+    from scripts.utils.text_utils import normalize_chinese_double_quotes
+
 ROOT = Path("/Users/bit/LaTeX/SWUN_Thesis")
 
 # docx_builder.py now lives under scripts/modules/; keep SCRIPT_DIR at scripts/
@@ -430,6 +435,8 @@ def _preprocess_latex(s: str) -> str:
             "but some includegraphics still point to PDF and no PNG fallback was found:\n"
             f"{lines}"
         )
+
+    s = normalize_chinese_double_quotes(s)
 
     return s
 
