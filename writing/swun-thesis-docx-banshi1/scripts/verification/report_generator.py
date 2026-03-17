@@ -24,6 +24,14 @@ from modules.caption_profile import (
     profile_signature,
 )
 
+try:
+    from utils.text_utils import normalize_chinese_spaces as _normalize_chinese_spaces
+except ModuleNotFoundError:
+    try:
+        from scripts.utils.text_utils import normalize_chinese_spaces as _normalize_chinese_spaces
+    except ModuleNotFoundError:
+        _normalize_chinese_spaces = None
+
 
 def _iter_paragraphs(doc_xml: str) -> list[str]:
     # Good enough for checks (Word XML is regular; paragraphs aren't nested).
@@ -605,6 +613,13 @@ def _collect_anchor_positions(
         for label in _iter_anchor_names(el, ns):
             k = kind_of(label)
             if k == "table" and el.tag != w_tbl:
+                j = _next_anchor_target_idx(children, i + 1, end, ns, k)
+                if j is not None:
+                    block = children[j]
+                    cand = (score(k, block, False), j)
+                    prev = best.get(label)
+                    if prev is None or cand[0] > prev[0]:
+                        best[label] = cand
                 continue
             if k == "figure" and not _block_has_drawing(el, ns) and el.tag != w_tbl:
                 continue
@@ -899,6 +914,45 @@ def check_phase1_structure(doc: str, num: str) -> list[str]:
     return errors
 
 
+def _check_chinese_space_issues(doc: str) -> list[str]:
+    """检测中文排版中的异常空格。"""
+    errors: list[str] = []
+    issue_count = 0
+    samples: list[str] = []
+
+    for para_xml in _iter_paragraphs(doc):
+        # 跳过标题段落（支持 Heading1、"1" 等样式 ID）
+        if re.search(r'w:pStyle w:val="(?:Heading\d|[1-5]|TOC\d|Title|Subtitle)"', para_xml):
+            continue
+
+        # 提取段落中所有 <w:t> 文本
+        texts = re.findall(r"<w:t[^>]*>(.*?)</w:t>", para_xml)
+        full_text = "".join(texts)
+        if not full_text or " " not in full_text:
+            continue
+
+        normalized = _normalize_chinese_spaces(full_text)
+        if normalized != full_text:
+            issue_count += 1
+            if len(samples) < 3:
+                # 截取差异上下文
+                for i, (a, b) in enumerate(zip(full_text, normalized)):
+                    if a != b:
+                        start = max(0, i - 10)
+                        end = min(len(full_text), i + 15)
+                        samples.append(repr(full_text[start:end]))
+                        break
+
+    if issue_count > 0:
+        sample_str = ", ".join(samples)
+        errors.append(
+            f"found {issue_count} paragraphs with Chinese typographic space issues "
+            f"(extra spaces after punctuation or between CJK/Latin): {sample_str}"
+        )
+
+    return errors
+
+
 def check_phase2_style(doc: str) -> list[str]:
     """Phase 2: 样式/缩进检查。"""
     errors: list[str] = []
@@ -916,6 +970,11 @@ def check_phase2_style(doc: str) -> list[str]:
         errors.append("missing hanging indent for bibliography entries (w:hangingChars)")
     if "vertAlign" not in doc and not re.search(r"\[[0-9]{1,3}\]", doc):
         errors.append("no obvious citation markers found (expected [n] possibly superscript)")
+
+    # 中文排版空格检查
+    if _normalize_chinese_spaces is not None:
+        space_issues = _check_chinese_space_issues(doc)
+        errors.extend(space_issues)
 
     return errors
 

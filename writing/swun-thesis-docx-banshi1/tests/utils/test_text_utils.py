@@ -1,6 +1,6 @@
 """Tests for text_utils module."""
 import pytest
-from scripts.utils.text_utils import normalize_chinese_double_quotes, preprocess_latex
+from scripts.utils.text_utils import normalize_chinese_double_quotes, normalize_chinese_spaces, preprocess_latex
 
 def test_preprocess_latex_replaces_backslash_lt():
     """Test \\< replacement."""
@@ -50,3 +50,54 @@ def test_normalize_chinese_double_quotes_converts_ascii_quotes_around_english_te
 def test_normalize_chinese_double_quotes_keeps_plain_english_quotes():
     input_text = 'This keeps "quoted text" unchanged.'
     assert normalize_chinese_double_quotes(input_text) == input_text
+
+
+class TestNormalizeChineseSpaces:
+    """normalize_chinese_spaces 测试。"""
+
+    def test_empty_string(self):
+        assert normalize_chinese_spaces("") == ""
+
+    def test_no_spaces(self):
+        assert normalize_chinese_spaces("你好世界") == "你好世界"
+
+    def test_pure_english(self):
+        assert normalize_chinese_spaces("hello world test") == "hello world test"
+
+    def test_rule1_punct_after_space(self):
+        """中文标点后的空格应删除。"""
+        assert normalize_chinese_spaces("你好。 世界") == "你好。世界"
+        assert normalize_chinese_spaces("你好， 世界") == "你好，世界"
+        assert normalize_chinese_spaces("你好； 世界") == "你好；世界"
+        assert normalize_chinese_spaces("你好： 世界") == "你好：世界"
+
+    def test_rule1_curly_quote_after_space(self):
+        """弯引号后的空格应删除。"""
+        assert normalize_chinese_spaces("\u201d 世界") == "\u201d世界"
+        assert normalize_chinese_spaces("\u2019 世界") == "\u2019世界"
+
+    def test_rule2_en_to_cn(self):
+        """英文字符后 + 中文字符前的空格应删除。"""
+        assert normalize_chinese_spaces("LightDAG 共识") == "LightDAG共识"
+        assert normalize_chinese_spaces("V2V） 与") == "V2V）与"
+
+    def test_rule3_cn_to_en(self):
+        """中文字符后 + 英文字母前的空格应删除。"""
+        assert normalize_chinese_spaces("链式 HotStuff") == "链式HotStuff"
+        assert normalize_chinese_spaces("面向 LightDAG") == "面向LightDAG"
+
+    def test_preserve_date_format(self):
+        """日期格式中的空格应保留。"""
+        assert normalize_chinese_spaces("2026 年 6 月 10 日") == "2026 年 6 月 10 日"
+
+    def test_preserve_english_spaces(self):
+        """英文单词间的空格应保留。"""
+        assert normalize_chinese_spaces("Ad Hoc Network") == "Ad Hoc Network"
+
+    def test_preserve_cn_cn_spaces(self):
+        """纯中文间的空格应保留（不触发任何规则）。"""
+        assert normalize_chinese_spaces("你好 世界") == "你好 世界"
+
+    def test_multiple_spaces(self):
+        """连续多个空格应按规则处理。"""
+        assert normalize_chinese_spaces("你好。  世界") == "你好。世界"

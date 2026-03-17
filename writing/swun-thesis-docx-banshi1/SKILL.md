@@ -1,7 +1,7 @@
 ---
 name: swun-thesis-docx-banshi1
 description: "Build SWUN thesis DOCX (Format 1 / 版式1) from LaTeX using the official SWUN reference template, with post-processing fixes (TOC, chapter page breaks, indents, isLgl numbering fix, and three-line table layout normalization)."
-version: 1.3.0
+version: 1.6.0
 ---
 
 # SWUN Thesis DOCX (版式1)
@@ -52,11 +52,19 @@ Generate a `.docx` from a SWUN thesis LaTeX project while treating the official 
      - adds chapter-based numbering suffix: `(章-序号)` right-aligned
      - avoids numbering `\\[ ... \\]` blocks (keeps them unnumbered)
    - fixes mixed Chinese/Arabic section numbering by adding `w:isLgl` to `ilvl >= 1` (abstractNumId=0)
-   - enforces data-table layout for three-line tables:
+   - enforces data-table layout and typography for three-line tables:
      - table width fills the whole text area (`tblW == text width`)
      - table layout is fixed (`w:tblLayout w:type="fixed"`)
      - column widths are redistributed by table content and written back to `tblGrid` + `tcW`
+     - cell text font: Chinese = 宋体 (`w:eastAsia`), English/digits = Times New Roman (`w:ascii/w:hAnsi`), size = 五号 10.5pt (`w:sz="21"`)
+     - table font normalization runs AFTER `_normalize_ascii_run_fonts` to prevent English runs losing `eastAsia` attribute
+     - clears theme font attributes (`asciiTheme`, `hAnsiTheme`, `eastAsiaTheme`) to prevent theme override
    - writes table metadata (`w:tblCaption`) from normalized Chinese table titles for stable downstream checks
+   - disables chapter numbering for backmatter headings (致谢, 参考文献, 科研成果):
+     - adds paragraph-level `numPr` with `numId=0` to override style-level numbering
+     - same technique used for 目录/摘要/Abstract
+   - enables automatic field update on open (`<w:updateFields w:val="true"/>` in settings.xml):
+     - Word/WPS will prompt to update TOC when the document is opened
    - normalizes unknown paragraph styles produced by pandoc back to template `Normal` (prevents template/style drift)
    - splits sections for page numbering:
      - front matter (目录 + 摘要 + Abstract) is a separate section with Roman numeral footer page numbers
