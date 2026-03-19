@@ -1,6 +1,6 @@
 ---
 name: auto-iterate
-description: "Karpathy Loop 式自主迭代改进框架。对 skill/memory/code 执行「修改→评估→保留/回滚」无限循环。触发词：/auto-iterate、自动迭代、迭代改进、Karpathy Loop"
+description: "Karpathy Loop 式自主迭代改进框架。对 skill/skill-full/memory/code 执行「修改→评估→保留/回滚」无限循环。触发词：/auto-iterate、自动迭代、迭代改进、Karpathy Loop"
 ---
 
 # auto-iterate
@@ -19,6 +19,7 @@ description: "Karpathy Loop 式自主迭代改进框架。对 skill/memory/code 
 | target-type | 目标 | 可修改内容 | 评估指标 |
 |---|---|---|---|
 | `skill` | 一个 SKILL.md 文件 | 触发词、流程、约束、结构 | 触发准确率 + 结构完整性 + 简洁性 |
+| `skill-full` | 一个完整 skill 目录 | skill.md + 所有脚本 | 复合分：定义层 + 实现层 + 一致性 |
 | `memory` | 一个 agent 记忆目录 | 记忆文件增删改、索引更新 | 检索命中率 + 信噪比 + 索引完整性 |
 | `code` | 一个代码文件 | 代码逻辑（用户指定边界） | 用户指定的测试命令输出 |
 
@@ -97,6 +98,30 @@ c3d4e5f	6.5	discard	removed constraints (lost clarity)
 2. "审计所有 skill 质量"（→ skill-stocktake）
 ```
 
+### Skill-Full 评估（target-type = skill-full）
+
+对整个 skill 目录进行复合评估。运行评估脚本：
+
+```bash
+python3 ~/.claude/skills/auto-iterate/scripts/evaluate_skill_full.py <skill-dir>
+```
+
+辅助脚本 `scripts/evaluate.sh` 提供 skill/memory/code 三种目标类型的基础结构检查。
+
+输出 4 维复合分（脚本自动计算加权总分）：
+
+| 维度 | 权重 | 方法 | 来源 |
+|---|---|---|---|
+| **定义质量** | 30% | skill.md 结构检查：frontmatter、触发词、工作流、约束 | 静态分析 |
+| **代码质量** | 30% | 所有 .py 文件的 pylint 均分 | `pylint --score` |
+| **代码规范** | 20% | 所有 .py 文件的 flake8 警告总数（归一化） | `flake8` |
+| **定义-实现一致性** | 20% | skill.md 中引用的脚本是否存在、脚本是否被 skill.md 引用 | 交叉验证 |
+
+**决策规则**（双指标，同 code 的方案 C）：
+- 主指标 = 加权总分（越高越好）
+- 软约束 = flake8 总警告数（不能大幅增加）
+- 总分↑ → keep；总分= AND flake8↓ → keep；总分↓ → discard；flake8 增加 ≥5 → discard
+
 ### Memory 评估（target-type = memory）
 
 | 维度 | 权重 | 方法 | 评分 |
@@ -113,7 +138,7 @@ c3d4e5f	6.5	discard	removed constraints (lost clarity)
 # 示例
 eval_command: "uv run train.py > run.log 2>&1 && grep '^val_bpb:' run.log"
 eval_command: "pytest --tb=short -q"
-eval_command: "bash scripts/test.sh"
+eval_command: "bash ./test.sh"
 ```
 
 输出解析为数值分数。数值越低/越高由用户指定（默认：越低越好，同 val_bpb）。
@@ -122,13 +147,14 @@ eval_command: "bash scripts/test.sh"
 
 **CAN do：**
 - 修改目标文件内容（增删改重构）
+- 修改 skill 目录下的任意文件（skill-full 类型）
 - 重组目标目录结构（memory 类型）
 - 运行只读命令分析目标
 
 **CANNOT do：**
 - 修改评估方法本身（评估是 ground truth）
 - 安装新依赖或修改 pyproject.toml
-- 修改目标文件以外的文件（results.tsv 除外）
+- 修改目标范围以外的文件（单文件类型：仅目标文件；skill-full 类型：仅目标目录内的文件；results.tsv 除外）
 - 修改其他 skill 或系统配置
 
 **Timeout**：每次迭代不超过 5 分钟，超时视为 crash。
