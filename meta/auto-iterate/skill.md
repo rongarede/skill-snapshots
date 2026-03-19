@@ -27,18 +27,20 @@ description: "Karpathy Loop 式自主迭代改进框架。对 skill/memory/code 
 1. **确认目标**：用户指定 target-type 和 target-path
 2. **创建分支**：`git checkout -b auto-iterate/<date>-<target>` 从当前分支创建
 3. **读取目标**：完整理解当前状态
-4. **初始化 results.tsv**：在目标所在目录创建（不 git track）
+4. **初始化 results.tsv**：在目标所在目录创建（tab-separated，不 git track）
 
 ```
 commit	score	status	description
+a1b2c3d	6.5	keep	baseline
+b2c3d4e	7.2	keep	refined trigger words
+c3d4e5f	6.5	discard	removed constraints (lost clarity)
 ```
 
-5. **建立 baseline**：第一次评估，记录为 baseline（status=keep）
-6. **确认并开始循环**
+5. **建立 baseline 并开始循环**：第一次评估，记录为 baseline（status=keep），确认后进入 Loop
 
 ## The Loop
 
-> LOOP FOREVER — 循环开始后不暂停询问。持续迭代直到手动中断。
+> LOOP FOREVER — 不暂停、不询问，持续迭代直到手动中断。用户可能在睡觉，期望醒来看到改进结果。
 
 ```
 1. 读 git log + results.tsv，理解历史
@@ -60,6 +62,15 @@ commit	score	status	description
 - **想法用尽时**：重读目标文件、回顾 results.tsv、尝试组合差点成功的方案、尝试激进改动
 - **不要重复**：results.tsv 中 discard 的方案不要原样重试
 
+### 执行隔离（CRITICAL）
+
+每轮迭代必须由**独立的 subagent** 执行，禁止同一 agent 连续执行多轮（防止上下文污染导致自我确认偏差）。
+
+- root 为每轮分派新 subagent（Worker 类型）
+- subagent 仅接收：目标文件路径、results.tsv 路径、当前轮次编号
+- subagent 通过读取 results.tsv 和 git log 理解历史，而非继承上轮上下文
+- subagent 返回：修改内容、新分数、keep/discard 决策
+
 ## Evaluation
 
 ### Skill 评估（target-type = skill）
@@ -73,17 +84,17 @@ commit	score	status	description
 
 **总分** = 加权平均，保留一位小数。
 
-**正例/负例模板**：
+**正例/负例模板**（按被评估 skill 定制，以下为通用示例）：
 
 ```
-正例（应触发）：
-1. "帮我改进这个 skill 的触发词"
-2. "对 memory 做一轮自动迭代"
-3. "/auto-iterate skill ~/.claude/skills/xxx/skill.md"
+正例（应触发本 skill）：
+1. "对这个 skill 做自动迭代"
+2. "/auto-iterate memory ~/mem/mem/agents/Worker/tetsu"
+3. "用 Karpathy Loop 改进这段代码"
 
 负例（不应触发）：
 1. "帮我创建一个新 skill"（→ skill-authoring）
-2. "审计这个 skill 的质量"（→ skill-stocktake）
+2. "审计所有 skill 质量"（→ skill-stocktake）
 ```
 
 ### Memory 评估（target-type = memory）
@@ -107,19 +118,6 @@ eval_command: "bash scripts/test.sh"
 
 输出解析为数值分数。数值越低/越高由用户指定（默认：越低越好，同 val_bpb）。
 
-## Results Logging
-
-`results.tsv`（tab-separated，不 git track）：
-
-```
-commit	score	status	description
-a1b2c3d	6.5	keep	baseline
-b2c3d4e	7.2	keep	refined trigger words, added negative examples
-c3d4e5f	6.5	discard	removed constraints section (lost clarity)
-d4e5f6g	0.0	crash	syntax error in frontmatter
-e5f6g7h	7.8	keep	simplified workflow, merged redundant steps
-```
-
 ## Constraints
 
 **CAN do：**
@@ -130,29 +128,9 @@ e5f6g7h	7.8	keep	simplified workflow, merged redundant steps
 **CANNOT do：**
 - 修改评估方法本身（评估是 ground truth）
 - 安装新依赖或修改 pyproject.toml
-- 修改目标文件以外的文件
+- 修改目标文件以外的文件（results.tsv 除外）
 - 修改其他 skill 或系统配置
 
-**Timeout**：每次迭代不超过 3 分钟。超过 5 分钟视为 crash。
+**Timeout**：每次迭代不超过 5 分钟，超时视为 crash。
 
-**Crash 处理**：
-- 语法错误/不可解析 → discard + 记录 crash
-- 简单 typo → 修复后重试（计为同一次迭代）
-- 连续 3 次 crash → 暂停，回顾策略
-
-**NEVER STOP**：循环开始后不主动暂停。持续迭代直到被手动中断。如果想法用尽，重读目标、回顾历史、尝试组合方案、尝试激进改动。用户可能在睡觉，期望醒来看到改进结果。
-
-## 与 /loop 配合
-
-可与 `/loop` skill 配合实现定时迭代：
-
-```
-/loop 5m "/auto-iterate skill ~/.claude/skills/xxx/skill.md"
-```
-
-每轮 `/loop` 执行一次完整迭代（步骤 1-8），results.tsv 和 git log 提供跨轮次连续性。
-
-## 灵感来源
-
-[karpathy/autoresearch](https://github.com/karpathy/autoresearch) — "The Karpathy Loop"：
-一个文件 + 一个指标 + 固定预算 = 约束下的自主创造力。
+**Crash 处理**：语法错误/不可解析 → discard + 记录 crash；简单 typo → 修复后重试（计为同一次迭代）；连续 3 次 crash → 暂停，回顾策略。
