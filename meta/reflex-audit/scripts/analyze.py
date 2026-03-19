@@ -4,13 +4,14 @@
 
 import json
 import os
-import subprocess
 import sys
 from pathlib import Path
 
 STATS_PATH = Path(os.path.expanduser("~/mem/mem/workflows/trigger-stats.json"))
 TRIGGER_MAP_SSOT = Path(os.path.expanduser("~/mem/mem/workflows/trigger-map.md"))
-TRIGGER_MAP_RULES = Path(os.path.expanduser("~/.claude/rules/trigger-map.md"))
+TRIGGER_MAP_RULES = Path(
+    os.path.expanduser("~/.claude/rules/trigger-map.md")
+)
 
 REFLECTIONS = [
     "research", "explore", "implement", "document", "audit",
@@ -28,9 +29,10 @@ WEIGHTS = {
 
 
 def load_stats():
+    """Load trigger-stats.json and return parsed dict, or None if missing."""
     if not STATS_PATH.exists():
         return None
-    with open(STATS_PATH) as f:
+    with open(STATS_PATH, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -41,7 +43,9 @@ def score_coverage(stats):
     details = []
     for r in REFLECTIONS:
         entry = rules.get(r, {})
-        total = entry.get("success", 0) + entry.get("failure", 0) + entry.get("skip", 0)
+        total = (entry.get("success", 0)
+                 + entry.get("failure", 0)
+                 + entry.get("skip", 0))
         if total > 0:
             used += 1
         else:
@@ -70,7 +74,9 @@ def score_failure_recovery(stats):
     failure_rate = total_failures / total_ops
     # 失败率 0% → 10分，50%+ → 0分
     score = max(0, round((1 - failure_rate * 2) * 10, 1))
-    return score, f"总失败率 {round(failure_rate * 100, 1)}%（{total_failures}/{total_ops}）"
+    pct = round(failure_rate * 100, 1)
+    desc = f"总失败率 {pct}%（{total_failures}/{total_ops}）"
+    return score, desc
 
 
 def score_efficiency(stats):
@@ -81,7 +87,9 @@ def score_efficiency(stats):
     for r in REFLECTIONS:
         entry = rules.get(r, {})
         total_skip += entry.get("skip", 0)
-        total_ops += entry.get("success", 0) + entry.get("failure", 0) + entry.get("skip", 0)
+        total_ops += (entry.get("success", 0)
+                      + entry.get("failure", 0)
+                      + entry.get("skip", 0))
 
     if total_ops == 0:
         return 10.0, "无操作记录"
@@ -155,36 +163,29 @@ def score_consistency():
 
     if ssot == rules:
         return 10.0, "SSOT 与 rules 副本完全一致"
-    else:
-        # 计算差异行数
-        ssot_lines = set(ssot.splitlines())
-        rules_lines = set(rules.splitlines())
-        diff = len(ssot_lines.symmetric_difference(rules_lines))
-        score = max(0, 10 - diff)
-        return score, f"SSOT 与 rules 副本有 {diff} 行差异"
+
+    # 计算差异行数
+    ssot_lines = set(ssot.splitlines())
+    rules_lines = set(rules.splitlines())
+    diff = len(ssot_lines.symmetric_difference(rules_lines))
+    score = max(0, 10 - diff)
+    return score, f"SSOT 与 rules 副本有 {diff} 行差异"
 
 
 def grade(total):
     """总分映射为字母等级"""
-    if total >= 90:
-        return "A"
-    elif total >= 85:
-        return "A-"
-    elif total >= 80:
-        return "B+"
-    elif total >= 75:
-        return "B"
-    elif total >= 70:
-        return "C+"
-    elif total >= 65:
-        return "C"
-    elif total >= 60:
-        return "D"
-    else:
-        return "F"
+    thresholds = [
+        (90, "A"), (85, "A-"), (80, "B+"), (75, "B"),
+        (70, "C+"), (65, "C"), (60, "D"),
+    ]
+    for threshold, letter in thresholds:
+        if total >= threshold:
+            return letter
+    return "F"
 
 
 def main():
+    """Run reflex-audit analysis and print JSON report."""
     stats = load_stats()
     if not stats:
         print("ERROR: Cannot load trigger-stats.json", file=sys.stderr)
@@ -201,7 +202,8 @@ def main():
     # 加权总分
     total = 0
     for dim, (score, _) in scores.items():
-        total += score * WEIGHTS[dim] * 10  # score is 0-10, weight sums to 1.0, result is 0-100
+        # score 0-10, weight sums to 1.0, result 0-100
+        total += score * WEIGHTS[dim] * 10
 
     total = round(total, 1)
     letter = grade(total)
@@ -235,7 +237,11 @@ def main():
     for r in REFLECTIONS:
         entry = rules.get(r, {})
         total_uses = entry.get("success", 0) + entry.get("failure", 0)
-        success_rate = round(entry.get("success", 0) / total_uses * 100, 1) if total_uses > 0 else None
+        if total_uses > 0:
+            ok = entry.get("success", 0)
+            success_rate = round(ok / total_uses * 100, 1)
+        else:
+            success_rate = None
         heatmap.append({
             "reflection": r,
             "total_uses": total_uses,
