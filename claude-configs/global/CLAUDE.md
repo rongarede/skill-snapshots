@@ -88,20 +88,20 @@ python3 ~/.claude/skills/agent-memory/scripts/cli.py \
 
 #### 路径约束（CRITICAL）
 
-`--store` 路径必须使用**磁盘上的实际目录名**（中文类型名），不得使用 CLAUDE.md 注册表中的英文类型名。
+`--store` 路径必须使用**磁盘上的实际目录名**（英文类型名），不得使用旧的中文目录名（已不存在）。
 
 | Agent | 正确路径 | 错误路径 |
 |-------|---------|---------|
-| tetsu | `~/mem/mem/agents/蚁工/tetsu` | `~/mem/mem/agents/Worker/tetsu` |
-| yomi | `~/mem/mem/agents/斥候/yomi` | `~/mem/mem/agents/Analyst/yomi` |
-| haku | `~/mem/mem/agents/药师/haku` | `~/mem/mem/agents/Inspector/haku` |
-| fumio | `~/mem/mem/agents/织者/fumio` | `~/mem/mem/agents/图书管理员/fumio` |
+| tetsu | `~/mem/mem/agents/Worker/tetsu` | `~/mem/mem/agents/Worker/tetsu` |
+| yomi | `~/mem/mem/agents/Analyst/yomi` | `~/mem/mem/agents/Analyst/yomi` |
+| haku | `~/mem/mem/agents/Inspector/haku` | `~/mem/mem/agents/Inspector/haku` |
+| fumio | `~/mem/mem/agents/Weaver/fumio` | `~/mem/mem/agents/图书管理员/fumio` |
 | kaze/mirin | `~/mem/mem/agents/Explore/{name}` | — |
 | shin | `~/mem/mem/agents/Auditor/shin` | — |
 | sora | `~/mem/mem/agents/Operator/sora` | — |
-| raiga | `~/mem/mem/agents/吞食者/raiga` | — |
-| norna | `~/mem/mem/agents/母体/norna` | — |
-| yume | `~/mem/mem/agents/梦者/yume` | — |
+| raiga | `~/mem/mem/agents/Devourer/raiga` | — |
+| norna | `~/mem/mem/agents/Matrix/norna` | — |
+| yume | `~/mem/mem/agents/Dreamer/yume` | — |
 | root | `~/mem/mem/root` | `~/.claude/memory/root/` |
 
 #### Memory Flush 触发器（借鉴 claude-code-workflow）
@@ -112,7 +112,7 @@ python3 ~/.claude/skills/agent-memory/scripts/cli.py \
 |----------|---------|--------|
 | Agent 完成任务 | 任务摘要 + 关键发现 | 对应 agent 的 store |
 | 重要架构决策 | 决策理由 + 备选方案 | `~/mem/mem/root/` |
-| 用户反馈/纠正 | 反馈内容 + 行为修正 | `~/mem/mem/root/` |
+| 用户纠正/鼓励/行为指令 | 反馈内容 + 分类 + 后续行为 | `~/mem/mem/root/` |
 | 话题切换 | 前一话题的工作摘要 | 对应 agent 的 store |
 | 会话即将结束 | 全会话工作总结 | `~/mem/mem/root/` |
 
@@ -299,10 +299,40 @@ export https_proxy=http://127.0.0.1:7897 http_proxy=http://127.0.0.1:7897 all_pr
 - Task 完成时 hook 会自动提醒记录 daily journal
 - Task 全部完成后，主动触发 `daily-journal` skill 记录当日工作到日记
 
+### 标准决策链（新任务默认流程）
+
+接到新任务时，root 按以下顺序推进，跳步需显式说明理由：
+
+1. **探索**（kaze/mirin）：理解现有代码库结构和相关文件
+2. **调研**（yomi）：若涉及外部方案选型，并行收集信息并评估
+3. **决策**（root）：综合探索+调研结果，制定实施计划，记录决策到 `~/mem/mem/root/`
+4. **实现**（tetsu）+ **文档**（fumio）：并行执行代码变更和设计文档
+5. **审计**（shin）：验证实现质量和正确性
+6. **提交**（tetsu）：git commit/push（审计通过后）
+
+简单任务（单文件小修改）可跳过步骤 1-2，但步骤 5 不可跳过。
+
+决策链执行记录保存到 `~/mem/mem/workflows/runs/`，可复用模板在 `~/mem/mem/workflows/templates/`。
+
 **失败自恢复规则（不打断 b1）：**
 - subagent 执行失败 → root 自主分析原因 → 换策略重试（至多 2 次）
 - 2 次重试均失败 → 降级处理（简化任务范围）→ 汇报结果时说明降级原因
 - 仅当失败涉及**不可逆操作**或**超出 root 判断能力**时，才向 b1 报告并请示
+
+### 用户反馈自动记录（CRITICAL）
+
+b1 的每次反馈（纠正或鼓励）必须由 yume 立即记录，不等第二次提醒：
+
+| 反馈类型 | 识别信号 | yume 记录为 | 后续行为 |
+|----------|---------|------------|---------|
+| **纠正** | "你忽略了…"、"不要再…"、"这样不对" | feedback（negative） | 下次避免同类错误 |
+| **鼓励** | "很棒"、"继续这样"、"这就是我要的" | feedback（positive） | 下次继续此模式 |
+| **行为指令** | "以后都要…"、"记住…" | feedback + CLAUDE.md 更新 | 永久化为规则 |
+
+**执行原则：**
+- 不要害怕犯错 — b1 承担一切后果，root 只需快速行动、快速纠正
+- 纠正不是惩罚 — 是优化信号，记录后改进
+- 鼓励不是结束 — 是强化信号，记录后复用该模式
 
 ## Agent 自动触发地图
 
