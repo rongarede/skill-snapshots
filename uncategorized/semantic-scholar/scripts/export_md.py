@@ -15,9 +15,14 @@
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# pylint: disable=wrong-import-position
+from file_utils import find_json_files  # noqa: E402
 
 
 # ── 默认 layer 标题 ───────────────────────────────────────
@@ -69,6 +74,7 @@ def load_json(path: Path) -> tuple[dict[str, list[dict]], dict[str, dict]]:
 # ── 格式化工具 ────────────────────────────────────────────
 
 def fmt_authors(authors: list[dict], limit: int = 3) -> str:
+    """格式化作者列表，超过 limit 时截断并标注总数"""
     if not authors:
         return "N/A"
     names = [a.get("name", "") for a in authors[:limit]]
@@ -79,6 +85,7 @@ def fmt_authors(authors: list[dict], limit: int = 3) -> str:
 
 
 def fmt_venue(paper: dict) -> str:
+    """提取期刊/会议名称，优先用 venue 字段"""
     venue = paper.get("venue") or ""
     if not venue:
         journal = paper.get("journal")
@@ -88,19 +95,18 @@ def fmt_venue(paper: dict) -> str:
 
 
 def fmt_doi(paper: dict) -> str:
+    """格式化 DOI 或 ArXiv ID 为 Markdown 链接"""
     ext = paper.get("externalIds") or {}
-    doi = ext.get("DOI", "")
-    if doi:
+    if doi := ext.get("DOI", ""):
         return f"[{doi}](https://doi.org/{doi})"
-    arxiv = ext.get("ArXiv", "")
-    if arxiv:
+    if arxiv := ext.get("ArXiv", ""):
         return f"[arXiv:{arxiv}](https://arxiv.org/abs/{arxiv})"
     return "N/A"
 
 
 def paper_link(paper: dict) -> str:
-    url = paper.get("url", "")
-    if url:
+    """生成论文在 Semantic Scholar 上的链接"""
+    if url := paper.get("url", ""):
         return url
     pid = paper.get("paperId", "")
     return f"https://www.semanticscholar.org/paper/{pid}" if pid else ""
@@ -147,25 +153,20 @@ def generate_md(layer_num: str, title: str,
 
     for i, p in enumerate(sorted_papers, 1):
         link = paper_link(p)
-        abstract = p.get("abstract")
-
         lines.append(f"### {i}. {p.get('title', 'N/A')}")
         lines.append("")
         if link:
             lines.append(f"- **链接**: {link}")
-        lines.append(f"- **期刊/会议**: {fmt_venue(p)}")
-        lines.append(f"- **年份**: {p.get('year', 'N/A')}")
-        lines.append(f"- **引用数**: {p.get('citationCount', 0)}")
-        lines.append(f"- **DOI**: {fmt_doi(p)}")
-        lines.append("")
-        if abstract:
-            lines.append("**摘要**:")
-            lines.append("")
-            lines.append(abstract)
-        else:
-            lines.append("**摘要**: 暂无")
-        lines.append("")
-        lines.append("")
+        lines.extend([
+            f"- **期刊/会议**: {fmt_venue(p)}",
+            f"- **年份**: {p.get('year', 'N/A')}",
+            f"- **引用数**: {p.get('citationCount', 0)}",
+            f"- **DOI**: {fmt_doi(p)}",
+            "",
+        ])
+        abstract = p.get("abstract")
+        lines.append(f"**摘要**:\n\n{abstract}" if abstract else "**摘要**: 暂无")
+        lines.extend(["", ""])
 
     return "\n".join(lines)
 
@@ -173,6 +174,7 @@ def generate_md(layer_num: str, title: str,
 # ── CLI ───────────────────────────────────────────────────
 
 def main():
+    """CLI 入口：解析参数并执行 Markdown 导出"""
     parser = argparse.ArgumentParser(
         description="从 Semantic Scholar raw JSON 生成统一格式的 Markdown"
     )
@@ -191,13 +193,7 @@ def main():
         titles.update(json.loads(args.titles))
 
     # 收集文件
-    files = []
-    for p in args.paths:
-        path = Path(p)
-        if path.is_dir():
-            files.extend(sorted(path.glob("layer_*_raw.json")))
-        elif path.is_file() and path.suffix == ".json":
-            files.append(path)
+    files = find_json_files(args.paths)
 
     if not files:
         print("未找到任何 JSON 文件", file=sys.stderr)

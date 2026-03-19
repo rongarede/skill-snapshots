@@ -18,27 +18,11 @@ import asyncio
 import json
 import os
 import sys
-from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from s2_client import S2Client
-
-
-# ── JSON 读写 ─────────────────────────────────────────────
-
-
-def find_json_files(paths: list[str]) -> list[Path]:
-    """从参数中解析出所有 raw JSON 文件"""
-    files = []
-    for p in paths:
-        path = Path(p)
-        if path.is_dir():
-            files.extend(sorted(path.glob("layer_*_raw.json")))
-        elif path.is_file() and path.suffix == ".json":
-            files.append(path)
-        else:
-            print(f"跳过: {p}（不是目录或 JSON 文件）", file=sys.stderr)
-    return files
+# pylint: disable=wrong-import-position
+from s2_client import S2Client  # noqa: E402
+from file_utils import find_json_files  # noqa: E402
 
 
 def extract_papers(data: dict) -> list[dict]:
@@ -58,30 +42,25 @@ def extract_papers(data: dict) -> list[dict]:
 
 def collect_missing(papers: list[dict]) -> list[str]:
     """收集缺少 abstract 的 paperId（去重）"""
-    seen = set()
-    missing = []
+    seen: set[str] = set()
+    missing: list[str] = []
     for p in papers:
         pid = p.get("paperId")
         if not pid or pid in seen:
             continue
         seen.add(pid)
-        if "abstract" not in p or p.get("abstract") is None:
+        if p.get("abstract") is None:
             missing.append(pid)
     return missing
 
 
 # ── 异步主逻辑 ────────────────────────────────────────────
 
-async def run(args):
-    files = find_json_files(args.paths)
-    if not files:
-        print("未找到任何 JSON 文件", file=sys.stderr)
-        return
 
-    # 第一步：扫描所有文件，收集缺失的 paperId
+def _scan_files(files):
+    """扫描 JSON 文件，返回 (file_data, unique_missing_ids)"""
     file_data = {}  # {path: (raw_data, papers)}
     all_missing = []
-
     for f in files:
         with open(f, "r", encoding="utf-8") as fp:
             raw = json.load(fp)
@@ -90,20 +69,44 @@ async def run(args):
         file_data[f] = (raw, papers)
         all_missing.extend(missing)
         print(f"{f.name}: {len(papers)} 篇论文，{len(missing)} 篇缺少摘要")
-
-    # 去重
     unique_missing = list(dict.fromkeys(all_missing))
     print(f"\n共需补全 {len(unique_missing)} 篇（去重后）")
+    return file_data, unique_missing
+
+
+def _write_back(file_data, abstracts):
+    """将获取到的摘要写回原 JSON 文件"""
+    print("\n正在更新 JSON 文件...")
+    for f, (raw, papers) in file_data.items():
+        updated = 0
+        for p in papers:
+            pid = p.get("paperId")
+            has_abstract = "abstract" in p and p["abstract"] is not None
+            if pid in abstracts and not has_abstract:
+                p["abstract"] = abstracts[pid]
+                updated += 1
+        with open(f, "w", encoding="utf-8") as fp:
+            json.dump(raw, fp, ensure_ascii=False, indent=2)
+        print(f"  {f.name}: 更新了 {updated} 篇")
+
+
+async def run(args):
+    """扫描 JSON 文件，批量获取并回填缺失的摘要"""
+    files = find_json_files(args.paths)
+    if not files:
+        print("未找到任何 JSON 文件", file=sys.stderr)
+        return
+
+    file_data, unique_missing = _scan_files(files)
 
     if args.dry_run:
         print("(dry-run 模式，不实际请求)")
         return
-
     if not unique_missing:
         print("所有论文已有摘要，无需请求")
         return
 
-    # 第二步：通过 S2Client 批量获取摘要
+    # 通过 S2Client 批量获取摘要
     client = S2Client(api_key=args.api_key, cache=False)
     try:
         print("\n正在从 Semantic Scholar API 获取摘要...")
@@ -111,28 +114,13 @@ async def run(args):
     finally:
         await client.close()
 
-    # 构建 paperId → abstract 映射
-    abstracts = {}
-    for item in results:
-        if item and "paperId" in item:
-            abstracts[item["paperId"]] = item.get("abstract")
-
+    abstracts = {r["paperId"]: r.get("abstract")
+                 for r in results if r and "paperId" in r}
     fetched = sum(1 for v in abstracts.values() if v is not None)
     print(f"成功获取 {fetched} 篇有效摘要，"
           f"{len(abstracts) - fetched} 篇确认无摘要")
 
-    # 第三步：写回 JSON 文件
-    print("\n正在更新 JSON 文件...")
-    for f, (raw, papers) in file_data.items():
-        updated = 0
-        for p in papers:
-            pid = p.get("paperId")
-            if pid in abstracts and ("abstract" not in p or p.get("abstract") is None):
-                p["abstract"] = abstracts[pid]
-                updated += 1
-        with open(f, "w", encoding="utf-8") as fp:
-            json.dump(raw, fp, ensure_ascii=False, indent=2)
-        print(f"  {f.name}: 更新了 {updated} 篇")
+    _write_back(file_data, abstracts)
 
     print("\n完成！")
 
@@ -140,6 +128,7 @@ async def run(args):
 # ── CLI ───────────────────────────────────────────────────
 
 def main():
+    """CLI 入口：解析参数并执行摘要补全"""
     parser = argparse.ArgumentParser(
         description="批量补全 Semantic Scholar 搜索结果中缺失的摘要"
     )

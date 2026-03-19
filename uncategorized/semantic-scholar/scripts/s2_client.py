@@ -5,16 +5,17 @@ Semantic Scholar API 异步客户端
 """
 
 import asyncio
-import aiohttp
-import ssl
-import os
-import time
-import json
 import hashlib
+import json
+import os
+import ssl
 import sys
-from pathlib import Path
-from typing import List, Dict, Optional, Any
+import time
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import aiohttp
 
 BASE_URL = "https://api.semanticscholar.org/graph/v1"
 AI4SCHOLAR_URL = "https://ai4scholar.net/graph/v1"
@@ -73,10 +74,12 @@ class DiskCache:
             CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
     def _key(self, namespace: str, params: Dict) -> str:
+        """生成缓存文件名（SHA256 前 16 位）"""
         raw = json.dumps({"ns": namespace, **params}, sort_keys=True)
         return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
     def get(self, namespace: str, params: Dict) -> Optional[Any]:
+        """读取缓存，返回 None 表示未命中或已过期"""
         if not self.enabled:
             return None
         path = CACHE_DIR / f"{self._key(namespace, params)}.json"
@@ -92,6 +95,7 @@ class DiskCache:
             return None
 
     def put(self, namespace: str, params: Dict, payload: Any):
+        """将结果写入磁盘缓存"""
         if not self.enabled:
             return
         path = CACHE_DIR / f"{self._key(namespace, params)}.json"
@@ -121,6 +125,7 @@ class RateLimiter:
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
     async def acquire(self):
+        """获取一个令牌，必要时等待至令牌可用"""
         async with self._lock:
             now = time.monotonic()
             elapsed = now - self._last_refill
@@ -136,7 +141,7 @@ class RateLimiter:
 
 # ── 客户端 ──
 
-class S2Client:
+class S2Client:  # pylint: disable=too-many-instance-attributes
     """Semantic Scholar 异步 API 客户端"""
 
     def __init__(
@@ -163,19 +168,26 @@ class S2Client:
         self._session: Optional[aiohttp.ClientSession] = None
         # 启动信息
         if not self.api_key:
+            apply_url = ("https://www.semanticscholar.org"
+                         "/product/api#api-key-form")
             print(
                 "[S2] 未检测到 API Key，速率限制为 1 req/s\n"
                 "    配置方式：\n"
                 "    1) export S2_API_KEY=\"your-key\"\n"
-                "    2) 写入 ~/.config/semantic-scholar/config.json\n"
-                "    申请免费 Key: https://www.semanticscholar.org/product/api#api-key-form",
+                "    2) 写入 ~/.config/"
+                "semantic-scholar/config.json\n"
+                f"    申请: {apply_url}",
                 file=sys.stderr,
             )
         else:
-            mode = "ai4scholar.net" if self._auth_mode == "bearer" else "官方 API"
-            print(f"[S2] 已加载 Key ({mode}，10 req/s)", file=sys.stderr)
+            mode = ("ai4scholar.net"
+                    if self._auth_mode == "bearer"
+                    else "官方 API")
+            print(f"[S2] 已加载 Key ({mode}，10 req/s)",
+                  file=sys.stderr)
 
     def _headers(self) -> Dict[str, str]:
+        """构建请求头（含认证信息）"""
         h = {"Accept": "application/json"}
         if self.api_key:
             if self._auth_mode == "bearer":
@@ -185,6 +197,7 @@ class S2Client:
         return h
 
     async def _get_session(self) -> aiohttp.ClientSession:
+        """获取或创建 aiohttp 会话（懒初始化）"""
         if self._session is None or self._session.closed:
             ssl_ctx = ssl.create_default_context()
             # macOS Python 常见 CA 证书问题，始终放宽 SSL 验证
@@ -200,11 +213,12 @@ class S2Client:
         return self._session
 
     async def close(self):
+        """关闭 HTTP 会话，释放连接资源"""
         if self._session and not self._session.closed:
             await self._session.close()
 
-    async def _request(
-        self, method: str, url: str,
+    async def _request(  # pylint: disable=too-many-arguments
+        self, method: str, url: str, *,
         params: Optional[Dict] = None,
         json_body: Optional[Any] = None,
         retries: int = 3,
@@ -218,21 +232,27 @@ class S2Client:
                     if method == "GET":
                         resp = await session.get(url, params=params)
                     else:
-                        resp = await session.post(url, params=params, json=json_body)
+                        resp = await session.post(
+                            url, params=params,
+                            json=json_body,
+                        )
 
                     if resp.status == 200:
                         return await resp.json()
-                    elif resp.status == 429:
+                    if resp.status == 429:
                         wait = 2 ** (attempt + 1)
                         print(f"[S2] 429 限流，等待 {wait}s 后重试", file=sys.stderr)
                         await asyncio.sleep(wait)
                         continue
-                    else:
-                        text = await resp.text()
-                        print(f"[S2] HTTP {resp.status}: {text[:200]}", file=sys.stderr)
-                        if attempt < retries - 1:
-                            await asyncio.sleep(1)
-                        continue
+                    text = await resp.text()
+                    print(
+                        f"[S2] HTTP {resp.status}: "
+                        f"{text[:200]}",
+                        file=sys.stderr,
+                    )
+                    if attempt < retries - 1:
+                        await asyncio.sleep(1)
+                    continue
                 except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                     print(f"[S2] 请求异常: {e}", file=sys.stderr)
                     if attempt < retries - 1:
@@ -242,8 +262,8 @@ class S2Client:
 
     # ── 搜索 ──
 
-    async def search(
-        self, query: str,
+    async def search(  # pylint: disable=too-many-arguments
+        self, query: str, *,
         fields: str = DEFAULT_FIELDS,
         limit: int = 10,
         offset: int = 0,
@@ -253,26 +273,27 @@ class S2Client:
         min_citation_count: Optional[int] = None,
     ) -> Dict:
         """搜索论文（单次，最多 100 条）"""
-        params = {
+        params: Dict[str, Any] = {
             "query": query, "fields": fields,
             "limit": min(limit, 100), "offset": offset,
         }
-        if year:
-            params["year"] = year
-        if venue:
-            params["venue"] = venue
+        for key, val in [("year", year), ("venue", venue)]:
+            if val:
+                params[key] = val
         if open_access is not None:
             params["openAccessPdf"] = "" if open_access else None
         if min_citation_count is not None:
             params["minCitationCount"] = str(min_citation_count)
 
-        # 查缓存
         cached = self.cache.get("search", params)
         if cached is not None:
             print(f"[S2] 缓存命中: {query}", file=sys.stderr)
             return cached
 
-        result = await self._request("GET", f"{self.base_url}/paper/search", params=params)
+        url = f"{self.base_url}/paper/search"
+        result = await self._request(
+            "GET", url, params=params,
+        )
         result = result or {"total": 0, "data": []}
         self.cache.put("search", params, result)
         return result
@@ -333,27 +354,26 @@ class S2Client:
 
     # ── 批量搜索（大规模） ──
 
-    async def bulk_search(
-        self, query: str,
+    async def bulk_search(  # pylint: disable=too-many-arguments
+        self, query: str, *,
         fields: str = DEFAULT_FIELDS,
         limit: int = 100,
         year: Optional[str] = None,
         min_citation_count: Optional[int] = None,
     ) -> List[Dict]:
         """批量搜索（token 分页，适合大规模检索）"""
-        params = {"query": query, "fields": fields}
+        params: Dict[str, Any] = {"query": query, "fields": fields}
         if year:
             params["year"] = year
         if min_citation_count is not None:
             params["minCitationCount"] = str(min_citation_count)
 
-        all_data = []
+        all_data: List[Dict] = []
         token = None
+        bulk_url = f"{self.base_url}/paper/search/bulk"
         while len(all_data) < limit:
-            p = dict(params)
-            if token:
-                p["token"] = token
-            result = await self._request("GET", f"{self.base_url}/paper/search/bulk", params=p)
+            p = {**params, **({"token": token} if token else {})}
+            result = await self._request("GET", bulk_url, params=p)
             if not result or not result.get("data"):
                 break
             all_data.extend(result["data"])

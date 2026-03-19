@@ -11,7 +11,8 @@ Semantic Scholar 论文搜索 CLI
   python search_papers.py "blockchain consensus" "DAG protocol" "BFT algorithm"
 
   # 按 DOI / ArXiv ID 批量查询
-  python search_papers.py --ids "DOI:10.1145/3132747.3132757" "ARXIV:1803.05069"
+  python search_papers.py --ids "DOI:10.1145/3132747.3132757" \\
+    "ARXIV:1803.05069"
 
   # 指定年份和最低引用数
   python search_papers.py "PBFT consensus" --year "2020-" --min-cite 10
@@ -28,35 +29,33 @@ import sys
 
 # 将 scripts 目录加入 path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from s2_client import S2Client, DEFAULT_FIELDS, DETAIL_FIELDS, save_config, load_config, resolve_api_key, CONFIG_FILE
+# pylint: disable=wrong-import-position
+from s2_client import (  # noqa: E402
+    S2Client, DiskCache, DEFAULT_FIELDS, DETAIL_FIELDS,
+    save_config, load_config, CONFIG_FILE,
+)
 
 
 def format_paper(p: dict) -> str:
     """格式化单篇论文为可读文本"""
     if not p:
         return "  (未找到)"
-    title = p.get("title", "N/A")
-    year = p.get("year", "N/A")
-    cite = p.get("citationCount", 0)
-    venue = p.get("venue", "")
     authors = p.get("authors", [])
     author_str = ", ".join(a.get("name", "") for a in authors[:3])
     if len(authors) > 3:
         author_str += f" 等 ({len(authors)} 位作者)"
 
     ext = p.get("externalIds", {})
-    doi = ext.get("DOI", "")
-    arxiv = ext.get("ArXiv", "")
-
-    lines = [f"  标题: {title}"]
-    lines.append(f"  作者: {author_str}")
-    lines.append(f"  年份: {year}  |  引用: {cite}")
-    if venue:
-        lines.append(f"  期刊/会议: {venue}")
-    if doi:
-        lines.append(f"  DOI: {doi}")
-    if arxiv:
-        lines.append(f"  ArXiv: {arxiv}")
+    lines = [
+        f"  标题: {p.get('title', 'N/A')}",
+        f"  作者: {author_str}",
+        f"  年份: {p.get('year', 'N/A')}  |  引用: {p.get('citationCount', 0)}",
+    ]
+    for label, val in [("期刊/会议", p.get("venue", "")),
+                       ("DOI", ext.get("DOI", "")),
+                       ("ArXiv", ext.get("ArXiv", ""))]:
+        if val:
+            lines.append(f"  {label}: {val}")
     return "\n".join(lines)
 
 
@@ -69,10 +68,43 @@ async def _verify_key(key: str):
             print("Key 验证成功")
         else:
             print("Key 验证失败：无法获取结果")
-    except Exception as e:
+    except (OSError, ValueError, KeyError) as e:
         print(f"Key 验证失败：{e}")
     finally:
         await client.close()
+
+
+async def _search_single(client, query, fields, limit, **kwargs):
+    """单关键词搜索并打印结果"""
+    print(f"搜索: {query}", file=sys.stderr)
+    result = await client.search(
+        query, fields=fields, limit=limit, **kwargs
+    )
+    total = result.get("total", 0)
+    data = result.get("data", [])
+    print(f"共 {total} 条结果，返回 {len(data)} 条:\n")
+    for i, p in enumerate(data):
+        print(f"[{i+1}] {format_paper(p)}\n")
+    return {"mode": "search", "query": query, "total": total, "data": data}
+
+
+async def _search_concurrent(client, queries, fields, limit, **kwargs):
+    """并发多关键词搜索并打印结果"""
+    print(f"并发搜索 {len(queries)} 个关键词...", file=sys.stderr)
+    multi = await client.search_concurrent(
+        queries, fields=fields, limit=limit, **kwargs
+    )
+    results = {"mode": "concurrent", "results": {}}
+    for q, r in multi.items():
+        total = r.get("total", 0)
+        data = r.get("data", [])
+        print(f"\n{'='*60}")
+        print(f"关键词: {q}  (共 {total} 条，返回 {len(data)} 条)")
+        print(f"{'='*60}")
+        for i, p in enumerate(data):
+            print(f"  [{i+1}] {format_paper(p)}\n")
+        results["results"][q] = {"total": total, "data": data}
+    return results
 
 
 async def run_search(args):
@@ -88,15 +120,12 @@ async def run_search(args):
             print(f"批量查询 {len(args.ids)} 篇论文...", file=sys.stderr)
             papers = await client.batch_papers(args.ids, fields=DETAIL_FIELDS)
             results = {"mode": "batch", "count": len(papers), "papers": papers}
-            # 打印摘要
             for i, p in enumerate(papers):
                 print(f"\n[{i+1}] {format_paper(p)}")
         else:
             # 关键词搜索
             queries = args.queries
             fields = DETAIL_FIELDS if args.detail else DEFAULT_FIELDS
-            limit = args.limit
-
             kwargs = {}
             if args.year:
                 kwargs["year"] = args.year
@@ -104,33 +133,13 @@ async def run_search(args):
                 kwargs["min_citation_count"] = args.min_cite
 
             if len(queries) == 1:
-                # 单关键词
-                print(f"搜索: {queries[0]}", file=sys.stderr)
-                result = await client.search(
-                    queries[0], fields=fields, limit=limit, **kwargs
+                results = await _search_single(
+                    client, queries[0], fields, args.limit, **kwargs
                 )
-                total = result.get("total", 0)
-                data = result.get("data", [])
-                print(f"共 {total} 条结果，返回 {len(data)} 条:\n")
-                for i, p in enumerate(data):
-                    print(f"[{i+1}] {format_paper(p)}\n")
-                results = {"mode": "search", "query": queries[0], "total": total, "data": data}
             else:
-                # 并发多关键词
-                print(f"并发搜索 {len(queries)} 个关键词...", file=sys.stderr)
-                multi = await client.search_concurrent(
-                    queries, fields=fields, limit=limit, **kwargs
+                results = await _search_concurrent(
+                    client, queries, fields, args.limit, **kwargs
                 )
-                results = {"mode": "concurrent", "results": {}}
-                for q, r in multi.items():
-                    total = r.get("total", 0)
-                    data = r.get("data", [])
-                    print(f"\n{'='*60}")
-                    print(f"关键词: {q}  (共 {total} 条，返回 {len(data)} 条)")
-                    print(f"{'='*60}")
-                    for i, p in enumerate(data):
-                        print(f"  [{i+1}] {format_paper(p)}\n")
-                    results["results"][q] = {"total": total, "data": data}
 
         # 输出 JSON
         if args.output:
@@ -143,6 +152,7 @@ async def run_search(args):
 
 
 def main():
+    """CLI 入口：解析参数并执行搜索或配置操作"""
     parser = argparse.ArgumentParser(
         description="Semantic Scholar 论文搜索（支持并发）"
     )
@@ -186,7 +196,6 @@ def main():
 
     args = parser.parse_args()
 
-    # 特殊命令：配置 Key
     if args.setup:
         key = input("请输入 API Key: ").strip()
         if key:
@@ -194,22 +203,15 @@ def main():
             cfg["api_key"] = key
             save_config(cfg)
             print(f"已保存到 {CONFIG_FILE}")
-            # 验证
             print("验证中...", end=" ")
-            from s2_client import DiskCache
             asyncio.run(_verify_key(key))
         return
-
-    # 特殊命令：清除缓存
     if args.clear_cache:
-        from s2_client import DiskCache
         DiskCache(enabled=True).clear()
         print("缓存已清除")
         return
-
     if not args.queries and not args.ids:
         parser.error("请提供搜索关键词或 --ids 参数")
-
     asyncio.run(run_search(args))
 
 

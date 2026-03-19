@@ -16,6 +16,23 @@ allowed-tools: [Bash, Read, Write, Edit]
 
 覆盖 214M+ 学术论文，免费无需注册。
 
+## 执行步骤
+
+1. 确认搜索意图：用户提供关键词、DOI 或论文 ID
+2. 选择搜索模式：单关键词搜索、多关键词并发搜索、批量 ID 查询
+3. 执行搜索脚本 `search_papers.py`，获取结果 JSON
+4. 如需摘要补全，执行 `batch_abstract.py` 批量获取缺失摘要
+5. 如需格式化输出，执行 `export_md.py` 生成 Markdown 报告
+6. 返回结果给用户，附带论文数量和关键统计
+
+## 约束
+
+- **禁止**在无用户确认的情况下自动清除缓存（`--clear-cache`）
+- **禁止**将 API Key 硬编码到脚本或 commit 中
+- 不可绕过速率限制器直接发请求
+- 批量查询每批不可超过 500 篇（API 限制）
+- 缓存 TTL 固定 3600s，不可在运行时修改
+
 ## 使用场景
 
 - 按关键词检索论文标题、作者、年份
@@ -175,6 +192,11 @@ for oa, s2 in zip(openalex_results, s2_papers):
 ```
 
 ## 脚本说明
+
+### file_utils.py
+共享文件查找工具：
+- `find_json_files()` — 从路径参数解析 `layer_*_raw.json` 文件（支持目录和单文件）
+- 被 `batch_abstract.py` 和 `export_md.py` 共同引用，消除重复代码
 
 ### s2_client.py
 异步 API 客户端，核心功能：
