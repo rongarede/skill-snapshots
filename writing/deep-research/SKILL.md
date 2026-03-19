@@ -12,11 +12,15 @@ Create high-fidelity research reports with strict format control, evidence mappi
 
 1. Clarify the report spec and format contract
 2. Build a research plan and query set
-3. Collect evidence with the deepresearch tool (multi-pass if needed)
+3. Collect evidence with parallel agents (multi-source)
+3.5. Download source PDFs (arXiv + sci-hub)
 4. Triage sources and build an evidence table
-5. Draft the full report in multiple complete passes (parallel subagents)
-6. UNION merge, enforce format compliance, verify citations
-7. Present draft for human review and iterate
+4.5. Extract paragraphs from downloaded PDFs
+5. Outline and section map
+6. Multi-pass full drafting (parallel subagents)
+7. UNION merge, enforce format compliance, verify citations
+8. Evidence and citation verification
+9. Present draft for human review and iterate
 
 ## Core Workflow
 
@@ -26,8 +30,10 @@ Copy this checklist and track progress:
 Deep Research Progress:
 - [ ] Step 1: Intake and format contract
 - [ ] Step 2: Research plan and query set
-- [ ] Step 3: Evidence collection (deepresearch tool)
+- [ ] Step 3: Evidence collection (parallel agents)
+- [ ] Step 3.5: PDF download (arXiv + sci-hub)
 - [ ] Step 4: Source triage and evidence table
+- [ ] Step 4.5: PDF paragraph extraction
 - [ ] Step 5: Outline and section map
 - [ ] Step 6: Multi-pass full drafting (parallel subagents)
 - [ ] Step 7: UNION merge and format compliance
@@ -87,6 +93,22 @@ Use the deepresearch tool to collect evidence and citations.
 - Vary query phrasing to reduce blind spots
 - Preserve raw tool output in files for traceability
 
+#### Parallel Evidence Collection (Academic Research)
+
+For academic literature searches, split evidence collection across multiple parallel agents by data source:
+
+| Agent | Data Source | Tool |
+|-------|-----------|------|
+| Agent 1 | Semantic Scholar | semantic-scholar skill API |
+| Agent 2 | arXiv preprints | arxiv-search skill + WebSearch site:arxiv.org |
+| Agent 3 | IEEE/ACM + Chinese databases | WebSearch site:ieeexplore.ieee.org + Chinese keywords |
+
+**Execution rules:**
+- Launch all agents simultaneously with `run_in_background=true`
+- Each agent writes to a separate raw output file (e.g., `raw_S2.md`, `raw_arXiv.md`, `raw_IEEE.md`)
+- After all agents complete, merge raw files using UNION (Step 4)
+- Never run a single agent for all dimensions when parallel execution is possible
+
 **File structure (recommended):**
 ```
 <output_dir>/research/<topic-name>/
@@ -96,6 +118,36 @@ Use the deepresearch tool to collect evidence and citations.
 ```
 
 If deepresearch is unavailable, rely on user-provided sources only and state limitations explicitly.
+
+### Step 3.5: PDF Download (Academic Research)
+
+After evidence collection, download source PDFs for full-text extraction:
+
+**Download routes (in priority order):**
+
+| Source Type | Download Method | Tool |
+|------------|----------------|------|
+| arXiv papers | Direct curl: `https://arxiv.org/pdf/{id}.pdf` | Bash with proxy |
+| DOI papers | sci-hub-download skill (OA → Sci-Hub → publisher) | sci-hub-download skill |
+| Chinese papers | Manual download required | Flag for user |
+
+**Execution:**
+- Extract arXiv IDs and DOIs from evidence collection outputs using Grep
+- Launch 2 parallel download agents: one for arXiv (curl), one for DOI (sci-hub)
+- Save all PDFs to `<output_dir>/research/papers/`
+- Create `download_log.md` with success/failure tracking
+- Validate downloads: PDF files must be >100KB to be considered valid
+
+**File structure:**
+```
+<output_dir>/research/papers/
+  paper1.pdf
+  paper2.pdf
+  ...
+  download_log.md
+```
+
+This step is MANDATORY for academic research tasks. Do not skip to Step 4 without downloading available PDFs.
 
 ### Step 4: Source Triage and Evidence Table
 
@@ -114,6 +166,34 @@ Evidence table minimum columns:
 - URL or reference
 - Quality tier (A/B/C)
 - Notes
+
+### Step 4.5: PDF Paragraph Extraction (Academic Research)
+
+Read downloaded PDFs and extract paragraphs matching research keywords:
+
+**Execution:**
+- Split PDFs into batches of ~10 by filename alphabetical order
+- Launch parallel reader agents (one per batch) with `run_in_background=true`
+- Each reader uses the Read tool with `pages` parameter to read PDFs in 20-page chunks
+- Search for keyword matches: extract the full surrounding paragraph (at least 3 sentences of context)
+- Record: page number, section heading, full paragraph text
+
+**Output format per paper:**
+```
+### [filename] Paper Title
+#### Page X — Section Heading
+> Extracted paragraph text...
+```
+
+**Write extracted paragraphs to:**
+```
+<output_dir>/research/extracts/
+  batch1.md
+  batch2.md
+  ...
+```
+
+These raw extracts feed into Step 5 (outline) and Step 6 (drafting) as primary evidence.
 
 ### Step 5: Outline and Section Map
 
@@ -205,3 +285,7 @@ Present the draft as a reviewable version:
 - Mixing conflicting dates without calling out discrepancies
 - Copying external AI output without verification
 - Deleting intermediate drafts or raw research outputs
+- Running a single search agent when multiple data sources are available
+- Skipping PDF download and relying only on search snippets/abstracts
+- Sequential evidence collection when parallel execution is possible
+- Waiting for user prompts between steps instead of pipeline execution
