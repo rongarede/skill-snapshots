@@ -1,13 +1,20 @@
 #!/bin/bash
 # ============================================================
 # auto-iterate: 评估辅助脚本
+# 支持 4 种目标类型：skill / skill-full / memory / code
 # ============================================================
 
-set -e
+set -euo pipefail
 
-TARGET_TYPE="${1:?Usage: evaluate.sh <skill|memory|code> <target-path> [eval-command]}"
-TARGET_PATH="${2:?Usage: evaluate.sh <skill|memory|code> <target-path> [eval-command]}"
+readonly USAGE="Usage: evaluate.sh <skill|skill-full|memory|code> <target-path> [eval-command]"
+TARGET_TYPE="${1:?$USAGE}"
+TARGET_PATH="${2:?$USAGE}"
+readonly TARGET_TYPE TARGET_PATH
 EVAL_CMD="${3:-}"
+readonly EVAL_CMD
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+readonly SCRIPT_DIR
 
 case "$TARGET_TYPE" in
   skill)
@@ -29,6 +36,17 @@ case "$TARGET_TYPE" in
     echo "description_field: $has_description"
     echo "line_count: $(wc -l < "$TARGET_PATH")"
     echo "word_count: $(wc -w < "$TARGET_PATH")"
+    ;;
+
+  skill-full)
+    # 委托给 evaluate_skill_full.py 进行复合评估
+    echo "=== Skill-Full Composite Evaluation ==="
+    if [ ! -d "$TARGET_PATH" ]; then
+      echo "ERROR: Target directory not found: $TARGET_PATH"
+      echo "score: 0"
+      exit 1
+    fi
+    python3 "${SCRIPT_DIR}/evaluate_skill_full.py" "$TARGET_PATH"
     ;;
 
   memory)
@@ -64,7 +82,7 @@ case "$TARGET_TYPE" in
 
   *)
     echo "ERROR: Unknown target type: $TARGET_TYPE"
-    echo "Usage: evaluate.sh <skill|memory|code> <target-path> [eval-command]"
+    echo "$USAGE"
     exit 1
     ;;
 esac
