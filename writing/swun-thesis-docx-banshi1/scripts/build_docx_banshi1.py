@@ -21,6 +21,7 @@ _core_main = _core.main
 
 
 def main(argv: list[str] | None = None) -> None:
+    """委托给核心模块的 main 函数，构建版式1 DOCX 文件。"""
     _core_main(argv)
 
 

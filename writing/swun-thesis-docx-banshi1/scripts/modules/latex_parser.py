@@ -63,7 +63,8 @@ class CaptionMeta:
 # Caption profile 加载
 # ---------------------------------------------------------------------------
 
-def load_caption_profiles(profile_docx: Path) -> dict[str, CaptionFormatProfile]:
+def load_caption_profiles(
+    profile_docx: Path) -> dict[str, CaptionFormatProfile]:
     try:
         return extract_caption_profiles(profile_docx)
     except FileNotFoundError as exc:
@@ -177,11 +178,21 @@ def convert_algorithms_to_plain_text(s: str) -> str:
 
             m = re.match(r"\\REQUIRE\s+(.*)", raw)
             if m:
-                lines.append((0, 0, "\\textbf{输入：}" + _strip_comment(m.group(1).strip())))
+                lines.append(
+    (0,
+    0,
+    "\\textbf{输入：}" +
+    _strip_comment(
+        m.group(1).strip())))
                 continue
             m = re.match(r"\\ENSURE\s+(.*)", raw)
             if m:
-                lines.append((0, 0, "\\textbf{输出：}" + _strip_comment(m.group(1).strip())))
+                lines.append(
+    (0,
+    0,
+    "\\textbf{输出：}" +
+    _strip_comment(
+        m.group(1).strip())))
                 continue
 
             if re.match(r"\\ENDIF\b", raw):
@@ -204,7 +215,12 @@ def convert_algorithms_to_plain_text(s: str) -> str:
             if m:
                 indent = max(0, indent - 1)
                 num += 1
-                lines.append((num, indent, "\\textbf{else if} " + m.group(1).strip() + " \\textbf{then}"))
+                lines.append(
+    (num,
+    indent,
+    "\\textbf{else if} " +
+    m.group(1).strip() +
+     " \\textbf{then}"))
                 indent += 1
                 continue
 
@@ -218,28 +234,48 @@ def convert_algorithms_to_plain_text(s: str) -> str:
             m = re.match(r"\\IF\{(.*)\}", raw)
             if m:
                 num += 1
-                lines.append((num, indent, "\\textbf{if} " + m.group(1).strip() + " \\textbf{then}"))
+                lines.append(
+    (num,
+    indent,
+    "\\textbf{if} " +
+    m.group(1).strip() +
+     " \\textbf{then}"))
                 indent += 1
                 continue
 
             m = re.match(r"\\FOR\{(.*)\}", raw)
             if m:
                 num += 1
-                lines.append((num, indent, "\\textbf{for} " + m.group(1).strip() + " \\textbf{do}"))
+                lines.append(
+    (num,
+    indent,
+    "\\textbf{for} " +
+    m.group(1).strip() +
+     " \\textbf{do}"))
                 indent += 1
                 continue
 
             m = re.match(r"\\WHILE\{(.*)\}", raw)
             if m:
                 num += 1
-                lines.append((num, indent, "\\textbf{while} " + m.group(1).strip() + " \\textbf{do}"))
+                lines.append(
+    (num,
+    indent,
+    "\\textbf{while} " +
+    m.group(1).strip() +
+     " \\textbf{do}"))
                 indent += 1
                 continue
 
             m = re.match(r"\\RETURN\s+(.*)", raw)
             if m:
                 num += 1
-                lines.append((num, indent, "\\textbf{return} " + _strip_comment(m.group(1).strip())))
+                lines.append(
+    (num,
+    indent,
+    "\\textbf{return} " +
+    _strip_comment(
+        m.group(1).strip())))
                 continue
 
             m = re.match(r"\\STATE\s+(.*)", raw)
@@ -278,12 +314,13 @@ def convert_algorithms_to_plain_text(s: str) -> str:
         out.append("")
 
         for num, indent, text in parsed:
-            indent_marker = f"\u230AN\u230B".replace("N", str(indent))
+            indent_marker = "\u230AN\u230B".replace("N", str(indent))
             if num == 0:
                 out.append(f"\\noindent {indent_marker}{text}")
                 out.append("")
             else:
-                out.append(f"\\noindent {indent_marker}\\textrm{{{num}:}} {text}")
+                out.append(
+    f"\\noindent {indent_marker}\\textrm{{{num}:}} {text}")
                 out.append("")
 
         out.append("")
@@ -479,7 +516,7 @@ def expand_if_file_exists(s: str) -> str:
             elif ch == "}":
                 depth -= 1
                 if depth == 0:
-                    return text[start + 1 : i], i + 1
+                    return text[start + 1: i], i + 1
             i += 1
         return None
 
@@ -494,7 +531,7 @@ def expand_if_file_exists(s: str) -> str:
             result.append(s[i:])
             break
 
-        result.append(s[i : m.start()])
+        result.append(s[i: m.start()])
 
         pos = m.end()
         r1 = _read_brace_group(s, pos)
@@ -550,7 +587,9 @@ def prefer_png_for_docx_images(s: str) -> str:
 
         candidates = [p.with_suffix(".png")]
         if p.as_posix().startswith("figures/ch4/"):
-            candidates.append(Path("experiments/ch4_v2/results/figures") / p.with_suffix(".png").name)
+            candidates.append(
+    Path("experiments/ch4_v2/results/figures") /
+     p.with_suffix(".png").name)
 
         for cand in candidates:
             if (ROOT / cand).exists():
@@ -599,7 +638,8 @@ def skip_ws(s: str, i: int) -> int:
     return i
 
 
-def read_balanced(s: str, i: int, open_ch: str, close_ch: str) -> tuple[str, int] | None:
+def read_balanced(s: str, i: int, open_ch: str,
+                  close_ch: str) -> tuple[str, int] | None:
     if i >= len(s) or s[i] != open_ch:
         return None
     depth = 0
@@ -614,7 +654,7 @@ def read_balanced(s: str, i: int, open_ch: str, close_ch: str) -> tuple[str, int
         elif ch == close_ch:
             depth -= 1
             if depth == 0:
-                return s[i + 1 : j], j + 1
+                return s[i + 1: j], j + 1
         j += 1
     return None
 
@@ -670,10 +710,11 @@ def extract_caption_meta(flat_tex: str) -> dict[str, CaptionMeta]:
         end_re = re.compile(rf"\\end\{{{env}\*?\}}")
         m_end = end_re.search(s, m.end())
         if m_end is None:
-            errs.append(f"{env} block at line {line_no}: missing \\end{{{env}}}")
+            errs.append(
+    f"{env} block at line {line_no}: missing \\end{{{env}}}")
             pos = m.end()
             continue
-        block = s[m.start() : m_end.end()]
+        block = s[m.start(): m_end.end()]
 
         label_args = extract_command_args(block, "label", 1)
         label = label_args[0].strip() if label_args else ""
@@ -681,15 +722,15 @@ def extract_caption_meta(flat_tex: str) -> dict[str, CaptionMeta]:
         cap = extract_command_args(block, "caption", 1) if bi is None else None
 
         if not label:
-            errs.append(f"{env} block at line {line_no}: missing \\label{{...}}")
+            errs.append(
+    f"{env} block at line {line_no}: missing \\label{{...}}")
         if bi is None and cap is None:
             errs.append(
-                f"{env} block at line {line_no}: missing \\bilingualcaption{{...}}{{...}} or \\caption{{...}}"
-            )
+     f"{env} block at line {line_no}: missing \\bilingualcaption{ ...} { ...}  or \\caption{ ...} " )
         if bi is not None and not (bi[1] or "").strip():
             errs.append(
-                f"{env} block at line {line_no}: bilingualcaption English title is empty for label '{label or '<MISSING_LABEL>'}'"
-            )
+    f"{env} block at line {line_no}: bilingualcaption English title is empty for label '{
+        label or '<MISSING_LABEL>'}'" )
 
         if label and (bi is not None or cap is not None):
             kind = "figure" if env == "figure" else "table"
@@ -710,7 +751,8 @@ def extract_caption_meta(flat_tex: str) -> dict[str, CaptionMeta]:
                     source="caption",
                 )
             if label in out:
-                errs.append(f"duplicate label in figure/table environments: {label}")
+                errs.append(
+    f"duplicate label in figure/table environments: {label}")
             else:
                 out[label] = meta
 
@@ -718,7 +760,9 @@ def extract_caption_meta(flat_tex: str) -> dict[str, CaptionMeta]:
 
     if errs:
         msg = "\n".join(f"  - {e}" for e in errs)
-        raise RuntimeError("DOCX build blocked: failed to extract figure/table captions from LaTeX:\n" + msg)
+        raise RuntimeError(
+    "DOCX build blocked: failed to extract figure/table captions from LaTeX:\n" +
+     msg)
     return out
 
 
@@ -844,8 +888,8 @@ def flatten_subfigures(s: str) -> str:
         r"\\begin\{figure\}.*?\\end\{figure\}", re.DOTALL
     )
     subfig_label_re = re.compile(
-        r"\\begin\{subfigure\}.*?\\label\{([^}]+)\}.*?\\end\{subfigure\}", re.DOTALL
-    )
+    r"\\begin\{subfigure\}.*?\\label\{([^}]+)\}.*?\\end\{subfigure\}",
+     re.DOTALL )
     parent_label_re = re.compile(r"\\label\{([^}]+)\}")
 
     for fig_m in fig_re.finditer(s):
@@ -855,8 +899,10 @@ def flatten_subfigures(s: str) -> str:
             continue
 
         stripped = re.sub(
-            r"\\begin\{subfigure\}.*?\\end\{subfigure\}", "", fig_block, flags=re.DOTALL
-        )
+    r"\\begin\{subfigure\}.*?\\end\{subfigure\}",
+    "",
+    fig_block,
+     flags=re.DOTALL )
         parent_m = parent_label_re.search(stripped)
         if not parent_m:
             continue
@@ -991,14 +1037,17 @@ def split_keywords(raw: str, max_groups: int = 4, lang: str = "cn") -> str:
     if lang == "en":
         text = raw.strip()
         if ";" in text or "；" in text:
-            parts = [p.strip(" ;；,，") for p in re.split(r"[;；]\s*", text) if p.strip(" ;；,，")]
+            parts = [
+    p.strip(" ;；,，") for p in re.split(
+        r"[;；]\s*",
+         text) if p.strip(" ;；,，")]
         else:
             parts = split_en_by_top_level_commas(text)
     else:
         parts = [p.strip() for p in re.split(r"[;；,，]\s*", raw) if p.strip()]
     if len(parts) > max_groups:
         head = parts[: max_groups - 1]
-        tail = parts[max_groups - 1 :]
+        tail = parts[max_groups - 1:]
         merged = merge_tail_en(tail) if lang == "en" else merge_tail_cn(tail)
         parts = [p for p in head + [merged] if p]
     return "；".join(parts)

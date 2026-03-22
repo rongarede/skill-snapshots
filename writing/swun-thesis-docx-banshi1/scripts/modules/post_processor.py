@@ -15,7 +15,6 @@ from __future__ import annotations
 import copy
 import datetime as _dt
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -47,17 +46,16 @@ except ModuleNotFoundError:
 try:
     from modules.caption_profile import (
         CaptionFormatProfile,
-        extract_caption_profiles,
     )
 except ModuleNotFoundError:
     from scripts.modules.caption_profile import (
         CaptionFormatProfile,
-        extract_caption_profiles,
     )
 
 try:
     from modules.template_loader import (
         prepend_template_cover_pages as _prepend_template_cover_pages,
+        strip_template_body_leak_after_front_matter as _strip_template_body_leak_after_front_matter,
         insert_abstract_chapters_and_sections as _insert_abstract_chapters_and_sections,
         insert_abstract_keywords as _insert_abstract_keywords,
         ensure_update_fields_in_settings as _ensure_update_fields_in_settings,
@@ -67,6 +65,7 @@ try:
 except ModuleNotFoundError:
     from scripts.modules.template_loader import (
         prepend_template_cover_pages as _prepend_template_cover_pages,
+        strip_template_body_leak_after_front_matter as _strip_template_body_leak_after_front_matter,
         insert_abstract_chapters_and_sections as _insert_abstract_chapters_and_sections,
         insert_abstract_keywords as _insert_abstract_keywords,
         ensure_update_fields_in_settings as _ensure_update_fields_in_settings,
@@ -184,6 +183,15 @@ except ModuleNotFoundError:
     )
 
 try:
+    from modules.header_handler import (
+        add_thesis_headers as _add_thesis_headers,
+    )
+except ModuleNotFoundError:
+    from scripts.modules.header_handler import (
+        add_thesis_headers as _add_thesis_headers,
+    )
+
+try:
     from modules.latex_parser import (
         CaptionMeta as CaptionMeta,
         load_caption_profiles as _load_caption_profiles,
@@ -264,7 +272,10 @@ def _verify_docx_experiment_images_are_png(
         rid = rel.get("Id")
         target = rel.get("Target", "")
         if rid is None:
-            rid = rel.get(next((k for k in rel.attrib if k.endswith("}Id")), ""))
+            rid = rel.get(
+    next(
+        (k for k in rel.attrib if k.endswith("}Id")),
+         ""))
         if not target:
             target = rel.get(
                 next((k for k in rel.attrib if k.endswith("}Target")), ""), ""
@@ -272,7 +283,7 @@ def _verify_docx_experiment_images_are_png(
         if rid:
             rel_map[rid] = target
 
-    q = lambda p, l: f"{{{ns_doc[p]}}}{l}"
+    def q(p, local): return f"{{{ns_doc[p]}}}{local}"
     q_r_embed = "{%s}embed" % ns_doc["r"]
     bad: list[tuple[str, str]] = []
     total = 0
@@ -297,12 +308,13 @@ def _verify_docx_experiment_images_are_png(
 def _normalize_body_chinese_spaces(doc_ns: dict, body) -> None:
     """遍历正文段落的 <w:t> 元素，规范化中文排版空格。
 
-    处理两种情况：
+    处理三种情况：
     1. 单个 <w:t> 内部的空格
-    2. 跨 <w:r> 的空格（前一个 run 结尾字符 + 下一个 run 开头空格）
+    2. 跨 <w:r> 的边界空格（前 run 尾随空格 / 后 run 前导空格）
+    3. 段首/段尾冗余空格
     """
     w_p = _qn(doc_ns, "w", "p")
-    w_r = _qn(doc_ns, "w", "r")
+    _qn(doc_ns, "w", "r")
     w_t = _qn(doc_ns, "w", "t")
     w_pPr = _qn(doc_ns, "w", "pPr")
     w_pStyle = _qn(doc_ns, "w", "pStyle")
@@ -332,31 +344,134 @@ def _normalize_body_chinese_spaces(doc_ns: dict, body) -> None:
                 if new_text != t_elem.text:
                     t_elem.text = new_text
 
-        # 处理跨 run 的空格：前一个 run 结尾 + 下一个 run 开头空格
+        # 处理跨 run 的边界空格：
+        # - 前 run 末尾空格 + 后 run 首字符
+        # - 后 run 前导空格 + 前 run 末字符
         for idx in range(1, len(t_elems)):
             prev_t = t_elems[idx - 1]
             curr_t = t_elems[idx]
             if not prev_t.text or not curr_t.text:
                 continue
-            if not curr_t.text.startswith(" "):
+
+            prev_trim = prev_t.text.rstrip(" ")
+            curr_trim = curr_t.text.lstrip(" ")
+            prev_had_tail_space = len(prev_trim) != len(prev_t.text)
+            curr_had_head_space = len(curr_trim) != len(curr_t.text)
+            if not prev_had_tail_space and not curr_had_head_space:
                 continue
 
-            prev_last = prev_t.text[-1]
-            # 去掉开头空格后的第一个字符
-            stripped = curr_t.text.lstrip(" ")
-            if not stripped:
+            # 边界两侧都必须有非空字符，才判断是否需要空格
+            if not prev_trim or not curr_trim:
+                prev_t.text = prev_trim
+                curr_t.text = curr_trim
                 continue
-            curr_first = stripped[0]
+
+            prev_last = prev_trim[-1]
+            curr_first = curr_trim[0]
 
             # 用 normalize_chinese_spaces 判断这个空格是否应删除
             test = prev_last + " " + curr_first
             normalized = _normalize_chinese_spaces(test)
-            if " " not in normalized:
-                curr_t.text = stripped
-                # 如果去掉了开头空格，需要检查 xml:space="preserve"
-                if curr_t.text and not curr_t.text[0].isspace() and not curr_t.text[-1].isspace():
-                    if "{http://www.w3.org/XML/1998/namespace}space" in curr_t.attrib:
-                        del curr_t.attrib["{http://www.w3.org/XML/1998/namespace}space"]
+            keep_one_space = " " in normalized
+
+            prev_t.text = prev_trim
+            curr_t.text = curr_trim
+            if keep_one_space:
+                curr_t.text = " " + curr_t.text
+
+            # 如果 run 已不再首尾空格，移除 xml:space="preserve"
+            for t_elem in (prev_t, curr_t):
+                if (
+                    t_elem.text
+                    and not t_elem.text[0].isspace()
+                    and not t_elem.text[-1].isspace()
+                ):
+                    if "{http://www.w3.org/XML/1998/namespace}space" in t_elem.attrib:
+                        del t_elem.attrib["{http://www.w3.org/XML/1998/namespace}space"]
+
+        # 处理段首/段尾冗余空格（仅清理可安全删除的情况）
+        first_t = t_elems[0]
+        if first_t.text and first_t.text.startswith(" "):
+            stripped = first_t.text.lstrip(" ")
+            if stripped:
+                first_char = stripped[0]
+                if _normalize_chinese_spaces(" " + first_char) == first_char:
+                    first_t.text = stripped
+                    if "{http://www.w3.org/XML/1998/namespace}space" in first_t.attrib:
+                        del first_t.attrib["{http://www.w3.org/XML/1998/namespace}space"]
+
+        last_t = t_elems[-1]
+        if last_t.text and last_t.text.endswith(" "):
+            stripped = last_t.text.rstrip(" ")
+            if stripped:
+                last_char = stripped[-1]
+                if _normalize_chinese_spaces(last_char + " ") == last_char:
+                    last_t.text = stripped
+                    if "{http://www.w3.org/XML/1998/namespace}space" in last_t.attrib:
+                        del last_t.attrib["{http://www.w3.org/XML/1998/namespace}space"]
+
+
+
+def _reorder_backmatter(doc_ns, body):
+    """将参考文献 section 移到致谢之前（修复 pandoc citeproc 的末尾放置）。"""
+    W = doc_ns["w"]
+
+    def _is_h1(elem):
+        if elem.tag != f"{{{W}}}p":
+            return False
+        pPr = elem.find(f"{{{W}}}pPr")
+        if pPr is None:
+            return False
+        pStyle = pPr.find(f"{{{W}}}pStyle")
+        if pStyle is None:
+            return False
+        val = pStyle.get(f"{{{W}}}val", "")
+        return val in ("Heading1", "heading 1", "Heading 1", "1")
+
+    def _txt(elem):
+        return "".join(t.text or "" for t in elem.iter(f"{{{W}}}t"))
+
+    children = list(body)
+    ref_pos = ack_pos = None
+    for idx, child in enumerate(children):
+        if _is_h1(child):
+            text = _txt(child).strip()
+            if "参考文献" in text:
+                ref_pos = idx
+            elif "致谢" in text:
+                ack_pos = idx
+
+    if ref_pos is None or ack_pos is None or ref_pos <= ack_pos:
+        return
+
+    ref_end = len(children)
+    for idx, child in enumerate(children):
+        if idx > ref_pos and _is_h1(child):
+            ref_end = idx
+            break
+
+    ref_elems = children[ref_pos:ref_end]
+    for elem in ref_elems:
+        body.remove(elem)
+
+    ack_elem = None
+    for child in body:
+        if _is_h1(child) and "致谢" in _txt(child).strip():
+            ack_elem = child
+            break
+
+    if ack_elem is None:
+        for elem in ref_elems:
+            body.append(elem)
+        return
+
+    # 用 list(body).index 找致谢位置，然后逐个 insert（ElementTree 不支持 addprevious）
+    insert_pos = list(body).index(ack_elem)
+    for elem in ref_elems:
+        body.insert(insert_pos, elem)
+        insert_pos += 1
+
+    print(f"  [reorder] 参考文献 section ({len(ref_elems)} elements) moved before 致谢")
 
 
 def _postprocess_docx(
@@ -387,13 +502,15 @@ def _postprocess_docx(
 
         # 插入封面页（来自模板）
         _prepend_template_cover_pages(doc_ns, body, TEMPLATE_DOCX)
+        _strip_template_body_leak_after_front_matter(doc_ns, body)
 
-        styles_xml = zin.read("word/styles.xml") if "word/styles.xml" in files else b""
+        styles_xml = zin.read(
+            "word/styles.xml") if "word/styles.xml" in files else b""
         known_styles = _collect_style_ids(styles_xml) if styles_xml else set()
-        table_style_id = _first_table_style_id(styles_xml) if styles_xml else None
-        hyperlink_style_ids = (
-            _collect_hyperlink_char_style_ids(styles_xml) if styles_xml else set()
-        )
+        table_style_id = _first_table_style_id(
+            styles_xml) if styles_xml else None
+        hyperlink_style_ids = ( _collect_hyperlink_char_style_ids(
+            styles_xml) if styles_xml else set() )
 
         sectPr = _get_body_sectPr(doc_ns, body)
         if sectPr is not None:
@@ -426,9 +543,13 @@ def _postprocess_docx(
 
         # 三线表 & 图表标题注入（表格字体必须在 normalize 之后）
         _apply_three_line_tables(
-            doc_ns, root, body, table_style_id, latex_col_ratios=latex_col_ratios
-        )
-        _inject_captions_from_meta(doc_ns, body, caption_meta, caption_profiles)
+    doc_ns,
+    root,
+    body,
+    table_style_id,
+     latex_col_ratios=latex_col_ratios )
+        _inject_captions_from_meta(
+    doc_ns, body, caption_meta, caption_profiles)
         # 清理表格标题前的多余空段落
         _remove_empty_para_before_table_captions(doc_ns, body)
         _fit_figure_images_to_cells(doc_ns, body)
@@ -436,7 +557,8 @@ def _postprocess_docx(
         # 书签去重 & 超链接清理
         _dedupe_body_level_anchor_bookmarks(doc_ns, body)
         _fix_ref_dot_to_hyphen(doc_ns, body)
-        _strip_anchor_hyperlinks_in_main_body(doc_ns, body, hyperlink_style_ids)
+        _strip_anchor_hyperlinks_in_main_body(
+            doc_ns, body, hyperlink_style_ids)
         _strip_doi_hyperlinks_in_bibliography(doc_ns, body)
 
         # 公式编号
@@ -445,6 +567,9 @@ def _postprocess_docx(
         # 未知段落样式规范化
         if known_styles:
             _normalize_unknown_pstyles(doc_ns, body, known_styles)
+
+        # 后附章节顺序修正：将参考文献移到致谢之前
+        _reorder_backmatter(doc_ns, body)
 
         # 后附章节（参考文献/致谢）去除编号
         _strip_numbering_from_backmatter_headings(doc_ns, body)
@@ -463,9 +588,8 @@ def _postprocess_docx(
         new_doc_xml = ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
         # 编号 XML 处理
-        numbering_xml = (
-            zin.read("word/numbering.xml") if "word/numbering.xml" in files else None
-        )
+        numbering_xml = ( zin.read("word/numbering.xml")
+                         if "word/numbering.xml" in files else None )
         new_numbering_xml = numbering_xml
         if new_numbering_xml:
             new_numbering_xml = _inject_heading_numbering(new_numbering_xml)
@@ -491,6 +615,11 @@ def _postprocess_docx(
         # 从 footer 重新分配后获取可能更新的 document.xml
         new_doc_xml = file_data["word/document.xml"]
 
+        # 写入各 section 页眉（论文题目）
+        _add_thesis_headers(file_data, new_doc_xml)
+        # 从 header 注册后获取可能更新的 document.xml / rels / content types
+        new_doc_xml = file_data["word/document.xml"]
+
         # settings.xml：添加 updateFields 支持打开时自动更新目录
         if "word/settings.xml" in file_data:
             new_settings_xml = _ensure_update_fields_in_settings(
@@ -499,10 +628,11 @@ def _postprocess_docx(
         else:
             new_settings_xml = None
 
-        # 写入新 DOCX（其余文件原样复制）
+        # 写入新 DOCX（其余文件原样复制，新增文件额外追加）
         tmp_out = output_docx.with_suffix(".docx.tmp")
         if tmp_out.exists():
             tmp_out.unlink()
+        written: set[str] = set()
         with zipfile.ZipFile(tmp_out, "w", compression=zipfile.ZIP_DEFLATED) as zout:
             for name in files:
                 if name == "word/document.xml":
@@ -516,6 +646,11 @@ def _postprocess_docx(
                 else:
                     data = file_data[name]
                 zout.writestr(name, data)
+                written.add(name)
+            # 写入 header/footer 处理中新建的文件（不在原始 zip 中）
+            for name, data in file_data.items():
+                if name not in written:
+                    zout.writestr(name, data)
         tmp_out.replace(output_docx)
 
 
@@ -559,9 +694,8 @@ def main(argv: list[str] | None = None) -> None:
         thesis_dir = Path(argv[0]).expanduser().resolve()
     else:
         cwd = Path.cwd().resolve()
-        thesis_dir = (
-            cwd if (cwd / "main.tex").exists() else Path("/Users/bit/LaTeX/SWUN_Thesis")
-        )
+        thesis_dir = ( cwd if (cwd / "main.tex").exists()
+                      else Path("/Users/bit/LaTeX/SWUN_Thesis") )
 
     _resolve_paths(thesis_dir)
 

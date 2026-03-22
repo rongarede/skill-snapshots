@@ -34,7 +34,8 @@ def _first_nonempty_run(p: ET.Element) -> ET.Element | None:
     return None
 
 
-def _clone_children(parent: ET.Element | None, names: set[str] | None = None) -> list[ET.Element]:
+def _clone_children(parent: ET.Element | None,
+     names: set[str] | None = None) -> list[ET.Element]:
     if parent is None:
         return []
     children: list[ET.Element] = []
@@ -50,7 +51,8 @@ def _bool_child_present(children: list[ET.Element], local_name: str) -> bool:
     return any(child.tag == _qn(local_name) for child in children)
 
 
-def _find_child(children: list[ET.Element], local_name: str) -> ET.Element | None:
+def _find_child(children: list[ET.Element],
+     local_name: str) -> ET.Element | None:
     for child in children:
         if child.tag == _qn(local_name):
             return child
@@ -71,17 +73,20 @@ class CaptionFormatProfile:
     run_props: list[ET.Element]
 
 
-def extract_caption_profiles(docx_path: Path) -> dict[str, CaptionFormatProfile]:
+def extract_caption_profiles(
+    docx_path: Path) -> dict[str, CaptionFormatProfile]:
     """Extract figure/table caption profiles from a reference DOCX."""
     if not docx_path.exists():
-        raise FileNotFoundError(f"caption profile source not found: {docx_path}")
+        raise FileNotFoundError(
+    f"caption profile source not found: {docx_path}")
 
     with zipfile.ZipFile(docx_path, "r") as zf:
         root = ET.fromstring(zf.read("word/document.xml"))
 
     body = root.find(".//w:body", NS)
     if body is None:
-        raise RuntimeError(f"caption profile source missing w:body: {docx_path}")
+        raise RuntimeError(
+    f"caption profile source missing w:body: {docx_path}")
 
     profiles: dict[str, CaptionFormatProfile] = {}
     for kind, pattern in CAPTION_PATTERNS.items():
@@ -97,19 +102,24 @@ def extract_caption_profiles(docx_path: Path) -> dict[str, CaptionFormatProfile]
             run = _first_nonempty_run(paragraph)
             r_pr = run.find("w:rPr", NS) if run is not None else None
             profiles[kind] = CaptionFormatProfile(
-                kind=kind,
-                style=p_style,
-                paragraph_props=_clone_children(
-                    p_pr,
-                    names={"jc", "spacing", "ind", "keepNext", "keepLines", "rPr"},
-                ),
-                run_props=_clone_children(r_pr),
-            )
+    kind=kind,
+    style=p_style,
+    paragraph_props=_clone_children(
+        p_pr,
+        names={
+            "jc",
+            "spacing",
+            "ind",
+            "keepNext",
+            "keepLines",
+            "rPr"},
+            ),
+            run_props=_clone_children(r_pr),
+             )
             break
         if kind not in profiles:
             raise RuntimeError(
-                f"failed to extract {kind} caption profile from reference DOCX: {docx_path}"
-            )
+     f"failed to extract {kind} caption profile from reference DOCX: {docx_path}" )
 
     return profiles
 
@@ -155,11 +165,14 @@ def build_caption_paragraph(
     text_node = ET.SubElement(run, w_t)
     text_node.text = text
     if text and (text[0] == " " or text[-1] == " "):
-        text_node.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+        text_node.set(
+    "{http://www.w3.org/XML/1998/namespace}space",
+     "preserve")
     return para
 
 
-def paragraph_signature(paragraph: ET.Element, ns: dict[str, str]) -> dict[str, object]:
+def paragraph_signature(paragraph: ET.Element,
+                        ns: dict[str, str]) -> dict[str, object]:
     """Return the key signature used to compare caption formatting."""
     p_style = paragraph.find("./w:pPr/w:pStyle", NS)
     spacing = paragraph.find("./w:pPr/w:spacing", NS)

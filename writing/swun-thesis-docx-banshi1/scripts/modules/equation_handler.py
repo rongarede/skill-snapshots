@@ -146,7 +146,11 @@ def number_display_equations(
         pPr = _ensure_ppr(ns, p)
         ind = pPr.find(_qn(ns, "w", "ind"))
         if ind is not None:
-            for attr in ("firstLineChars", "firstLine", "hangingChars", "hanging"):
+            for attr in (
+    "firstLineChars",
+    "firstLine",
+    "hangingChars",
+     "hanging"):
                 ind.attrib.pop(_qn(ns, "w", attr), None)
             if not ind.attrib:
                 pPr.remove(ind)
@@ -221,7 +225,11 @@ def number_display_equations(
         pPr = _ensure_ppr(ns, p)
         ind = pPr.find(_qn(ns, "w", "ind"))
         if ind is not None:
-            for attr in ("firstLineChars", "firstLine", "hangingChars", "hanging"):
+            for attr in (
+    "firstLineChars",
+    "firstLine",
+    "hangingChars",
+     "hanging"):
                 ind.attrib.pop(_qn(ns, "w", attr), None)
             if not ind.attrib:
                 pPr.remove(ind)

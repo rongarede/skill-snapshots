@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Phase 3: 图表标题检查。"""
 from __future__ import annotations
+from verification.report_generator import check_phase3_caption
 
 import sys
 import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from verification.report_generator import check_phase3_caption
 
 
 def run(docx_path: str) -> list[str]:

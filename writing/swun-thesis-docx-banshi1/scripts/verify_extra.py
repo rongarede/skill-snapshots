@@ -19,6 +19,7 @@ _core_main = _core.main
 
 
 def main() -> int:
+    """委托给核心模块执行额外的 DOCX 验证检查并返回退出码。"""
     return _core_main()
 
 

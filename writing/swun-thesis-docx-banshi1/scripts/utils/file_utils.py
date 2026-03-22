@@ -2,6 +2,7 @@
 from pathlib import Path
 import subprocess
 
+
 def run_command(cmd: list[str], cwd: Path) -> None:
     """Run shell command and raise on failure.
 
@@ -13,6 +14,7 @@ def run_command(cmd: list[str], cwd: Path) -> None:
         subprocess.CalledProcessError: If command fails
     """
     subprocess.run(cmd, cwd=str(cwd), check=True)
+
 
 def ensure_dir(path: Path) -> None:
     """Ensure directory exists, creating if necessary.

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Phase 2: 样式/缩进检查。"""
 from __future__ import annotations
+from verification.report_generator import check_phase2_style
 
 import sys
 import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from verification.report_generator import check_phase2_style
 
 
 def run(docx_path: str) -> list[str]:

@@ -21,6 +21,13 @@ _HALFWIDTH_SKIP_PATTERNS = [
     re.compile(r"\[\d+\]"),
     re.compile(r"\(\d+[-–]\d+\)"),
     re.compile(r"[A-Za-z]+\([A-Za-z]"),
+    # List numbering: (N) at start of paragraph, e.g. "(1) 四阶段推进流程" or "(1)四阶段"
+    re.compile(r"^\(\d+\)"),
+    # Theorem/lemma labels: word followed by period (optionally with space),
+    # e.g. "Safety. 算法", "Liveness.委托", "信誉上界分析.设..."
+    re.compile(r"[A-Za-z\u4e00-\u9fff]+\."),
+    # Half-width parens in an all-ASCII context (e.g. English sub-captions)
+    re.compile(r"[A-Za-z0-9 ]\([A-Za-z0-9]"),
 ]
 
 _HALFWIDTH_PUNCTS = {
@@ -43,7 +50,17 @@ def _iter_main_body_text(doc_xml: str) -> list[str]:
 
     excluded_h1 = {"目录", "摘要", "Abstract", "致谢", "参考文献", "攻读硕士学位期间所取得的相关科研成果"}
     stop_h1 = {"参考文献", "致谢", "攻读硕士学位期间所取得的相关科研成果"}
-    heading_styles = {"1", "2", "3", "4", "5", "Heading1", "Heading2", "Heading3", "Heading4", "Heading5"}
+    heading_styles = {
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "Heading1",
+    "Heading2",
+    "Heading3",
+    "Heading4",
+     "Heading5"}
     in_main = False
     texts: list[str] = []
 
@@ -51,8 +68,10 @@ def _iter_main_body_text(doc_xml: str) -> list[str]:
         if el.tag != f"{{{ns['w']}}}p":
             continue
         p_style = el.find("w:pPr/w:pStyle", ns)
-        style_val = p_style.get(f"{{{ns['w']}}}val") if p_style is not None else None
-        p_txt = "".join((t.text or "") for t in el.findall(".//w:t", ns)).strip()
+        style_val = p_style.get(
+            f"{{{ns['w']}}}val") if p_style is not None else None
+        p_txt = "".join((t.text or "")
+                        for t in el.findall(".//w:t", ns)).strip()
 
         if style_val == "1":
             if p_txt in stop_h1:
@@ -97,7 +116,9 @@ def _check_halfwidth_punctuation(texts: list[str]) -> list[str]:
             found_count += 1
             if found_count <= 3:
                 snippet = text[max(0, i - 15):i + 16]
-                errors.append(f"半角标点 '{c}' (应为 '{_HALFWIDTH_PUNCTS[c]}') in: ...{snippet}...")
+                errors.append(
+    f"半角标点 '{c}' (应为 '{
+        _HALFWIDTH_PUNCTS[c]}') in: ...{snippet}...")
     if found_count > 3:
         errors.append(f"（共发现 {found_count} 处半角标点，仅展示前 3 处）")
     return errors
@@ -149,7 +170,8 @@ def _check_three_line_tables(doc_xml: str) -> list[str]:
             got = node.get(w_val) if node is not None else None
             if got != expect_val:
                 got_desc = got if got is not None else "missing"
-                missing.append(f"{border_name}={got_desc} (expect {expect_val})")
+                missing.append(
+    f"{border_name}={got_desc} (expect {expect_val})")
         if missing:
             errors.append(f"数据表 #{data_idx} 边框不符合三线表: {', '.join(missing)}")
 

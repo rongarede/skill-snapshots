@@ -75,7 +75,8 @@ def split_mixed_script_runs(ns: dict[str, str], body: ET.Element) -> None:
                 continue
 
             text = t_nodes[0].text or ""
-            if not text or not contains_cjk(text) or not re.search(r"[A-Za-z0-9]", text):
+            if not text or not contains_cjk(
+                text) or not re.search(r"[A-Za-z0-9]", text):
                 i += 1
                 continue
 
@@ -109,7 +110,9 @@ def split_mixed_script_runs(ns: dict[str, str], body: ET.Element) -> None:
                 new_t = ET.SubElement(new_r, w_t)
                 new_t.text = seg
                 if seg[0] == " " or seg[-1] == " ":
-                    new_t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+                    new_t.set(
+    "{http://www.w3.org/XML/1998/namespace}space",
+     "preserve")
                 p.insert(insert_at, new_r)
                 insert_at += 1
             p.remove(r)
@@ -163,10 +166,12 @@ def normalize_ascii_run_fonts(ns: dict[str, str], body: ET.Element) -> None:
                     del rFonts.attrib[attr]
 
     if changed:
-        print(f"  [fonts] Normalized {changed} ASCII/numeric run(s) to Times New Roman")
+        print(
+    f"  [fonts] Normalized {changed} ASCII/numeric run(s) to Times New Roman")
 
 
-def normalize_bibliography_run_style(ns: dict[str, str], body: ET.Element) -> None:
+def normalize_bibliography_run_style(
+    ns: dict[str, str], body: ET.Element) -> None:
     """将参考文献区域各条目的 run 字体设为 Times New Roman，字号设为五号（21）。"""
     w_p = _qn(ns, "w", "p")
     w_r = _qn(ns, "w", "r")

@@ -27,18 +27,18 @@ try:
         p_text,
         p_style,
         ensure_ppr,
-        get_body_sectPr,
         set_sect_pgnum,
         set_sect_break_next_page,
         make_section_break_paragraph,
         make_unnumbered_heading1,
         remove_page_break_before,
         make_page_break_p,
-        p_has_page_break,
         p_has_sectPr,
         make_empty_para,
         make_run_text,
         clear_paragraph_runs_and_text,
+        set_para_keep_lines,
+        set_para_keep_next,
         collect_ns,
         register_ns,
     )
@@ -48,18 +48,18 @@ except ModuleNotFoundError:  # pragma: no cover
         p_text,
         p_style,
         ensure_ppr,
-        get_body_sectPr,
         set_sect_pgnum,
         set_sect_break_next_page,
         make_section_break_paragraph,
         make_unnumbered_heading1,
         remove_page_break_before,
         make_page_break_p,
-        p_has_page_break,
         p_has_sectPr,
         make_empty_para,
         make_run_text,
         clear_paragraph_runs_and_text,
+        set_para_keep_lines,
+        set_para_keep_next,
         collect_ns,
         register_ns,
     )
@@ -117,14 +117,17 @@ def split_keywords(raw: str, max_groups: int = 4, lang: str = "cn") -> str:
     if lang == "en":
         text = raw.strip()
         if ";" in text or "；" in text:
-            parts = [p.strip(" ;；,，") for p in re.split(r"[;；]\s*", text) if p.strip(" ;；,，")]
+            parts = [
+    p.strip(" ;；,，") for p in re.split(
+        r"[;；]\s*",
+         text) if p.strip(" ;；,，")]
         else:
             parts = split_en_by_top_level_commas(text)
     else:
         parts = [p.strip() for p in re.split(r"[;；,，]\s*", raw) if p.strip()]
     if len(parts) > max_groups:
         head = parts[: max_groups - 1]
-        tail = parts[max_groups - 1 :]
+        tail = parts[max_groups - 1:]
         merged = merge_tail_en(tail) if lang == "en" else merge_tail_cn(tail)
         parts = [p for p in head + [merged] if p]
     return "；".join(parts)
@@ -211,6 +214,54 @@ def prepend_template_cover_pages(
         break
 
 
+def strip_template_body_leak_after_front_matter(
+    ns: dict[str, str],
+    body: ET.Element,
+) -> int:
+    """
+    清理参考模板正文泄漏：
+    - 删除“摘要”之后误混入的封面/声明段落（常见为样式 12）
+    - 同时清理明显的声明关键词段落（原创性声明/作者签名等）
+
+    返回删除段落数。
+    """
+    w_p = qn(ns, "w", "p")
+    children = list(body)
+
+    cn_h_idx: int | None = None
+    for i, el in enumerate(children):
+        if el.tag != w_p:
+            continue
+        if p_style(ns, el) == "1" and p_text(ns, el).strip() == "摘要":
+            cn_h_idx = i
+            break
+    if cn_h_idx is None:
+        return 0
+
+    marker_re = re.compile(
+        r"(专业学位硕士学位论文|原创性声明|学位论文版权使用授权书|作者签名|题\s*目|作\s*者|论文定稿日期)"
+    )
+    to_remove: list[ET.Element] = []
+
+    for i in range(cn_h_idx + 1, len(children)):
+        el = children[i]
+        if el.tag != w_p:
+            continue
+        txt = p_text(ns, el).strip()
+        st = p_style(ns, el)
+        # 核心规则：摘要之后不应再出现模板封面样式 12
+        if st == "12":
+            to_remove.append(el)
+            continue
+        if txt and marker_re.search(txt):
+            to_remove.append(el)
+
+    for el in to_remove:
+        if el in body:
+            body.remove(el)
+    return len(to_remove)
+
+
 # ====================  摘要章节与分节符  ====================
 
 def insert_abstract_chapters_and_sections(
@@ -219,7 +270,7 @@ def insert_abstract_chapters_and_sections(
     """
     要求：
     - 中英文摘要各作为独立的一级章节（Heading 1，无编号）。
-    - 摘要页脚使用罗马数字；正文页脚使用阿拉伯数字。
+    - 目录页脚使用罗马数字起始页；正文页脚使用阿拉伯数字。
 
     实现：
     - 在中文摘要前插入分节符，开始第 2 节。
@@ -234,6 +285,10 @@ def insert_abstract_chapters_and_sections(
         "车联网（V2X）环境下",
         "车联网(V2X)环境下",
         "车联网（V2X）",
+        # 以下锚点覆盖摘要改写后不以"车联网(V2X)环境"开头的情况
+        "近年来，区块链共识协议",
+        "面向车联网环境的拜占庭容错共识",
+        "拜占庭容错共识已受到广泛关注",
     )
     en_anchors = (
         "In the Vehicular-to-Everything",
@@ -296,12 +351,17 @@ def insert_abstract_chapters_and_sections(
         return None
 
     def fallback_cn_para(start: int, end: int) -> int | None:
+        # 模板封面页（专业学位硕士学位论文封面 + 原创性声明）使用的段落样式集合
+        # 这些样式不属于摘要正文，必须跳过，否则回退逻辑会错误定位到封面文字
+        _cover_styles = {"12"}
         children = list(body)
         for i in range(start, min(end, len(children))):
             el = children[i]
             if el.tag != w_p:
                 continue
             if p_style(ns, el) == "1":
+                continue
+            if p_style(ns, el) in _cover_styles:
                 continue
             txt = p_text(ns, el).strip()
             if len(txt) >= 8 and re.search(r"[\u4e00-\u9fff]", txt):
@@ -414,18 +474,37 @@ def insert_abstract_chapters_and_sections(
         body.insert(en_idx2, make_unnumbered_heading1(ns, "Abstract"))
         en_h2 = en_idx2
 
-    # 找到英文摘要标题后第一个正文段落
-    main_h1_after_en = find_first_main_h1(en_h2 + 1)
-    en_p_idx = first_nonempty_para(en_h2 + 1, main_h1_after_en)
+    # 在英文摘要标题前插入分节符（结束中文摘要节 → lowerRoman 继续计数）
+    # 使用分节符替代 pageBreakBefore，这样 CN 摘要和 EN 摘要各有独立 section，
+    # 以便 header_handler 为两者分配不同的页眉。
+    sect_cn_end = copy.deepcopy(sectPr_proto)
+    set_sect_break_next_page(ns, sect_cn_end)
+    set_sect_pgnum(ns, sect_cn_end, fmt="lowerRoman", start=None)
+    sb_cn_end = make_section_break_paragraph(ns, sect_cn_end)
+    body.insert(en_h2, sb_cn_end)
+
+    # 移除英文摘要标题上残留的 pageBreakBefore（已由分节符替代）
+    en_h2_el = list(body)[en_h2 + 1]  # +1：刚插入了分节符，索引偏移
+    w_pageBreakBefore = qn(ns, "w", "pageBreakBefore")
+    pPr_en = ensure_ppr(ns, en_h2_el)
+    pbf = pPr_en.find(w_pageBreakBefore)
+    if pbf is not None:
+        pPr_en.remove(pbf)
+
+    # 找到英文摘要标题后第一个正文段落（重新定位，因为插入了分节符）
+    en_h2_new = en_h2 + 1  # 分节符占了 en_h2 位置，Abstract heading 后移 1
+    main_h1_after_en = find_first_main_h1(en_h2_new + 1)
+    en_p_idx = first_nonempty_para(en_h2_new + 1, main_h1_after_en)
     if en_p_idx is None:
         return
 
-    # 在第一章标题前插入节尾分节符，结束罗马数字节
-    break_idx = main_h1_after_en if main_h1_after_en is not None else (en_p_idx + 1)
+    # 在第一章标题前插入节尾分节符，结束英文摘要节（lowerRoman，继续计数）
+    break_idx = main_h1_after_en if main_h1_after_en is not None else (
+        en_p_idx + 1)
 
     sect2 = copy.deepcopy(sectPr_proto)
     set_sect_break_next_page(ns, sect2)
-    set_sect_pgnum(ns, sect2, fmt="lowerRoman", start=1)
+    set_sect_pgnum(ns, sect2, fmt="lowerRoman", start=None)
     sb_after = make_section_break_paragraph(ns, sect2)
     body.insert(break_idx, sb_after)
 
@@ -463,12 +542,16 @@ def insert_abstract_keywords(
                 return True
         return False
 
-    def _insert_kw_block(after_idx: int, line: str) -> None:
+    def _insert_kw_block(after_idx: int, line: str, *, keep_with_prev: bool = False) -> None:
         # 空行 + 关键词段落
-        body.insert(after_idx + 1, make_empty_para(ns, "a"))
         p = make_empty_para(ns, "a")
         clear_paragraph_runs_and_text(ns, p)
         p.append(make_run_text(ns, line))
+        set_para_keep_lines(ns, p)
+        blank = make_empty_para(ns, "a")
+        if keep_with_prev:
+            set_para_keep_next(ns, blank)
+        body.insert(after_idx + 1, blank)
         body.insert(after_idx + 2, p)
 
     children = list(body)
@@ -524,12 +607,23 @@ def insert_abstract_keywords(
                     last = i
                     break
             if last is not None:
-                _insert_kw_block(last, f"Keywords: {en_kw.replace('；', '; ')}")
+                _insert_kw_block(
+                    last,
+                    f"Keywords: {en_kw.replace('；', '; ')}",
+                    keep_with_prev=True,
+                )
+                # 让英文摘要最后一段尽量与关键词同行，避免“关键词尾部独占新页”。
+                children2 = list(body)
+                if 0 <= last < len(children2):
+                    prev_p = children2[last]
+                    if prev_p.tag == w_p:
+                        set_para_keep_next(ns, prev_p)
 
 
 # ====================  settings.xml 自动更新 TOC  ====================
 
-def ensure_update_fields_in_settings(ns: dict[str, str], settings_xml: bytes) -> bytes:
+def ensure_update_fields_in_settings(
+    ns: dict[str, str], settings_xml: bytes) -> bytes:
     """在 settings.xml 中添加 updateFields 以支持打开时自动更新 TOC。"""
     settings_root = ET.fromstring(settings_xml)
     w_updateFields = qn(ns, "w", "updateFields")
@@ -630,11 +724,11 @@ def insert_toc_before_first_chapter(
     fld_end = ET.SubElement(r5, w_fldChar)
     fld_end.set(w_fldCharType, "end")
 
-    # 目录节尾分节符：目录节无页码，摘要节另起罗马数字
+    # 目录节尾分节符：目录节使用罗马数字起始页，摘要节继续罗马计数
     if sectPr_proto is not None:
         sect_toc = copy.deepcopy(sectPr_proto)
         set_sect_break_next_page(ns, sect_toc)
-        set_sect_pgnum(ns, sect_toc, fmt="decimal", start=None)
+        set_sect_pgnum(ns, sect_toc, fmt="lowerRoman", start=1)
         sb = make_section_break_paragraph(ns, sect_toc)
         body.insert(first_h1_idx, toc_title_p)
         body.insert(first_h1_idx + 1, toc_field_p)
@@ -659,11 +753,30 @@ def add_page_breaks_before_h1(ns: dict[str, str], body: ET.Element) -> None:
     w_pageBreakBefore = qn(ns, "w", "pageBreakBefore")
 
     children = list(body)
-    for el in children:
+    front_h1 = {"目录", "摘要", "Abstract"}
+    for idx, el in enumerate(children):
         if el.tag != w_p or p_style(ns, el) != "1":
             continue
         title = p_text(ns, el).strip()
-        if title == "目录":
+        if title in front_h1:
+            continue
+        # 若紧邻前一段就是 section-break（nextPage），则不再叠加 pageBreakBefore，
+        # 否则易产生“空白页只有页码”的问题。
+        prev_is_sect_break = False
+        j = idx - 1
+        while j >= 0:
+            prev = children[j]
+            if prev.tag != w_p:
+                j -= 1
+                continue
+            if p_text(ns, prev).strip():
+                prev_is_sect_break = p_has_sectPr(ns, prev)
+                break
+            if p_has_sectPr(ns, prev):
+                prev_is_sect_break = True
+                break
+            j -= 1
+        if prev_is_sect_break:
             continue
         pPr = el.find(w_pPr)
         if pPr is None:
@@ -678,6 +791,7 @@ def add_page_breaks_before_h1(ns: dict[str, str], body: ET.Element) -> None:
 __all__ = [
     "split_keywords",
     "prepend_template_cover_pages",
+    "strip_template_body_leak_after_front_matter",
     "insert_abstract_chapters_and_sections",
     "insert_abstract_keywords",
     "ensure_update_fields_in_settings",

@@ -11,9 +11,7 @@ from __future__ import annotations
 
 import copy
 import io
-import re
 import subprocess
-import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -25,7 +23,9 @@ from pathlib import Path
 def collect_ns(xml_bytes: bytes) -> dict[str, str]:
     """收集 XML 文档中所有命名空间前缀到 URI 的映射。"""
     ns: dict[str, str] = {}
-    for event, item in ET.iterparse(io.BytesIO(xml_bytes), events=("start-ns",)):
+    for event, item in ET.iterparse(
+    io.BytesIO(xml_bytes), events=(
+        "start-ns",)):
         prefix, uri = item
         ns[prefix or ""] = uri
     return ns
@@ -162,7 +162,8 @@ def set_sect_pgnum(
     # Put near top for readability (after header/footer refs if present).
     insert_at = 0
     for i, child in enumerate(list(sectPr)):
-        if child.tag.endswith("headerReference") or child.tag.endswith("footerReference"):
+        if child.tag.endswith("headerReference") or child.tag.endswith(
+            "footerReference"):
             insert_at = i + 1
     sectPr.insert(insert_at, pg)
 
@@ -178,7 +179,8 @@ def set_sect_break_next_page(ns: dict[str, str], sectPr: ET.Element) -> None:
     t.set(w_val, "nextPage")
 
 
-def make_section_break_paragraph(ns: dict[str, str], sectPr: ET.Element) -> ET.Element:
+def make_section_break_paragraph(
+    ns: dict[str, str], sectPr: ET.Element) -> ET.Element:
     """创建含节属性的分节段落（pPr/sectPr 形式）。"""
     w_p = qn(ns, "w", "p")
     w_pPr = qn(ns, "w", "pPr")
@@ -200,6 +202,7 @@ def make_unnumbered_heading1(ns: dict[str, str], title: str) -> ET.Element:
     w_jc = qn(ns, "w", "jc")
     w_val = qn(ns, "w", "val")
     w_numPr = qn(ns, "w", "numPr")
+    w_ilvl = qn(ns, "w", "ilvl")
     w_numId = qn(ns, "w", "numId")
     w_r = qn(ns, "w", "r")
     w_t = qn(ns, "w", "t")
@@ -211,6 +214,8 @@ def make_unnumbered_heading1(ns: dict[str, str], title: str) -> ET.Element:
     jc = ET.SubElement(pPr, w_jc)
     jc.set(w_val, "center")
     numPr = ET.SubElement(pPr, w_numPr)
+    ilvl = ET.SubElement(numPr, w_ilvl)
+    ilvl.set(w_val, "0")
     numId = ET.SubElement(numPr, w_numId)
     numId.set(w_val, "0")
     r = ET.SubElement(p, w_r)
@@ -238,7 +243,8 @@ def p_has_drawing(ns: dict[str, str], p: ET.Element) -> bool:
     """判断段落是否包含内嵌图片（w:drawing 或 w:pict）。"""
     w_drawing = qn(ns, "w", "drawing")
     w_pict = qn(ns, "w", "pict")
-    return p.find(f".//{w_drawing}") is not None or p.find(f".//{w_pict}") is not None
+    return p.find(
+        f".//{w_drawing}") is not None or p.find(f".//{w_pict}") is not None
 
 
 def set_para_center(ns: dict[str, str], p: ET.Element) -> None:
@@ -268,7 +274,8 @@ def set_para_keep_lines(ns: dict[str, str], p: ET.Element) -> None:
         ET.SubElement(pPr, w_keepLines)
 
 
-def set_para_tabs_for_equation(ns: dict[str, str], p: ET.Element, text_w: int) -> None:
+def set_para_tabs_for_equation(
+    ns: dict[str, str], p: ET.Element, text_w: int) -> None:
     """设置公式编号用的居中+右对齐制表位。"""
     w_tabs = qn(ns, "w", "tabs")
     w_tab = qn(ns, "w", "tab")
@@ -386,7 +393,8 @@ def block_has_drawing(ns: dict[str, str], el: ET.Element) -> bool:
     """判断任意 OOXML 块元素（段落或表格单元格等）是否包含图片。"""
     w_drawing = qn(ns, "w", "drawing")
     w_pict = qn(ns, "w", "pict")
-    return el.find(f".//{w_drawing}") is not None or el.find(f".//{w_pict}") is not None
+    return el.find(
+        f".//{w_drawing}") is not None or el.find(f".//{w_pict}") is not None
 
 
 def is_centered_paragraph(ns: dict[str, str], p: ET.Element) -> bool:

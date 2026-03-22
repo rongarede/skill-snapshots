@@ -13,6 +13,7 @@ Gate-Loop Runner: 驱动 6 Phase DOCX 检测循环。
 from __future__ import annotations
 
 import argparse
+import importlib
 import os
 import subprocess
 import sys
@@ -22,15 +23,22 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 SKILL_DIR = SCRIPT_DIR.parent
-GATE_LOOP_SCRIPTS = Path.home() / ".claude/skills/gate-loop-orchestrator/scripts"
-CODEX_BRIDGE = Path.home() / ".claude/skills/collaborating-with-codex/scripts/codex_bridge.py"
+GATE_LOOP_SCRIPTS = (
+    Path.home() / ".claude/skills/gate-loop-orchestrator/scripts")
+CODEX_BRIDGE = (
+    Path.home()
+    / ".claude/skills/collaborating-with-codex/scripts/codex_bridge.py")
 BUILDER_PATH = SCRIPT_DIR / "modules/docx_builder.py"
 
 PHASES = {
-    1: {"name": "结构/分页", "module": "phase1_structure", "fix_target": "builder"},
-    2: {"name": "样式/缩进", "module": "phase2_style", "fix_target": "builder"},
-    3: {"name": "图表标题", "module": "phase3_caption", "fix_target": "builder"},
-    4: {"name": "交叉引用", "module": "phase4_crossref", "fix_target": "builder"},
+    1: {"name": "结构/分页", "module": "phase1_structure",
+        "fix_target": "builder"},
+    2: {"name": "样式/缩进", "module": "phase2_style",
+        "fix_target": "builder"},
+    3: {"name": "图表标题", "module": "phase3_caption",
+        "fix_target": "builder"},
+    4: {"name": "交叉引用", "module": "phase4_crossref",
+        "fix_target": "builder"},
     5: {"name": "内容规范", "module": "phase5_content", "fix_target": "latex"},
     6: {"name": "视觉审查", "module": "phase6_visual", "fix_target": "mixed"},
 }
@@ -108,34 +116,37 @@ def build_docx(thesis_dir: str) -> bool:
     return True
 
 
+def _run_phase_module(phase_id: int, docx_path: str) -> list[str]:
+    """加载 Phase 模块并执行检查，返回错误列表。"""
+    module_name = PHASES[phase_id]["module"]
+    sys.path.insert(0, str(SCRIPT_DIR / "phase_checks"))
+    mod = importlib.import_module(module_name)
+
+    if phase_id == 6:
+        result = mod.run(docx_path)
+        if result["status"] == "conversion_failed":
+            return ["DOCX→PDF 转换失败，无法进行视觉审查（需要安装 soffice/libreoffice）"]
+        return list(result.get("errors", []))
+
+    return mod.run(docx_path)
+
+
 def run_phase_check(phase_id: int, docx_path: str) -> list[str]:
     """运行指定 Phase 的检查，返回错误列表。"""
     try:
-        module_name = PHASES[phase_id]["module"]
-
-        sys.path.insert(0, str(SCRIPT_DIR / "phase_checks"))
-        import importlib
-
-        mod = importlib.import_module(module_name)
-
-        if phase_id == 6:
-            result = mod.run(docx_path)
-            if result["status"] == "conversion_failed":
-                return ["DOCX→PDF 转换失败，无法进行视觉审查（需要安装 soffice/libreoffice）"]
-            return list(result.get("errors", []))
-
-        return mod.run(docx_path)
+        return _run_phase_module(phase_id, docx_path)
     except FileNotFoundError:
         return [f"DOCX file not found: {docx_path}"]
     except zipfile.BadZipFile:
         return [f"invalid DOCX archive: {docx_path}"]
     except KeyError as exc:
         return [f"DOCX missing required OOXML part: {exc}"]
-    except Exception as exc:
+    except (ImportError, AttributeError, TypeError, ValueError) as exc:
         return [f"phase {phase_id} runtime error: {exc}"]
 
 
-def write_gate_record(gate_file: str, phase_id: int, errors: list[str]) -> None:
+def write_gate_record(
+        gate_file: str, phase_id: int, errors: list[str]) -> None:
     """写入 Gate 记录。"""
     script = GATE_LOOP_SCRIPTS / "write_gate_record.sh"
     if not script.exists():
@@ -154,7 +165,9 @@ def write_gate_record(gate_file: str, phase_id: int, errors: list[str]) -> None:
         return
 
     status = "FAIL" if errors else "PASS"
-    critical = str(len([e for e in errors if "missing" in e.lower() or "fail" in e.lower()]))
+    critical = str(len([
+        e for e in errors
+        if "missing" in e.lower() or "fail" in e.lower()]))
     major = str(len(errors) - int(critical))
     must_fix = "; ".join(errors[:5]) if errors else ""
     evidence = f"{len(errors)} errors found" if errors else "all checks passed"
@@ -186,6 +199,47 @@ def write_gate_record(gate_file: str, phase_id: int, errors: list[str]) -> None:
     )
 
 
+def _run_single_phase(
+    phase_id: int,
+    docx_path: str,
+    thesis_dir: str,
+    max_retry: int,
+    gate_file: str,
+) -> bool:
+    """运行单个 Phase 的检测与重试，返回是否通过。"""
+    phase = PHASES[phase_id]
+    print(f"\n{'=' * 60}")
+    print(f"[PHASE {phase_id}] {phase['name']}")
+    print(f"{'=' * 60}")
+
+    for attempt in range(1, max_retry + 1):
+        print(f"  [Attempt {attempt}/{max_retry}]")
+        errors = run_phase_check(phase_id, docx_path)
+        write_gate_record(gate_file, phase_id, errors)
+
+        if not errors:
+            print(f"  [PHASE {phase_id}] PASS")
+            return True
+
+        print(f"  [PHASE {phase_id}] FAIL ({len(errors)} errors)")
+        for e in errors[:5]:
+            print(f"    - {e}")
+
+        if attempt >= max_retry:
+            break
+
+        print(f"  [FIX] 调用 Codex 自动修复 (target={phase['fix_target']})")
+        if not codex_fix(phase_id, errors, thesis_dir):
+            print("  [FIX] 修复失败，跳过重试")
+            break
+        print("  [REBUILD] 重新构建 DOCX...")
+        if not build_docx(thesis_dir):
+            print("  [REBUILD] 构建失败")
+            break
+
+    return False
+
+
 def run_gate_loop(
     thesis_dir: str,
     phase_ids: list[int],
@@ -203,38 +257,8 @@ def run_gate_loop(
             return {p: "SKIP" for p in phase_ids}
 
     for phase_id in phase_ids:
-        phase = PHASES[phase_id]
-        print(f"\n{'=' * 60}")
-        print(f"[PHASE {phase_id}] {phase['name']}")
-        print(f"{'=' * 60}")
-
-        passed = False
-        for attempt in range(1, max_retry + 1):
-            print(f"  [Attempt {attempt}/{max_retry}]")
-
-            errors = run_phase_check(phase_id, docx_path)
-            write_gate_record(gate_file, phase_id, errors)
-
-            if not errors:
-                print(f"  [PHASE {phase_id}] PASS")
-                passed = True
-                break
-
-            print(f"  [PHASE {phase_id}] FAIL ({len(errors)} errors)")
-            for e in errors[:5]:
-                print(f"    - {e}")
-
-            if attempt < max_retry:
-                print(f"  [FIX] 调用 Codex 自动修复 (target={phase['fix_target']})")
-                fix_ok = codex_fix(phase_id, errors, thesis_dir)
-                if not fix_ok:
-                    print("  [FIX] 修复失败，跳过重试")
-                    break
-                print("  [REBUILD] 重新构建 DOCX...")
-                if not build_docx(thesis_dir):
-                    print("  [REBUILD] 构建失败")
-                    break
-
+        passed = _run_single_phase(
+            phase_id, docx_path, thesis_dir, max_retry, gate_file)
         results[phase_id] = "PASS" if passed else "FAIL"
         if not passed:
             print(f"\n[GATE-LOOP] Phase {phase_id} 未通过，后续 Phase 跳过。")
@@ -246,10 +270,14 @@ def run_gate_loop(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Gate-Loop DOCX 6-Phase 检测")
+    """解析命令行参数并执行 DOCX Gate-Loop 6 阶段检测流程。"""
+    parser = argparse.ArgumentParser(
+        description="Gate-Loop DOCX 6-Phase 检测")
     parser.add_argument("thesis_dir", help="论文根目录")
     parser.add_argument("--phase", type=int, help="仅运行指定 Phase (1-6)")
-    parser.add_argument("--max-retry", type=int, default=2, help="每个 Phase 最大重试次数（默认 2）")
+    parser.add_argument(
+        "--max-retry", type=int, default=2,
+        help="每个 Phase 最大重试次数（默认 2）")
     parser.add_argument("--gate-file", help="Gate 记录文件路径")
     parser.add_argument("--skip-build", action="store_true", help="跳过 DOCX 构建")
     args = parser.parse_args()
@@ -269,7 +297,8 @@ def main() -> int:
         print("--max-retry 必须 >= 1", file=sys.stderr)
         return 2
 
-    results = run_gate_loop(thesis_dir, phase_ids, args.max_retry, gate_file, args.skip_build)
+    results = run_gate_loop(
+        thesis_dir, phase_ids, args.max_retry, gate_file, args.skip_build)
 
     print(f"\n{'=' * 60}")
     print("[GATE-LOOP SUMMARY]")

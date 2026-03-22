@@ -101,3 +101,15 @@ class TestNormalizeChineseSpaces:
     def test_multiple_spaces(self):
         """连续多个空格应按规则处理。"""
         assert normalize_chinese_spaces("你好。  世界") == "你好。世界"
+
+    def test_trim_leading_spaces_before_cjk(self):
+        """段首中文前导空格应删除。"""
+        assert normalize_chinese_spaces("     密码学") == "密码学"
+
+    def test_trim_trailing_spaces_after_cjk(self):
+        """段尾中文尾随空格应删除。"""
+        assert normalize_chinese_spaces("郭现峰    ") == "郭现峰"
+
+    def test_preserve_leading_spaces_before_english(self):
+        """英文段落前导空格保持不变。"""
+        assert normalize_chinese_spaces("   Introduction") == "   Introduction"

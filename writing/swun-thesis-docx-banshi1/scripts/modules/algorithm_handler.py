@@ -12,7 +12,6 @@
 
 from __future__ import annotations
 
-import copy
 import re
 import xml.etree.ElementTree as ET
 
@@ -197,7 +196,8 @@ def set_algo_para_props(ns: dict[str, str], p: ET.Element) -> None:
         pPr.remove(pBdr)
 
 
-def format_algorithm_blocks(ns: dict[str, str], root: ET.Element, body: ET.Element) -> None:
+def format_algorithm_blocks(
+    ns: dict[str, str], root: ET.Element, body: ET.Element) -> None:
     """检测算法块并应用学术排版格式。
 
     算法块结构：
@@ -218,31 +218,31 @@ def format_algorithm_blocks(ns: dict[str, str], root: ET.Element, body: ET.Eleme
     w_p = _qn(ns, "w", "p")
     w_r = _qn(ns, "w", "r")
     w_t = _qn(ns, "w", "t")
-    w_pPr = _qn(ns, "w", "pPr")
+    _qn(ns, "w", "pPr")
     w_rPr = _qn(ns, "w", "rPr")
-    w_pStyle = _qn(ns, "w", "pStyle")
+    _qn(ns, "w", "pStyle")
     w_val = _qn(ns, "w", "val")
-    w_ind = _qn(ns, "w", "ind")
-    w_left = _qn(ns, "w", "left")
-    w_firstLine = _qn(ns, "w", "firstLine")
-    w_firstLineChars = _qn(ns, "w", "firstLineChars")
-    w_spacing = _qn(ns, "w", "spacing")
-    w_line = _qn(ns, "w", "line")
-    w_lineRule = _qn(ns, "w", "lineRule")
-    w_before = _qn(ns, "w", "before")
-    w_after = _qn(ns, "w", "after")
-    w_pBdr = _qn(ns, "w", "pBdr")
-    w_top = _qn(ns, "w", "top")
-    w_bottom = _qn(ns, "w", "bottom")
-    w_sz_attr = _qn(ns, "w", "sz")
-    w_space = _qn(ns, "w", "space")
-    w_color = _qn(ns, "w", "color")
-    w_sz = _qn(ns, "w", "sz")
-    w_szCs = _qn(ns, "w", "szCs")
-    w_jc = _qn(ns, "w", "jc")
+    _qn(ns, "w", "ind")
+    _qn(ns, "w", "left")
+    _qn(ns, "w", "firstLine")
+    _qn(ns, "w", "firstLineChars")
+    _qn(ns, "w", "spacing")
+    _qn(ns, "w", "line")
+    _qn(ns, "w", "lineRule")
+    _qn(ns, "w", "before")
+    _qn(ns, "w", "after")
+    _qn(ns, "w", "pBdr")
+    _qn(ns, "w", "top")
+    _qn(ns, "w", "bottom")
+    _qn(ns, "w", "sz")
+    _qn(ns, "w", "space")
+    _qn(ns, "w", "color")
+    _qn(ns, "w", "sz")
+    _qn(ns, "w", "szCs")
+    _qn(ns, "w", "jc")
     w_pict = _qn(ns, "w", "pict")
     w_b = _qn(ns, "w", "b")
-    w_bCs = _qn(ns, "w", "bCs")
+    _qn(ns, "w", "bCs")
     text_w = _sect_text_width_dxa(ns, root) or 8277
 
     # 缩进标记正则：⌊N⌋，N 为数字
@@ -337,7 +337,8 @@ def format_algorithm_blocks(ns: dict[str, str], root: ET.Element, body: ET.Eleme
 
         alg_count += 1
         title_p = children[title_idx]
-        body_ps = [children[k] for k in range(top_rule_idx + 1, bottom_rule_idx)]
+        body_ps = [children[k]
+            for k in range(top_rule_idx + 1, bottom_rule_idx)]
 
         # 格式化标题段落
         format_algo_runs(ns, title_p)
@@ -361,7 +362,8 @@ def format_algorithm_blocks(ns: dict[str, str], root: ET.Element, body: ET.Eleme
                     if lm:
                         # 行号行：在行号之后插入缩进，保持行号左对齐
                         after_lineno = t_el.text[lm.end():]
-                        t_el.text = lm.group(1) + " " + indent_str + after_lineno
+                        t_el.text = lm.group(1) + " " + \
+                                             indent_str + after_lineno
                     else:
                         # 无行号行（输入/输出）：在开头插入缩进
                         t_el.text = indent_str + t_el.text
@@ -383,4 +385,5 @@ def format_algorithm_blocks(ns: dict[str, str], root: ET.Element, body: ET.Eleme
         i = title_idx + 1
 
     if alg_count:
-        print(f"  [algorithms] Wrapped {alg_count} algorithm block(s) in three-line tables")
+        print(
+    f"  [algorithms] Wrapped {alg_count} algorithm block(s) in three-line tables")

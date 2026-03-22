@@ -2,7 +2,8 @@
 import re
 
 
-_QUOTE_PAIR_RE = re.compile(r'(?P<open>["""])(?P<content>[^"\n""]+?)(?P<close>["""])')
+_QUOTE_PAIR_RE = re.compile(
+    r'(?P<open>["""])(?P<content>[^"\n""]+?)(?P<close>["""])')
 _CJK_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
 _CJK_CONTEXT_RE = re.compile(r"[\u3000-\u303f\uff00-\uffef]")
 
@@ -21,7 +22,11 @@ def _nearest_non_space_right(text: str, end: int) -> str:
     return text[idx] if idx < len(text) else ""
 
 
-def _is_chinese_quote_context(text: str, start: int, end: int, content: str) -> bool:
+def _is_chinese_quote_context(
+    text: str,
+    start: int,
+    end: int,
+     content: str) -> bool:
     if _CJK_RE.search(content):
         return True
 
@@ -101,6 +106,7 @@ _CN_CHAR = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
 _EN_CHAR = re.compile(r"[A-Za-z0-9\)\]\>）】》]")
 _EN_LEFT = re.compile(r"[A-Za-z0-9\(\[\<（【《]")
 
+
 def normalize_chinese_spaces(text: str) -> str:
     """移除中文排版中不应出现的空格。
 
@@ -108,6 +114,7 @@ def normalize_chinese_spaces(text: str) -> str:
     1. 中文标点（。，；：！？等）后面紧跟的空格 → 删除
     2. 英文字符/右括号后 + 空格 + 中文字符 → 删除空格
     3. 中文字符后 + 空格 + 英文字母/左括号 → 删除空格
+    4. 段内 CJK 文本前后的冗余首尾空格（例如 "   密码学"、"郭现峰   "）→ 删除
 
     保留：
     - 英文单词间的空格
@@ -142,6 +149,13 @@ def normalize_chinese_spaces(text: str) -> str:
                     result.append(" ")
                     i = j
                     continue
+                # 排除：图表标题编号格式 "表N-M "、"图N-M " 等（图表/算法编号后保留空格）
+                # 例如 "表3-1 实验环境" 中 "1" 之前有 "\d+-" 模式
+                prefix = "".join(result)
+                if re.search(r"[表图算]\d+[-–]\d+$", prefix) or re.search(r"[表图]\s*\d+$", prefix):
+                    result.append(" ")
+                    i = j
+                    continue
                 i = j
                 continue
 
@@ -152,6 +166,16 @@ def normalize_chinese_spaces(text: str) -> str:
                     result.append(" ")
                     i = j
                     continue
+                i = j
+                continue
+
+            # 规则4a: CJK 文本前导空格（段首）
+            if not left and (_CN_CHAR.match(right) or _CN_PUNCT.match(right)):
+                i = j
+                continue
+
+            # 规则4b: CJK 文本尾随空格（段尾）
+            if not right and (_CN_CHAR.match(left) or _CN_PUNCT.match(left)):
                 i = j
                 continue
 

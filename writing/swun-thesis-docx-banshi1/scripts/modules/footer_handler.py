@@ -46,14 +46,12 @@ _FOOTER_PAGE_XML = (
     '<w:sz w:val="18"/></w:rPr><w:t>1</w:t></w:r>'
     '<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/>'
     '<w:sz w:val="18"/></w:rPr><w:fldChar w:fldCharType="end"/></w:r>'
-    '</w:p></w:ftr>'
-)
+    '</w:p></w:ftr>' )
 
 _FOOTER_EMPTY_XML = (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
     '<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-    '<w:p><w:pPr><w:jc w:val="center"/></w:pPr></w:p></w:ftr>'
-)
+    '<w:p><w:pPr><w:jc w:val="center"/></w:pPr></w:p></w:ftr>' )
 
 
 # ---------------------------------------------------------------------------
@@ -66,8 +64,8 @@ def replace_wps_footers(
 ) -> None:
     """Replace footer*.xml with clean PAGE field footers based on actual sectPr references.
 
-    封面 section (0) 和目录 section (1) 的 default footer 写空（不显示页码），
-    摘要 section (lowerRoman) 和正文 section (decimal) 的 default footer 写 PAGE 字段。
+    封面 section (0) 的 default footer 写空（不显示页码），
+    目录 section (1) 开始的所有后续 section 的 default footer 写 PAGE 字段。
     pgNumType（lowerRoman / decimal）已在 sectPr 中设定，控制显示格式。
 
     若空 footer section 和 PAGE footer section 共享同一 default footer rId，则自动拆分：
@@ -121,8 +119,8 @@ def replace_wps_footers(
         sect_info.append({"default_rid": default_rid, "fmt": fmt})
 
     # 确定哪些 footer 文件需要 PAGE 字段，哪些需要空
-    # 规则：section 0（封面）和 section 1（目录）的 default footer → 空（不显示页码）
-    #        其余 section（摘要=lowerRoman、正文=decimal）的 default footer → PAGE 字段
+    # 规则：section 0（封面）的 default footer → 空（不显示页码）
+    #        其余 section（从目录开始）→ PAGE 字段
     page_footer_files: set[str] = set()  # 需要 PAGE 字段的 footer 文件
     empty_footer_files: set[str] = set()  # 需要空的 footer 文件
     empty_sect_indices: list[int] = []  # 需要空 footer 的 section 索引
@@ -131,7 +129,7 @@ def replace_wps_footers(
         rid = info["default_rid"]
         if rid and rid in rid_to_footer:
             fname = f"word/{rid_to_footer[rid]}"
-            if i <= 1:  # 封面 (0) + 目录 (1) 不显示页码
+            if i == 0:  # 封面不显示页码
                 empty_footer_files.add(fname)
                 empty_sect_indices.append(i)
             else:
@@ -176,7 +174,8 @@ def replace_wps_footers(
                 file_data["word/document.xml"] = ET.tostring(
                     droot, encoding="utf-8", xml_declaration=True
                 )
-                print(f"  [footer] Sections {empty_sect_indices} default footer reassigned to {free_base} ({free_rid})")
+                print(
+    f"  [footer] Sections {empty_sect_indices} default footer reassigned to {free_base} ({free_rid})")
 
     # 写入 footer 文件内容
     replaced = 0
@@ -208,7 +207,9 @@ def fix_hyperlink_style(styles_xml: bytes) -> bytes:
     w_themeColor = _qn(sns, "w", "themeColor")
 
     # w14:textFill (Word 2010+ gradient fill)
-    w14_uri = sns.get("w14", "http://schemas.microsoft.com/office/word/2010/wordml")
+    w14_uri = sns.get(
+    "w14",
+     "http://schemas.microsoft.com/office/word/2010/wordml")
     w14_textFill = f"{{{w14_uri}}}textFill"
 
     count = 0
@@ -250,6 +251,7 @@ def fix_hyperlink_style(styles_xml: bytes) -> bytes:
         count += 1
 
     if count:
-        print(f"  [styles] Changed {count} Hyperlink style(s) to black + no underline")
+        print(
+    f"  [styles] Changed {count} Hyperlink style(s) to black + no underline")
 
     return ET.tostring(sroot, encoding="utf-8", xml_declaration=True)

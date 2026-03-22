@@ -47,7 +47,8 @@ def fix_ref_dot_to_hyphen(ns: dict[str, str], body: ET.Element) -> None:
                 if nxt_val.strip() == "":
                     continue
                 if num_re.match(nxt_val):
-                    nxt_texts[0].text = num_re.sub(r"\1\2-\3", nxt_val, count=1)
+                    nxt_texts[0].text = num_re.sub(
+                        r"\1\2-\3", nxt_val, count=1)
                     for k in range(i + 1, j):
                         for tk in runs[k].iter(w_t):
                             tk.text = ""
@@ -181,7 +182,8 @@ def is_fig_table_ref_number_token(text: str) -> bool:
     return bool(re.match(r"^\d+-\d+[）)\]】,，.。:：;；]*$", text.strip()))
 
 
-def collect_fig_table_ref_run_indexes(ns: dict[str, str], node: ET.Element) -> set[int]:
+def collect_fig_table_ref_run_indexes(
+    ns: dict[str, str], node: ET.Element) -> set[int]:
     """Collect run indexes that belong to figure/table refs like 图2-1 / 表 3-2."""
     w_r = qn(ns, "w", "r")
     w_t = qn(ns, "w", "t")
@@ -261,7 +263,8 @@ def strip_anchor_hyperlinks_in_main_body(
             continue
         if el.tag not in {w_p, w_tbl}:
             continue
-        removed += unwrap_selected_hyperlinks_in_node(ns, el, hyperlink_style_ids=hyperlink_style_ids)
+        removed += unwrap_selected_hyperlinks_in_node(
+    ns, el, hyperlink_style_ids=hyperlink_style_ids)
         strip_hyperlink_run_style(ns, el, hyperlink_style_ids)
 
     return removed
@@ -299,7 +302,9 @@ def strip_doi_hyperlinks_in_bibliography(
     if ref_start is None:
         return 0
 
-    doi_re = re.compile(r"(10\.\d{4,9}/\S+|https?://doi\.org/\S*)", re.IGNORECASE)
+    doi_re = re.compile(
+    r"(10\.\d{4,9}/\S+|https?://doi\.org/\S*)",
+     re.IGNORECASE)
     pure_doi_url_re = re.compile(r"^https?://doi\.org/\S+$", re.IGNORECASE)
 
     removed = 0
@@ -321,7 +326,8 @@ def strip_doi_hyperlinks_in_bibliography(
                     new_children.append(child)
                     continue
 
-                hl_text = "".join((t.text or "") for t in child.iter(w_t)).strip()
+                hl_text = "".join((t.text or "")
+                                  for t in child.iter(w_t)).strip()
                 if not doi_re.search(hl_text):
                     new_children.append(child)
                     continue

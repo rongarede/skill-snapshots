@@ -26,13 +26,14 @@ def _replace_style_ids(xml_bytes: bytes, mapping: dict[str, str]) -> bytes:
         return xml_bytes
 
     # Register all namespace prefixes before parsing to preserve them on write
-    for _event, (prefix, uri) in ET.iterparse(io.BytesIO(xml_bytes), events=["start-ns"]):
+    for _event, (prefix, uri) in ET.iterparse(
+            io.BytesIO(xml_bytes), events=["start-ns"]):
         ET.register_namespace(prefix or "", uri)
 
     tree = ET.ElementTree(ET.fromstring(xml_bytes))
     root = tree.getroot()
 
-    w_styleId = f"{{{W_NS}}}styleId"
+    w_style_id = f"{{{W_NS}}}styleId"
     w_val = f"{{{W_NS}}}val"
 
     ref_tags = {
@@ -46,11 +47,11 @@ def _replace_style_ids(xml_bytes: bytes, mapping: dict[str, str]) -> bytes:
 
     # Phase 1: old -> __tmp_{old}
     tmp_map = {old: f"__tmp_{old}" for old in mapping}
-    _apply_rename(root, tmp_map, w_styleId, w_val, ref_tags)
+    _apply_rename(root, tmp_map, w_style_id, w_val, ref_tags)
 
     # Phase 2: __tmp_{old} -> target
     final_map = {f"__tmp_{old}": target for old, target in mapping.items()}
-    _apply_rename(root, final_map, w_styleId, w_val, ref_tags)
+    _apply_rename(root, final_map, w_style_id, w_val, ref_tags)
 
     buf = io.BytesIO()
     tree.write(buf, xml_declaration=True, encoding="UTF-8")
@@ -60,15 +61,15 @@ def _replace_style_ids(xml_bytes: bytes, mapping: dict[str, str]) -> bytes:
 def _apply_rename(
     root: ET.Element,
     rename: dict[str, str],
-    w_styleId: str,
+    w_style_id: str,
     w_val: str,
     ref_tags: set[str],
 ) -> None:
     """Apply a single rename pass across all elements."""
     for elem in root.iter():
-        sid = elem.get(w_styleId)
+        sid = elem.get(w_style_id)
         if sid is not None and sid in rename:
-            elem.set(w_styleId, rename[sid])
+            elem.set(w_style_id, rename[sid])
 
         if elem.tag in ref_tags:
             val = elem.get(w_val)
@@ -76,12 +77,36 @@ def _apply_rename(
                 elem.set(w_val, rename[val])
 
 
+def _verify_output(dst: Path, mapping: dict[str, str]) -> None:
+    """验证输出 DOCX 中是否包含所有目标样式 ID，若缺失则打印警告。"""
+    with zipfile.ZipFile(dst, "r") as zf:
+        styles_xml = zf.read("word/styles.xml")
+    root = ET.fromstring(styles_xml)
+    w_style_id = f"{{{W_NS}}}styleId"
+    found_ids = {
+        elem.get(w_style_id) for elem in root.iter() if elem.get(w_style_id)}
+    missing = set(mapping.values()) - found_ids
+    if missing:
+        print(
+            f"WARNING: target IDs not found in output: {missing}",
+            file=sys.stderr)
+
+
+def _load_mapping(mapping_path: Path) -> dict[str, str] | None:
+    """从 JSON 文件加载样式 ID 映射，返回过滤后的字典；失败返回 None。"""
+    with open(mapping_path, "r", encoding="utf-8") as f:
+        raw = json.load(f)
+    return {k: v for k, v in raw.items() if not k.startswith("_")}
+
+
 def main() -> int:
+    """解析参数并对 DOCX 模板的样式 ID 执行两阶段重命名规范化。"""
     parser = argparse.ArgumentParser(
         description="Normalize DOCX template style IDs via two-phase rename"
     )
     parser.add_argument("--input", required=True, help="Source DOCX template")
-    parser.add_argument("--output", required=True, help="Output normalized DOCX")
+    parser.add_argument(
+        "--output", required=True, help="Output normalized DOCX")
     parser.add_argument(
         "--mapping", required=True, help="JSON file: {old_id: target_id}"
     )
@@ -98,14 +123,14 @@ def main() -> int:
         print(f"ERROR: mapping not found: {mapping_path}", file=sys.stderr)
         return 1
 
-    with open(mapping_path, "r", encoding="utf-8") as f:
-        raw = json.load(f)
-    mapping: dict[str, str] = {k: v for k, v in raw.items() if not k.startswith("_")}
+    mapping = _load_mapping(mapping_path)
 
-    style_parts = {"word/styles.xml", "word/numbering.xml", "word/document.xml"}
+    style_parts = {
+        "word/styles.xml", "word/numbering.xml", "word/document.xml"}
 
     buf = io.BytesIO()
-    with zipfile.ZipFile(src, "r") as zin, zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zout:
+    with (zipfile.ZipFile(src, "r") as zin,
+          zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zout):
         for item in zin.infolist():
             data = zin.read(item.filename)
             if item.filename in style_parts:
@@ -114,16 +139,7 @@ def main() -> int:
 
     dst.parent.mkdir(parents=True, exist_ok=True)
     dst.write_bytes(buf.getvalue())
-
-    # Verification
-    with zipfile.ZipFile(dst, "r") as zf:
-        styles_xml = zf.read("word/styles.xml")
-    root = ET.fromstring(styles_xml)
-    w_styleId = f"{{{W_NS}}}styleId"
-    found_ids = {elem.get(w_styleId) for elem in root.iter() if elem.get(w_styleId)}
-    missing = set(mapping.values()) - found_ids
-    if missing:
-        print(f"WARNING: target IDs not found in output: {missing}", file=sys.stderr)
+    _verify_output(dst, mapping)
 
     print(f"OK: normalized {len(mapping)} style IDs -> {dst}")
     return 0

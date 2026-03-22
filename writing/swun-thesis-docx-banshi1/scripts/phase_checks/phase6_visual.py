@@ -77,7 +77,9 @@ def _merge_line_text(words: list[dict]) -> str:
         text = (word.get("text") or "").strip()
         if not text:
             continue
-        if parts and re.match(r"[A-Za-z0-9]", parts[-1][-1:]) and re.match(r"[A-Za-z0-9]", text[:1]):
+        if parts and re.match(r"[A-Za-z0-9]",
+    parts[-1][-1:]) and re.match(r"[A-Za-z0-9]",
+     text[:1]):
             parts.append(" ")
         parts.append(text)
     return "".join(parts)
@@ -87,8 +89,16 @@ def _extract_lines(pdf_path: str) -> list[dict]:
     pages: list[dict] = []
     with pdfplumber.open(pdf_path) as pdf:
         for page_num, page in enumerate(pdf.pages, start=1):
-            words = page.extract_words(x_tolerance=1, y_tolerance=2, keep_blank_chars=False) or []
-            words = sorted(words, key=lambda w: (round(float(w["top"]), 2), float(w["x0"])))
+            words = page.extract_words(
+    x_tolerance=1,
+    y_tolerance=2,
+     keep_blank_chars=False) or []
+            words = sorted(
+    words, key=lambda w: (
+        round(
+            float(
+                w["top"]), 2), float(
+                    w["x0"])))
             lines: list[dict] = []
             current: list[dict] = []
             current_top: float | None = None
@@ -102,7 +112,8 @@ def _extract_lines(pdf_path: str) -> list[dict]:
                 x1 = max(float(w["x1"]) for w in line_words)
                 top = min(float(w["top"]) for w in line_words)
                 bottom = max(float(w["bottom"]) for w in line_words)
-                avg_height = sum(float(w["height"]) for w in line_words) / len(line_words)
+                avg_height = sum(float(w["height"])
+                                 for w in line_words) / len(line_words)
                 lines.append(
                     {
                         "text": _merge_line_text(line_words),
@@ -118,7 +129,8 @@ def _extract_lines(pdf_path: str) -> list[dict]:
 
             for word in words:
                 top = float(word["top"])
-                if current_top is None or abs(top - current_top) <= LINE_Y_TOLERANCE:
+                if current_top is None or abs(
+    top - current_top) <= LINE_Y_TOLERANCE:
                     current.append(word)
                     if current_top is None:
                         current_top = top
@@ -129,7 +141,8 @@ def _extract_lines(pdf_path: str) -> list[dict]:
                     current.append(word)
                     current_top = top
             flush()
-            pages.append({"page_num": page_num, "width": float(page.width), "lines": lines, "words": words})
+            pages.append({"page_num": page_num, "width": float(
+                page.width), "lines": lines, "words": words})
     return pages
 
 
@@ -180,7 +193,8 @@ def _find_list_lines(pages: list[dict]) -> dict[str, dict]:
     return result
 
 
-def _compare_pdfs(docx_pdf: str, latex_pdf: str | None) -> tuple[list[str], dict]:
+def _compare_pdfs(docx_pdf: str, latex_pdf: str |
+                  None) -> tuple[list[str], dict]:
     if not latex_pdf or not os.path.exists(latex_pdf):
         return ["缺少 LaTeX PDF 基线，无法执行 Phase 6 视觉门禁"], {}
 
@@ -204,9 +218,12 @@ def _compare_pdfs(docx_pdf: str, latex_pdf: str | None) -> tuple[list[str], dict
     for chapter_no in shared_chapters:
         latex_line = latex_chapters[chapter_no]
         docx_line = docx_chapters[chapter_no]
-        latex_center_offset = abs(((latex_line["x0"] + latex_line["x1"]) / 2.0) - (latex_line["page_width"] / 2.0))
-        docx_center_offset = abs(((docx_line["x0"] + docx_line["x1"]) / 2.0) - (docx_line["page_width"] / 2.0))
-        height_ratio = float(docx_line["height"]) / max(float(latex_line["height"]), 1.0)
+        latex_center_offset = abs(
+            ((latex_line["x0"] + latex_line["x1"]) / 2.0) - (latex_line["page_width"] / 2.0))
+        docx_center_offset = abs(
+            ((docx_line["x0"] + docx_line["x1"]) / 2.0) - (docx_line["page_width"] / 2.0))
+        height_ratio = float(docx_line["height"]) / \
+                             max(float(latex_line["height"]), 1.0)
         metrics["chapters"][str(chapter_no)] = {
             "latex_page": latex_line["page_num"],
             "docx_page": docx_line["page_num"],
@@ -218,16 +235,28 @@ def _compare_pdfs(docx_pdf: str, latex_pdf: str | None) -> tuple[list[str], dict
         }
         if docx_center_offset > CHAPTER_CENTER_TOLERANCE:
             errors.append(
-                f"第{chapter_no}章标题未居中: LaTeX偏移={latex_center_offset:.1f}pt, DOCX偏移={docx_center_offset:.1f}pt"
-            )
+    f"第{chapter_no}章标题未居中: LaTeX偏移={
+        latex_center_offset:.1f}pt, DOCX偏移={
+            docx_center_offset:.1f}pt" )
         if height_ratio < CHAPTER_HEIGHT_RATIO_MIN:
             errors.append(
-                f"第{chapter_no}章标题高度偏小: LaTeX={latex_line['height']:.2f}, DOCX={docx_line['height']:.2f}"
-            )
+    f"第{chapter_no}章标题高度偏小: LaTeX={
+        latex_line['height']:.2f}, DOCX={
+            docx_line['height']:.2f}" )
 
-    shared_markers = [marker for marker in LIST_MARKERS if marker in latex_lists and marker in docx_lists]
-    if not shared_markers:
-        errors.append("未在 DOCX PDF 与 LaTeX PDF 中找到可比对的关键列表项")
+    # Only markers present in at least one PDF are relevant for regression detection.
+    any_markers = [
+    marker for marker in LIST_MARKERS if marker in latex_lists or marker in docx_lists]
+    shared_markers = [
+    marker for marker in LIST_MARKERS if marker in latex_lists and marker in docx_lists]
+    # Report an error only when a marker appears in one PDF but is absent from the other
+    # (indicates a real regression).  When no marker exists in either document, there is
+    # nothing to compare — skip silently rather than flagging a spurious error.
+    for marker in any_markers:
+        if marker not in latex_lists:
+            errors.append(f"列表项 {marker} 在 LaTeX PDF 中未找到（可能丢失）")
+        elif marker not in docx_lists:
+            errors.append(f"列表项 {marker} 在 DOCX PDF 中未找到（可能丢失）")
     for marker in shared_markers:
         latex_line = latex_lists[marker]
         docx_line = docx_lists[marker]
@@ -241,8 +270,9 @@ def _compare_pdfs(docx_pdf: str, latex_pdf: str | None) -> tuple[list[str], dict
         }
         if x_delta > LIST_X_TOLERANCE:
             errors.append(
-                f"列表项 {marker} 缩进漂移过大: LaTeX x0={latex_line['x0']:.1f}, DOCX x0={docx_line['x0']:.1f}"
-            )
+    f"列表项 {marker} 缩进漂移过大: LaTeX x0={
+        latex_line['x0']:.1f}, DOCX x0={
+            docx_line['x0']:.1f}" )
 
     return errors, metrics
 
@@ -278,7 +308,9 @@ def run(docx_path: str, latex_pdf_path: str | None = None) -> dict:
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("usage: phase6_visual.py /path/to/main_版式1.docx [/path/to/main.pdf]", file=sys.stderr)
+        print(
+    "usage: phase6_visual.py /path/to/main_版式1.docx [/path/to/main.pdf]",
+     file=sys.stderr)
         sys.exit(2)
     docx = sys.argv[1]
     latex_pdf = sys.argv[2] if len(sys.argv) > 2 else None

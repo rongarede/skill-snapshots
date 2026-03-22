@@ -21,7 +21,6 @@ try:
         ensure_ppr as _ensure_ppr,
         clear_para_first_indent as _clear_para_first_indent,
         set_paragraph_text as _set_paragraph_text,
-        p_has_sectPr as _p_has_sectPr,
     )
 except ModuleNotFoundError:  # pragma: no cover - pytest imports via scripts.modules
     from scripts.utils.ooxml import (
@@ -33,7 +32,6 @@ except ModuleNotFoundError:  # pragma: no cover - pytest imports via scripts.mod
         ensure_ppr as _ensure_ppr,
         clear_para_first_indent as _clear_para_first_indent,
         set_paragraph_text as _set_paragraph_text,
-        p_has_sectPr as _p_has_sectPr,
     )
 
 # ---------------------------------------------------------------------------
@@ -84,7 +82,8 @@ _HEADING_ABSTRACT_NUM_ID = "88880"
 # 缩进
 # ---------------------------------------------------------------------------
 
-def ensure_indent_for_body_paragraphs(ns: dict[str, str], body: ET.Element) -> None:
+def ensure_indent_for_body_paragraphs(
+    ns: dict[str, str], body: ET.Element) -> None:
     """为正文段落添加首行缩进，为二三级标题设置左对齐（清除编号缩进）。"""
     w_p = _qn(ns, "w", "p")
     w_ind = _qn(ns, "w", "ind")
@@ -109,7 +108,8 @@ def ensure_indent_for_body_paragraphs(ns: dict[str, str], body: ET.Element) -> N
             return False
         if p.find(m_oMathPara) is not None:
             return True
-        # Pandoc may emit display math as a bare oMath paragraph with no prose text.
+        # Pandoc may emit display math as a bare oMath paragraph with no prose
+        # text.
         return p.find(m_oMath) is not None and not _p_text(ns, p).strip()
 
     prev_sig: ET.Element | None = None
@@ -132,7 +132,8 @@ def ensure_indent_for_body_paragraphs(ns: dict[str, str], body: ET.Element) -> N
                 continue
             if ind is None:
                 ind = ET.SubElement(pPr, w_ind)
-            # Keep other indentation attributes intact; only enforce first-line indent.
+            # Keep other indentation attributes intact; only enforce first-line
+            # indent.
             ind.set(w_firstLineChars, "200")
         elif style in flush_left_styles:
             pPr = _ensure_ppr(ns, child)
@@ -148,7 +149,8 @@ def ensure_indent_for_body_paragraphs(ns: dict[str, str], body: ET.Element) -> N
         prev_sig = child
 
 
-def ensure_hanging_indent_for_bibliography(ns: dict[str, str], body: ET.Element) -> None:
+def ensure_hanging_indent_for_bibliography(
+    ns: dict[str, str], body: ET.Element) -> None:
     """为参考文献条目添加悬挂缩进（GB/T 数字序号格式）。"""
     w_p = _qn(ns, "w", "p")
     w_ind = _qn(ns, "w", "ind")
@@ -165,7 +167,8 @@ def ensure_hanging_indent_for_bibliography(ns: dict[str, str], body: ET.Element)
     if ref_idx is None:
         return
 
-    # Typical GB/T numeric entries start with "[1]" (ASCII) or "［1］" (fullwidth).
+    # Typical GB/T numeric entries start with "[1]" (ASCII) or "［1］"
+    # (fullwidth).
     bib_entry_re = re.compile(r"^(\[[0-9]{1,4}\]|［[0-9]{1,4}］)")
     i = ref_idx + 1
     while i < len(children):
@@ -252,7 +255,13 @@ def align_styles_to_reference(styles_xml: bytes) -> bytes:
             spacing = _ensure(pPr, w_spacing)
             spacing.set(_qn(sns, "w", "line"), "360")
             spacing.set(_qn(sns, "w", "lineRule"), "auto")
-            for attr in ("before", "beforeLines", "beforeAutospacing", "after", "afterLines", "afterAutospacing"):
+            for attr in (
+    "before",
+    "beforeLines",
+    "beforeAutospacing",
+    "after",
+    "afterLines",
+     "afterAutospacing"):
                 q_attr = _qn(sns, "w", attr)
                 if q_attr in spacing.attrib:
                     del spacing.attrib[q_attr]
@@ -300,6 +309,19 @@ def align_styles_to_reference(styles_xml: bytes) -> bytes:
 
             updated.append(f"Heading3(styleId={sid or 'unknown'})")
 
+        # 3) Heading 1 style (styleId='Heading1', style name='heading 1').
+        elif sid_norm in {"heading1", "1"} or name_norm == "heading1":
+            pPr = _ensure(st, w_pPr)
+            spacing = _ensure(pPr, w_spacing)
+            spacing.set(_qn(sns, "w", "afterLines"), "50")
+            spacing.set(_qn(sns, "w", "after"), "0")
+            for attr in ("afterAutospacing",):
+                q_attr = _qn(sns, "w", attr)
+                if q_attr in spacing.attrib:
+                    del spacing.attrib[q_attr]
+
+            updated.append(f"Heading1(styleId={sid or 'unknown'})")
+
     if updated:
         print(f"  [styles] Aligned reference styles: {', '.join(updated)}")
 
@@ -332,7 +354,8 @@ def normalize_unknown_pstyles(
     w_val = _qn(ns, "w", "val")
 
     # Pandoc may emit these pStyle values even when the reference template doesn't define them.
-    # Prefer mapping them to template Normal (styleId 'a') to keep formatting stable.
+    # Prefer mapping them to template Normal (styleId 'a') to keep formatting
+    # stable.
     candidates = {
         "BodyText",
         "FirstParagraph",
@@ -381,7 +404,8 @@ def fix_numbering_isLgl(ns: dict[str, str], numbering_xml: bytes) -> bytes:
     root = ET.fromstring(numbering_xml)
 
     # Find multi-level abstractNum (heading numbering); prefer id=0 for
-    # backwards-compatibility with 版式1 template, fall back to any with ≥2 levels.
+    # backwards-compatibility with 版式1 template, fall back to any with ≥2
+    # levels.
     targets: list[ET.Element] = []
     fallbacks: list[ET.Element] = []
     for absn in root.findall(w_abstractNum):
@@ -492,7 +516,8 @@ def normalize_list_indents(numbering_xml: bytes) -> bytes:
 
             old_left = ind.get(w_left)
             try:
-                base_left = int(old_left) if old_left is not None else 720 * (ilvl + 1)
+                base_left = int(
+                    old_left) if old_left is not None else 720 * (ilvl + 1)
             except ValueError:
                 base_left = 720 * (ilvl + 1)
 
@@ -527,7 +552,8 @@ def inject_heading_numbering(numbering_xml: bytes) -> bytes:
     absn_el = ET.fromstring(_HEADING_ABSTRACT_NUM_XML)
 
     # Word requires: all abstractNum BEFORE all num.
-    # Find the index of the first w:num element and insert abstractNum before it.
+    # Find the index of the first w:num element and insert abstractNum before
+    # it.
     w_num_tag = f"{{{w_uri}}}num"
     insert_idx = len(root)  # default: end
     for i, child in enumerate(root):
@@ -542,7 +568,8 @@ def inject_heading_numbering(numbering_xml: bytes) -> bytes:
     absn_ref = ET.SubElement(num_el, f"{{{w_uri}}}abstractNumId")
     absn_ref.set(f"{{{w_uri}}}val", _HEADING_ABSTRACT_NUM_ID)
 
-    print(f"  [numbering] Injected heading abstractNum={_HEADING_ABSTRACT_NUM_ID} num={_HEADING_NUM_ID}")
+    print(
+    f"  [numbering] Injected heading abstractNum={_HEADING_ABSTRACT_NUM_ID} num={_HEADING_NUM_ID}")
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
 
@@ -600,12 +627,14 @@ def bind_heading_styles_to_numbering(styles_xml: bytes) -> bytes:
         count += 1
 
     if count:
-        print(f"  [styles] Bound {count} heading style(s) to numId={_HEADING_NUM_ID}")
+        print(
+    f"  [styles] Bound {count} heading style(s) to numId={_HEADING_NUM_ID}")
 
     return ET.tostring(sroot, encoding="utf-8", xml_declaration=True)
 
 
-def number_paragraph_headings_in_main_body(ns: dict[str, str], body: ET.Element) -> int:
+def number_paragraph_headings_in_main_body(
+    ns: dict[str, str], body: ET.Element) -> int:
     """为正文中的 Heading5 标题写入显式 (n) 前缀，并降级为正文样式。"""
     w_p = _qn(ns, "w", "p")
     excluded_h1 = {"目录", "摘要", "Abstract", "致谢", "参考文献", "攻读硕士学位期间所取得的相关科研成果"}

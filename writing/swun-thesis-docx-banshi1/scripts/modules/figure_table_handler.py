@@ -15,32 +15,26 @@ try:
         qn,
         p_text,
         p_style,
-        ensure_ppr,
         block_has_drawing,
         is_centered_paragraph,
         set_para_center,
         set_para_keep_next,
         set_para_keep_lines,
-        make_run_text,
         set_p_style,
         set_paragraph_text,
-        make_empty_para,
     )
 except ModuleNotFoundError:  # pragma: no cover - pytest imports via scripts.modules
     from scripts.utils.ooxml import (
         qn,
         p_text,
         p_style,
-        ensure_ppr,
         block_has_drawing,
         is_centered_paragraph,
         set_para_center,
         set_para_keep_next,
         set_para_keep_lines,
-        make_run_text,
         set_p_style,
         set_paragraph_text,
-        make_empty_para,
     )
 
 try:
@@ -64,7 +58,8 @@ _DEFAULT_CAPTION_PROFILES: dict[str, CaptionFormatProfile] | None = None
 W_URI = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
 
-def load_caption_profiles(profile_docx: Path) -> dict[str, CaptionFormatProfile]:
+def load_caption_profiles(
+    profile_docx: Path) -> dict[str, CaptionFormatProfile]:
     try:
         return extract_caption_profiles(profile_docx)
     except FileNotFoundError as exc:
@@ -124,7 +119,8 @@ def fix_figure_captions(ns: dict[str, str], body: ET.Element) -> None:
             continue
 
         # Fallback for caption-like paragraphs that already carry figure numbering
-        # but are not mapped to the expected ImageCaption style by pandoc/template mapping.
+        # but are not mapped to the expected ImageCaption style by
+        # pandoc/template mapping.
         m_prefixed = re.match(r"^图[\s\u00a0]*(\d+)[\-\.．](\d+)\s*(.*)$", txt)
         if m_prefixed:
             chap = m_prefixed.group(1)
@@ -169,6 +165,7 @@ def fix_figure_captions(ns: dict[str, str], body: ET.Element) -> None:
         except ValueError:
             pass
 
+
 def inject_captions_from_meta(
     ns: dict[str, str],
     body: ET.Element,
@@ -193,8 +190,8 @@ def inject_captions_from_meta(
             continue
         if meta.kind != kind:
             errors.append(
-                f"anchor kind mismatch for '{label}': anchor={kind}, latex_meta={meta.kind}"
-            )
+    f"anchor kind mismatch for '{label}': anchor={kind}, latex_meta={
+        meta.kind}" )
             continue
         key = (chapter_no, kind)
         seq = counters.get(key, 0) + 1
@@ -203,7 +200,9 @@ def inject_captions_from_meta(
 
     if errors:
         msg = "\n".join(f"  - {e}" for e in errors)
-        raise RuntimeError("DOCX build blocked: cannot map figure/table anchors to caption metadata:\n" + msg)
+        raise RuntimeError(
+    "DOCX build blocked: cannot map figure/table anchors to caption metadata:\n" +
+     msg)
 
     for kind, label, block_idx, chapter_no, seq, meta in reversed(numbered):
         children = list(body)
@@ -219,7 +218,8 @@ def inject_captions_from_meta(
             )
 
         if kind == "figure":
-            cn_line = f"图{chapter_no}-{seq}" + (f" {cn_title}" if cn_title else "")
+            cn_line = f"图{chapter_no}-{seq}" + \
+                (f" {cn_title}" if cn_title else "")
             en_line = (
                 f"Figure {chapter_no}-{seq}" + (f" {en_title}" if en_title else "")
                 if meta.source == "bilingualcaption"
@@ -230,7 +230,8 @@ def inject_captions_from_meta(
             style = profile.style
             insert_after = True
         else:
-            cn_line = f"表{chapter_no}-{seq}" + (f" {cn_title}" if cn_title else "")
+            cn_line = f"表{chapter_no}-{seq}" + \
+                (f" {cn_title}" if cn_title else "")
             en_line = (
                 f"Table {chapter_no}-{seq}" + (f" {en_title}" if en_title else "")
                 if meta.source == "bilingualcaption"
@@ -260,7 +261,8 @@ def inject_captions_from_meta(
                     )
                 )
             if is_figure_table_block(ns, block):
-                wrap_figure_with_captions(ns, body, block_idx, block, caption_paras)
+                wrap_figure_with_captions(
+    ns, body, block_idx, block, caption_paras)
             else:
                 pos = block_idx + 1
                 for para in caption_paras:
@@ -269,8 +271,10 @@ def inject_captions_from_meta(
         else:
             for i, line in enumerate(reversed(lines)):
                 keep_next = True  # caption above table should stay with following lines/table
-                para = make_caption_para(ns, style, line, keep_next=keep_next, profile=profile)
+                para = make_caption_para(
+    ns, style, line, keep_next=keep_next, profile=profile)
                 body.insert(block_idx, para)
+
 
 def wrap_figure_with_captions(
     ns: dict[str, str],
@@ -280,9 +284,11 @@ def wrap_figure_with_captions(
     caption_paragraphs: list[ET.Element],
 ) -> None:
     """Replace body-level figure+caption siblings with a single wrapper table."""
-    wrapper = build_figure_caption_wrapper(ns, figure_block, caption_paragraphs)
+    wrapper = build_figure_caption_wrapper(
+        ns, figure_block, caption_paragraphs)
     body.remove(figure_block)
     body.insert(block_idx, wrapper)
+
 
 def build_figure_caption_wrapper(
     ns: dict[str, str],
@@ -340,6 +346,7 @@ def build_figure_caption_wrapper(
         tc.append(para)
     return outer
 
+
 def make_caption_para(
     ns: dict[str, str],
     style: str | None,
@@ -352,6 +359,7 @@ def make_caption_para(
     profile = profile or default_caption_profiles()[infer_caption_kind(text)]
     return build_caption_paragraph(ns, text, profile, keep_next=keep_next)
 
+
 def make_caption_run(
     ns: dict[str, str], text: str, profile: CaptionFormatProfile | None = None
 ) -> ET.Element:
@@ -360,8 +368,10 @@ def make_caption_run(
     paragraph = build_caption_paragraph(ns, text, profile, keep_next=False)
     run = paragraph.find(qn(ns, "w", "r"))
     if run is None:
-        raise RuntimeError("caption profile application failed to create a run")
+        raise RuntimeError(
+            "caption profile application failed to create a run")
     return run
+
 
 def main_body_context(
     ns: dict[str, str], body: ET.Element
@@ -401,7 +411,9 @@ def main_body_context(
         end = 0
     return children, start, end, chapter_by_index
 
-def iter_anchor_names_in_element(ns: dict[str, str], el: ET.Element) -> list[str]:
+
+def iter_anchor_names_in_element(
+    ns: dict[str, str], el: ET.Element) -> list[str]:
     w_bookmarkStart = qn(ns, "w", "bookmarkStart")
     w_name = qn(ns, "w", "name")
     out: list[str] = []
@@ -415,6 +427,7 @@ def iter_anchor_names_in_element(ns: dict[str, str], el: ET.Element) -> list[str
         seen.add(name)
         out.append(name)
     return out
+
 
 def find_next_anchor_target_block(
     ns: dict[str, str], children: list[ET.Element], start_idx: int, end_idx: int, kind: str
@@ -436,6 +449,7 @@ def find_next_anchor_target_block(
         if el.tag == w_p and kind == "figure" and block_has_drawing(ns, el):
             return j
     return fallback
+
 
 def collect_anchor_block_positions(
     ns: dict[str, str], body: ET.Element
@@ -478,7 +492,8 @@ def collect_anchor_block_positions(
             k = kind_of(label)
             if k == "table" and el.tag != w_tbl:
                 continue
-            if k == "figure" and not block_has_drawing(ns, el) and el.tag != w_tbl:
+            if k == "figure" and not block_has_drawing(
+                ns, el) and el.tag != w_tbl:
                 continue
             cand = (score(k, el, True), i)
             prev = best.get(label)
@@ -508,7 +523,9 @@ def collect_anchor_block_positions(
     placements.sort(key=lambda x: (x[2], x[1]))
     return placements, chapter_by_index
 
-def dedupe_body_level_anchor_bookmarks(ns: dict[str, str], body: ET.Element) -> int:
+
+def dedupe_body_level_anchor_bookmarks(
+    ns: dict[str, str], body: ET.Element) -> int:
     """Remove duplicate top-level fig/tab/tbl bookmarks when the same anchor exists inside a block.
 
     Pandoc may emit two bookmarks for the same LaTeX label:
@@ -569,24 +586,35 @@ def dedupe_body_level_anchor_bookmarks(ns: dict[str, str], body: ET.Element) -> 
             pass
     return removed
 
+
 def clean_table_title(txt: str) -> str:
     s = (txt or "").strip()
     s = re.sub(r"^表[\s\xa0]*\d+(?:[\-\.．]\d+)?[\s\xa0:：、.]*", "", s)
     return s.strip()
+
 
 def is_table_caption_para(ns: dict[str, str], p: ET.Element) -> bool:
     style = p_style(ns, p)
     txt = p_text(ns, p).strip()
     if style == "TableCaption":
         return True
-    return bool(re.match(r"^(表[\s\xa0]*\d+(?:[\-\.．]\d+)?|Table\s+\d+[\-\.－]\d+)", txt, re.IGNORECASE))
+    return bool(
+    re.match(
+        r"^(表[\s\xa0]*\d+(?:[\-\.．]\d+)?|Table\s+\d+[\-\.－]\d+)",
+        txt,
+         re.IGNORECASE))
+
 
 def find_caption_idx_near_table(
     ns: dict[str, str], children: list[ET.Element], tbl_idx: int, direction: int
 ) -> int | None:
     w_p = qn(ns, "w", "p")
     step = -1 if direction < 0 else 1
-    rng = range(tbl_idx + step, -1, -1) if step < 0 else range(tbl_idx + 1, len(children))
+    rng = range(tbl_idx +
+    step, -
+    1, -
+    1) if step < 0 else range(tbl_idx +
+     1, len(children))
     checked = 0
     for j in rng:
         el = children[j]
@@ -603,7 +631,9 @@ def find_caption_idx_near_table(
             break
     return None
 
-def is_caption_paragraph_near_block(ns: dict[str, str], p: ET.Element, kind: str) -> bool:
+
+def is_caption_paragraph_near_block(
+    ns: dict[str, str], p: ET.Element, kind: str) -> bool:
     txt = p_text(ns, p).strip()
     if not txt:
         return False
@@ -613,14 +643,24 @@ def is_caption_paragraph_near_block(ns: dict[str, str], p: ET.Element, kind: str
             return True
         if not is_centered_paragraph(ns, p):
             return False
-        return bool(re.match(r"^(图\s*\d+[\-\.．]\d+|Figure\s+\d+[\-\.．]\d+)\b", txt, flags=re.IGNORECASE))
+        return bool(
+    re.match(
+        r"^(图\s*\d+[\-\.．]\d+|Figure\s+\d+[\-\.．]\d+)\b",
+        txt,
+         flags=re.IGNORECASE))
     if style == "TableCaption":
         return True
     if not is_centered_paragraph(ns, p):
         return False
-    return bool(re.match(r"^(表\s*\d+[\-\.．]\d+|Table\s+\d+[\-\.．]\d+)\b", txt, flags=re.IGNORECASE))
+    return bool(
+    re.match(
+        r"^(表\s*\d+[\-\.．]\d+|Table\s+\d+[\-\.．]\d+)\b",
+        txt,
+         flags=re.IGNORECASE))
 
-def remove_adjacent_caption_paragraphs(ns: dict[str, str], body: ET.Element, block_idx: int, kind: str) -> None:
+
+def remove_adjacent_caption_paragraphs(
+    ns: dict[str, str], body: ET.Element, block_idx: int, kind: str) -> None:
     w_p = qn(ns, "w", "p")
     w_bookmarkStart = qn(ns, "w", "bookmarkStart")
     w_bookmarkEnd = qn(ns, "w", "bookmarkEnd")
@@ -656,6 +696,7 @@ def remove_adjacent_caption_paragraphs(ns: dict[str, str], body: ET.Element, blo
         except ValueError:
             pass
 
+
 def strip_latex_escapes_for_docx(s: str) -> str:
     """移除 caption 文本中的 LaTeX 转义符号，使其适合 DOCX 纯文本显示。"""
     # $n=25$ → n=25（去掉数学模式定界符）
@@ -665,6 +706,7 @@ def strip_latex_escapes_for_docx(s: str) -> str:
     # \textbf{...} → ...，\textit{...} → ...
     s = re.sub(r"\\text(?:bf|it|rm|tt)\{([^}]*)\}", r"\1", s)
     return s
+
 
 def normalize_caption_title(title: str, kind: str, lang: str) -> str:
     s = re.sub(r"\s+", " ", (title or "").strip())
@@ -682,7 +724,9 @@ def normalize_caption_title(title: str, kind: str, lang: str) -> str:
         s = re.sub(r"^Table\s+\d+[\-\.．]\d+\s*", "", s, flags=re.IGNORECASE)
     return s.strip()
 
-def set_tbl_caption_value(ns: dict[str, str], tbl: ET.Element, cn_title: str) -> None:
+
+def set_tbl_caption_value(
+    ns: dict[str, str], tbl: ET.Element, cn_title: str) -> None:
     w_tblCaption = qn(ns, "w", "tblCaption")
     w_val = qn(ns, "w", "val")
     pr = ensure_tbl_pr(ns, tbl)
@@ -690,6 +734,7 @@ def set_tbl_caption_value(ns: dict[str, str], tbl: ET.Element, cn_title: str) ->
     if cap is None:
         cap = ET.SubElement(pr, w_tblCaption)
     cap.set(w_val, cn_title)
+
 
 def apply_three_line_tables(
     ns: dict[str, str], root: ET.Element, body: ET.Element, table_style_id: str | None,
@@ -754,7 +799,8 @@ def apply_three_line_tables(
         st_val = st.get(w_val) if st is not None else None
         pr = ensure_tbl_pr(ns, tbl)
 
-        # Make tblStyle valid (pandoc sometimes emits an undefined styleId like "Table").
+        # Make tblStyle valid (pandoc sometimes emits an undefined styleId like
+        # "Table").
         if table_style_id and (st_val in (None, "", "Table")):
             if st is None:
                 st = ET.SubElement(pr, w_tblStyle)
@@ -769,7 +815,8 @@ def apply_three_line_tables(
                     matched_ratios = latex_col_ratios[label]
                     break
 
-        set_table_full_width_and_columns(ns, tbl, text_w, col_ratios=matched_ratios)
+        set_table_full_width_and_columns(
+    ns, tbl, text_w, col_ratios=matched_ratios)
 
         # Remove any existing cell borders to avoid unwanted gridlines.
         for tc in tbl.iter(w_tc):
@@ -779,7 +826,8 @@ def apply_three_line_tables(
             tcBorders = tcPr.find(w_tcBorders)
             if tcBorders is not None:
                 tcPr.remove(tcBorders)
-            # Restrict font-size normalization to text runs inside data-table cells.
+            # Restrict font-size normalization to text runs inside data-table
+            # cells.
             for r in tc.iter(w_r):
                 if r.find(w_t) is None:
                     continue
@@ -793,7 +841,11 @@ def apply_three_line_tables(
                 rFonts.set(w_hAnsi, "Times New Roman")
                 rFonts.set(w_eastAsia, "宋体")
                 # 清除 theme 字体属性，防止主题覆盖显式字体
-                for theme_attr in ("asciiTheme", "hAnsiTheme", "eastAsiaTheme", "cstheme"):
+                for theme_attr in (
+    "asciiTheme",
+    "hAnsiTheme",
+    "eastAsiaTheme",
+     "cstheme"):
                     attr_qn = qn(ns, "w", theme_attr)
                     if attr_qn in rFonts.attrib:
                         del rFonts.attrib[attr_qn]
@@ -818,7 +870,8 @@ def apply_three_line_tables(
         set_border_el(ns, borders, "insideH", "nil", rule_sz)
         set_border_el(ns, borders, "insideV", "nil", rule_sz)
 
-        # Header separator: bottom border of the last header row at the top of table.
+        # Header separator: bottom border of the last header row at the top of
+        # table.
         trs = tbl.findall(w_tr)
         if not trs:
             i += 1
@@ -846,6 +899,7 @@ def apply_three_line_tables(
         children = list(body)
         i = children.index(tbl) + 1
 
+
 def first_table_style_id(styles_xml: bytes) -> str | None:
     q_style = f"{{{W_URI}}}style"
     q_type = f"{{{W_URI}}}type"
@@ -859,6 +913,7 @@ def first_table_style_id(styles_xml: bytes) -> str | None:
             return sid
     return None
 
+
 def ensure_tbl_pr(ns: dict[str, str], tbl: ET.Element) -> ET.Element:
     w_tblPr = qn(ns, "w", "tblPr")
     pr = tbl.find(w_tblPr)
@@ -867,7 +922,9 @@ def ensure_tbl_pr(ns: dict[str, str], tbl: ET.Element) -> ET.Element:
         tbl.insert(0, pr)
     return pr
 
-def set_border_el(ns: dict[str, str], parent: ET.Element, edge: str, val: str, sz: str) -> None:
+
+def set_border_el(ns: dict[str, str], parent: ET.Element,
+                  edge: str, val: str, sz: str) -> None:
     w_val = qn(ns, "w", "val")
     w_sz = qn(ns, "w", "sz")
     w_space = qn(ns, "w", "space")
@@ -882,6 +939,7 @@ def set_border_el(ns: dict[str, str], parent: ET.Element, edge: str, val: str, s
         el.set(w_space, "0")
         el.set(w_color, "auto")
 
+
 def is_data_table(ns: dict[str, str], tbl: ET.Element) -> bool:
     w_tblPr = qn(ns, "w", "tblPr")
     w_tblStyle = qn(ns, "w", "tblStyle")
@@ -894,10 +952,12 @@ def is_data_table(ns: dict[str, str], tbl: ET.Element) -> bool:
     st = pr.find(w_tblStyle)
     st_val = st.get(w_val) if st is not None else None
     has_caption = pr.find(w_tblCaption) is not None
-    # Pandoc uses FigureTable for figure layout tables; never treat them as data tables.
+    # Pandoc uses FigureTable for figure layout tables; never treat them as
+    # data tables.
     if st_val == "FigureTable":
         return False
     return has_caption or st_val == "Table"
+
 
 def visual_text_len(s: str) -> int:
     n = 0
@@ -906,6 +966,7 @@ def visual_text_len(s: str) -> int:
             continue
         n += 1 if ord(ch) < 128 else 2
     return n
+
 
 def table_col_count(ns: dict[str, str], tbl: ET.Element) -> int:
     w_tblGrid = qn(ns, "w", "tblGrid")
@@ -939,7 +1000,9 @@ def table_col_count(ns: dict[str, str], tbl: ET.Element) -> int:
         max_cols = max(max_cols, col)
     return max_cols
 
-def table_col_weights(ns: dict[str, str], tbl: ET.Element, ncols: int) -> list[int]:
+
+def table_col_weights(ns: dict[str, str],
+                      tbl: ET.Element, ncols: int) -> list[int]:
     w_tr = qn(ns, "w", "tr")
     w_tc = qn(ns, "w", "tc")
     w_tcPr = qn(ns, "w", "tcPr")
@@ -974,6 +1037,7 @@ def table_col_weights(ns: dict[str, str], tbl: ET.Element, ncols: int) -> list[i
             col += span
     return weights
 
+
 def normalize_widths_to_total(weights: list[int], total_w: int) -> list[int]:
     n = len(weights)
     if n == 0:
@@ -983,7 +1047,8 @@ def normalize_widths_to_total(weights: list[int], total_w: int) -> list[int]:
 
     min_col = max(240, min(720, total_w // n))
     s = sum(max(1, w) for w in weights)
-    widths = [max(min_col, int(round(total_w * max(1, w) / s))) for w in weights]
+    widths = [max(min_col, int(round(total_w * max(1, w) / s)))
+                  for w in weights]
 
     diff = total_w - sum(widths)
     if diff > 0:
@@ -1013,6 +1078,7 @@ def normalize_widths_to_total(weights: list[int], total_w: int) -> list[int]:
             widths[widest] = max(min_col, widths[widest] + diff)
 
     return widths
+
 
 def apply_latex_col_ratios(
     ns: dict[str, str], tbl: ET.Element, ncols: int,
@@ -1052,17 +1118,20 @@ def apply_latex_col_ratios(
     x_indices = [i for i, r in enumerate(col_ratios) if r < 0]
 
     explicit_ratio_sum = sum(col_ratios[i] for i in explicit_indices)
-    explicit_w = int(round(explicit_ratio_sum * total_w)) if explicit_indices else 0
+    explicit_w = int(round(explicit_ratio_sum * total_w)
+                     ) if explicit_indices else 0
 
     # 自动列：按文本权重在剩余空间中分配一个合理份额
     remaining_for_flex = total_w - explicit_w
-    auto_weight_sum = sum(weights[i] for i in auto_indices) if auto_indices else 0
+    auto_weight_sum = sum(weights[i]
+                          for i in auto_indices) if auto_indices else 0
     x_count = len(x_indices)
 
     if auto_indices and x_count > 0:
         # 自动列和 X 列共享剩余空间
         # 自动列按文本权重占比，但不超过剩余空间的 40%
-        total_flex_weight = auto_weight_sum + sum(weights[i] for i in x_indices)
+        total_flex_weight = auto_weight_sum + \
+            sum(weights[i] for i in x_indices)
         auto_share = auto_weight_sum / max(1, total_flex_weight)
         auto_share = min(auto_share, 0.4)
         auto_w = int(round(remaining_for_flex * auto_share))
@@ -1079,7 +1148,10 @@ def apply_latex_col_ratios(
         widths[i] = int(round(col_ratios[i] * total_w))
     if auto_indices and auto_weight_sum > 0:
         for i in auto_indices:
-            widths[i] = max(240, int(round(auto_w * weights[i] / auto_weight_sum)))
+            widths[i] = max(
+    240, int(
+        round(
+            auto_w * weights[i] / auto_weight_sum)))
     elif auto_indices:
         per = auto_w // len(auto_indices)
         for i in auto_indices:
@@ -1096,6 +1168,7 @@ def apply_latex_col_ratios(
         widths[idx] = max(240, widths[idx] + diff)
 
     return widths
+
 
 def set_table_full_width_and_columns(
     ns: dict[str, str], tbl: ET.Element, text_w: int,
@@ -1183,6 +1256,7 @@ def set_table_full_width_and_columns(
             tcW.set(w_w, str(max(1, cell_w)))
             col += span
 
+
 def fit_figure_images_to_cells(ns: dict[str, str], body: ET.Element) -> int:
     """缩放 FigureTable 单元格中超宽的 inline 图片，使其适配列宽。
 
@@ -1208,12 +1282,15 @@ def fit_figure_images_to_cells(ns: dict[str, str], body: ET.Element) -> int:
     # wp (wordprocessingDrawing) namespace — look it up if present, else use
     # the well-known URI so the function still works even when the ns dict
     # was collected from a document that hasn't declared the prefix yet.
-    wp_uri = ns.get("wp", "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing")
+    wp_uri = ns.get(
+    "wp",
+     "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing")
     wp_inline = f"{{{wp_uri}}}inline"
     wp_extent = f"{{{wp_uri}}}extent"
 
     # drawingml namespace for a:ext inside pic:spPr/a:xfrm
-    a_uri = ns.get("a", "http://schemas.openxmlformats.org/drawingml/2006/main")
+    a_uri = ns.get(
+    "a", "http://schemas.openxmlformats.org/drawingml/2006/main")
     a_ext_tag = f"{{{a_uri}}}ext"
 
     scaled = 0
@@ -1283,6 +1360,7 @@ def fit_figure_images_to_cells(ns: dict[str, str], body: ET.Element) -> int:
 
     return scaled
 
+
 def inject_figure_table_style(styles_xml: bytes) -> bytes:
     """Inject a FigureTable table style with zero cell margins.
 
@@ -1339,6 +1417,7 @@ def inject_figure_table_style(styles_xml: bytes) -> bytes:
 
     return ET.tostring(sroot, encoding="utf-8", xml_declaration=True)
 
+
 def build_tbl_label_map(
     ns: dict[str, str], body: ET.Element
 ) -> dict[int, list[str]]:
@@ -1373,6 +1452,7 @@ def build_tbl_label_map(
 
     return result
 
+
 def is_figure_table_block(ns: dict[str, str], block: ET.Element) -> bool:
     if block.tag != qn(ns, "w", "tbl"):
         return False
@@ -1383,6 +1463,7 @@ def is_figure_table_block(ns: dict[str, str], block: ET.Element) -> bool:
     if style is None:
         return False
     return (style.get(qn(ns, "w", "val")) or "").strip() == "FigureTable"
+
 
 def table_width_dxa(ns: dict[str, str], tbl: ET.Element) -> int | None:
     w_tblW = qn(ns, "w", "tblW")
@@ -1415,6 +1496,7 @@ def table_width_dxa(ns: dict[str, str], tbl: ET.Element) -> int | None:
             return sum(vals)
     return None
 
+
 def set_row_cant_split(ns: dict[str, str], tr: ET.Element) -> None:
     w_trPr = qn(ns, "w", "trPr")
     w_cantSplit = qn(ns, "w", "cantSplit")
@@ -1441,14 +1523,16 @@ def _is_empty_para(ns: dict[str, str], p: ET.Element) -> bool:
         pStyle = pPr.find(w_pStyle)
         if pStyle is not None:
             style_val = pStyle.get(qn(ns, "w", "val")) or ""
-            if style_val.startswith("Heading") or style_val == "1" or style_val == "2" or style_val == "3":
+            if style_val.startswith(
+                "Heading") or style_val == "1" or style_val == "2" or style_val == "3":
                 return False
 
     # 无文字内容
     return "".join(p.itertext()).strip() == ""
 
 
-def remove_empty_para_before_table_captions(ns: dict[str, str], body: ET.Element) -> int:
+def remove_empty_para_before_table_captions(
+    ns: dict[str, str], body: ET.Element) -> int:
     """删除紧邻表格标题前的空段落。
 
     扫描所有 w:tbl 元素，找到其前面的标题段落链（匹配 ^表\\d+-\\d+ 或 ^Table \\d+-\\d+），
@@ -1462,7 +1546,8 @@ def remove_empty_para_before_table_captions(ns: dict[str, str], body: ET.Element
     w_bookmarkEnd = qn(ns, "w", "bookmarkEnd")
     _SKIP_TAGS = {w_bookmarkStart, w_bookmarkEnd}
 
-    _TABLE_CAPTION_RE = re.compile(r"^(表\d+-\d+|Table\s+\d+-\d+)", re.IGNORECASE)
+    _TABLE_CAPTION_RE = re.compile(
+    r"^(表\d+-\d+|Table\s+\d+-\d+)", re.IGNORECASE)
 
     children = list(body)
     to_remove: list[ET.Element] = []
@@ -1517,7 +1602,8 @@ def remove_empty_para_before_table_captions(ns: dict[str, str], body: ET.Element
             pass
 
     if removed:
-        print(f"  [table] Removed {removed} empty paragraph(s) before table caption(s)")
+        print(
+    f"  [table] Removed {removed} empty paragraph(s) before table caption(s)")
     return removed
 
 
