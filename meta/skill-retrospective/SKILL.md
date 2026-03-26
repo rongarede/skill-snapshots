@@ -45,9 +45,9 @@ description: Use when user sends /skill复盘 or /迭代清单, or asks to revie
 
 ### 第四步：生成迭代清单
 
-### 第五步：自动快照（用户确认执行后）
+### 第五步：自动快照
 
-当用户确认并执行了 skill 更新后，**必须**自动执行快照：
+skill 更新完成后，**必须**自动执行快照：
 
 ```bash
 # 1. 扫描技能状态
@@ -102,12 +102,12 @@ bash ~/.claude/skills/skill-snapshot/scripts/save.sh "<skill-name>" "<commit-mes
 
 ---
 
-确认后我会执行相应的更新，并自动保存快照。
+以下更新将自动执行，并自动保存快照。
 ```
 
 ### 执行后追加输出
 
-当用户确认并完成 skill 更新后，追加输出快照结果：
+skill 更新完成后，自动追加输出快照结果：
 
 ```markdown
 ---
