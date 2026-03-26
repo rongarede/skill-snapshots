@@ -281,5 +281,3 @@ python $SCRIPTS/export_md.py layer_8_raw.json
 ```
 
 缓存目录：`~/.config/semantic-scholar/cache/`
-
-<!-- auto-push test marker -->
