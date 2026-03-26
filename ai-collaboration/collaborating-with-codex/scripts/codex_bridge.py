@@ -257,14 +257,6 @@ def run_shell_command(cmd: List[str]) -> Generator[str, None, None]:
         except queue.Empty:
             break
 
-def windows_escape(prompt):
-    """Windows style string escaping for newlines and special chars in prompt text."""
-    result = prompt.replace('\n', '\\n')
-    result = result.replace('\r', '\\r')
-    result = result.replace('\t', '\\t')
-    return result
-
-
 def configure_windows_stdio() -> None:
     """Configure stdout/stderr to use UTF-8 encoding on Windows."""
     if os.name != "nt":
@@ -423,8 +415,16 @@ def main():
         cmd.extend(["resume", args.SESSION_ID])
 
     PROMPT = args.PROMPT
-    if os.name == "nt":
-        PROMPT = windows_escape(PROMPT)
+    # Escape shell metacharacters on all platforms.
+    # codex exec internally passes the prompt through zsh eval, so unescaped
+    # single quotes, backticks and backslashes cause parsing errors on macOS.
+    PROMPT = PROMPT.replace('\\', '\\\\')   # backslash first to avoid double-escaping
+    PROMPT = PROMPT.replace("'", "\\'")
+    PROMPT = PROMPT.replace('`', '\\`')
+    PROMPT = PROMPT.replace('\n', '\\n')
+    PROMPT = PROMPT.replace('\r', '\\r')
+    PROMPT = PROMPT.replace('\t', '\\t')
+    PROMPT = PROMPT.replace('"', '\\"')
 
     cmd += ['--', PROMPT]
 
