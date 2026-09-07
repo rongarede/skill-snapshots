@@ -1,6 +1,7 @@
 {
+  "README.md": "0a3c4c58bc22dcfc5cec4ee602dc91e10da67012265ab43cf4a237468e8a2255",
   "manifest.json": "b90961a959008427f7bb132c675198c65ca43069446e3c89f0c0450fb5667563",
-  "REVIEW.md": "93fbd51092c990d2236d7e3691e3b6bcc387f905343578a3b5172b479c31b990",
+  "REVIEW.md": "eb6aa880fd375a69bbbc29ad6ac1af2c0c5ac2e7909707b892ca95105dbf4b43",
   "contents/.agents/planning-with-files/SKILL.md": "7b233fe95c946e71f0537b68b3d5fc7bbc50ba317dc7ee0d12f937aaab3801ed",
   "contents/.agents/second-brain-query/SKILL.md": "dddb3dd07bab695d949e2710fa99267eabeb1aaeed9493ad952beb1ee741612c",
   "contents/.agents/paper-mapping/skill.md": "4f84e3451ff15ca96ad16882522b31edc8403dcc1d2477d1b763587f3a2a40c3",

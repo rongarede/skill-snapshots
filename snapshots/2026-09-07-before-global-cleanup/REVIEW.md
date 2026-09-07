@@ -1,7 +1,9 @@
-# 清理前备份待同步
+# Verification and cleanup result
 
-目标候选仓库：rongarede/skill-snapshots。实时查询为公开仓库，与 skill-snapshot 文档的私有仓库描述不符。尚未上传，也未删除本地内容。
+Snapshot verified against remote commit a722572314b7a7a1626a47ec2a5a37dfea67af37 before removal: 3,871 recorded file hashes matched.
 
-包含 470 个候选路径（含共享和失效入口），3870 个文件，约 53.2 MiB。依赖及 Git 元数据排除，符号链接信息保存在 manifest.json。
+470 global entry paths removed, including 92 broken entries. 39 wiki/history skill names moved into the Wiki project. Plugin enablement was preserved. Runtime dependencies and Git metadata are excluded from the snapshot.
 
-上传前仍需完成内容敏感信息审查和恢复完整性检查。
+Remaining direct valid entries: Codex 65, shared Agents 92, Claude 164. Shared entries overlap; these are not unique skill counts. All three roots have zero broken symlinks.
+
+SHA256SUMS.json has been refreshed for the final receipt. The pre-cleanup checkpoint remains available at the commit above.
