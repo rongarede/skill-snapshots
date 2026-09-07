@@ -1,0 +1,10 @@
+commit	score	status	description
+BASELINE	5.16	keep	baseline (skill-full evaluation)
+b038c8c	6.18	keep	fix all flake8 warnings in top-level scripts (23 → 0): flake8_normalized 0.00 → 10.00
+43aadbc	7.24	keep	add docstrings to all functions in scripts/*.py: docstring_coverage 3.22 → 8.00 (100% coverage)
+528744b	8.56	keep	add trigger/constraints/error-handling sections to SKILL.md: definition_score 3.50 → 9.00; consistency_score 8.50 → 10.00
+c686b70	9.36	keep	refactor to reduce cyclomatic complexity: complexity_score 5.36 → 9.25 (max 16 → 8, avg 6.8 → 3.5)
+0b16aab	9.48	keep	fix pylint issues in 3 scripts: pylint_avg 9.47 → 10.00 (all 6 files at 10.00/10)
+02fc69f	4.00	keep	round-6 baseline (Phase scoring: P1=PASS,P2=PASS,P3=PASS,P4=PASS,P5=FAIL,P6=FAIL): blank page@p4, 232 CN-space issues, 21 missing captions; pytest 28pass/7fail
+7aabf23	4.00	discard	fix \b word-boundary false-positive in _parse_caption_index: 21 missing-caption false-positives eliminated; P5 still FAIL (blank page+CN spaces); score unchanged; pytest 29pass/6fail
+dda4198	6.00	keep	round-2 combined fix: caption regex (re-apply \b fix) + phase5 halfwidth skip patterns ((N) list numbering / theorem labels / ASCII parens) + phase6 list-marker spurious error; all 6 phases PASS (P1-P6=PASS)

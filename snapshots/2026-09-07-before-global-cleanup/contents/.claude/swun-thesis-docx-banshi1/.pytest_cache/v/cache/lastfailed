@@ -1,0 +1,10 @@
+{
+  "tests/test_build_integration.py::test_build_produces_identical_output": true,
+  "tests/modules/test_caption_profile.py::test_make_caption_para_matches_reference_caption_paragraph_properties": true,
+  "tests/modules/test_docx_builder.py::test_preprocess_latex_normalizes_chinese_double_quotes": true,
+  "tests/modules/test_docx_builder.py::test_preprocess_latex_normalizes_ascii_quotes_around_english_term_in_chinese_context": true,
+  "tests/test_build_integration.py::test_build_wraps_figure_table_and_bilingual_caption_into_atomic_container": true,
+  "tests/test_build_integration.py::test_build_clears_indent_for_equation_explanation_but_keeps_following_body_indent": true,
+  "tests/modules/test_style_processor.py::test_heading3_spacing_remains_unchanged": true,
+  "tests/test_build_integration.py::test_build_figure_caption_properties_match_reference_sample": true
+}
