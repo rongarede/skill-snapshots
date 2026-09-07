@@ -1,0 +1,16 @@
+{
+  "root_priority": [
+    "~/.codex/skills",
+    "~/.agents/skills",
+    "~/.claude/skills",
+    "~/.claude/plugins/marketplaces"
+  ],
+  "canonical_overrides": {
+    "docx": "~/.codex/skills/docx",
+    "pdf": "~/.codex/skills/pdf",
+    "pptx": "~/.agents/skills/pptx",
+    "scientific-writing": "~/.codex/skills/scientific-writing",
+    "skill-creator": "~/.codex/skills/.system/skill-creator",
+    "swun-thesis-docx-banshi1": "~/.codex/skills/swun-thesis-docx-banshi1"
+  }
+}

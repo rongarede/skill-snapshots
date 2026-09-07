@@ -1,0 +1,455 @@
+---
+name: task-dispatcher
+description: "路由开发任务到 Codex 执行。触发词：/dispatch、任务分派。默认 Codex 执行，自动拆分任务、设置验证、支持并发分派。"
+---
+
+# Task Dispatcher
+
+**核心策略**：任务细分 → 验证定义 → 并发分派 → Codex 执行 → 结果验收
+
+## 触发方式
+
+- `/dispatch <任务描述>`
+- `/task-dispatcher`
+- 检测到开发任务时自动触发
+
+## 核心原则
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  1. 先拆分，后执行 - 任务必须细分到单一职责               │
+│  2. 先验证，后分派 - 每个子任务必须有验证命令             │
+│  3. 可并发则并发 - 无依赖的任务并行执行                   │
+│  4. 失败有回退 - 预定义失败处理策略                       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 路由决策树
+
+```
+用户请求
+    │
+    ▼
+┌─────────────────────────────────┐
+│ 第一步：是否需要深度推理？       │
+│ (分析/设计/规划/调试/决策)      │
+└─────────────────────────────────┘
+    │                    │
+    ▼ 是                 ▼ 否
+┌─────────┐      ┌─────────────────┐
+│ Claude  │      │ 第二步：任务拆分 │
+│ 推理    │      └─────────────────┘
+└─────────┘              │
+    │                    ▼
+    │           ┌─────────────────────┐
+    │           │ 第三步：定义验证标准 │
+    │           │ (每个子任务)         │
+    │           └─────────────────────┘
+    │                    │
+    │                    ▼
+    │           ┌─────────────────────┐
+    │           │ 第四步：依赖分析     │
+    │           │ 识别可并发任务       │
+    │           └─────────────────────┘
+    │                    │
+    │                    ▼
+    │           ┌─────────────────────┐
+    │           │ 第五步：并发分派     │
+    │           │ Task(...) 多个调用  │
+    │           └─────────────────────┘
+    │                    │
+    ▼                    ▼
+┌─────────────────────────────────┐
+│ 第六步：验证结果                 │
+│ 通过 → 继续 / 失败 → 回退策略   │
+└─────────────────────────────────┘
+```
+
+## 第一步：任务拆分规则
+
+### 拆分原则
+
+| 原则 | 描述 | 示例 |
+|------|------|------|
+| 单一职责 | 一个子任务只做一件事 | ❌ "实现并测试登录" → ✅ "实现登录" + "测试登录" |
+| 单文件 | 一个子任务最多改一个文件 | ❌ "重构 A 和 B" → ✅ "重构 A" + "重构 B" |
+| 可验证 | 必须有明确的验证命令 | 每个子任务必须有对应的 `验证: xxx` |
+| 原子性 | 执行失败可独立回退 | 不影响其他子任务的状态 |
+
+### 拆分粒度标准
+
+```python
+def should_split(task):
+    # 必须拆分的情况
+    if "并" in task or "和" in task or "+" in task:
+        return True
+    if count_target_files(task) > 1:
+        return True
+    if has_multiple_verbs(task):  # 实现、测试、重构...
+        return True
+    if estimated_lines_changed(task) > 100:
+        return True
+    return False
+```
+
+### 拆分示例
+
+**输入**: "实现用户登录功能并添加单元测试"
+
+**拆分输出**:
+```yaml
+子任务:
+  - id: 1
+    描述: 实现 UserService.login() 方法
+    文件: src/services/user.ts
+    验证: "tsc --noEmit && grep -q 'login' src/services/user.ts"
+    依赖: []
+
+  - id: 2
+    描述: 实现登录 API 端点 POST /api/login
+    文件: src/routes/auth.ts
+    验证: "curl -X POST localhost:3000/api/login -d '{}' | jq .error"
+    依赖: [1]
+
+  - id: 3
+    描述: 编写 UserService.login 单元测试
+    文件: tests/user.test.ts
+    验证: "npm test -- --grep 'login'"
+    依赖: [1]
+```
+
+## 第二步：验证标准定义
+
+### 验证命令模板
+
+| 任务类型 | 验证命令模板 |
+|----------|--------------|
+| TypeScript 代码 | `tsc --noEmit` |
+| Rust 代码 | `cargo check` / `cargo build` |
+| 单元测试 | `npm test -- --grep '{pattern}'` / `pytest -k {pattern}` |
+| API 端点 | `curl -s {url} \| jq .{field}` |
+| 文件存在 | `test -f {path} && echo "OK"` |
+| 代码包含 | `grep -q '{pattern}' {file} && echo "OK"` |
+| Lint 通过 | `eslint {file} --quiet` / `cargo clippy` |
+| Build 通过 | `npm run build` / `cargo build --release` |
+
+### 验证规范
+
+```yaml
+验证:
+  命令: "npm test -- --grep 'login'"
+  预期: "exit_code == 0 && stdout contains 'passing'"
+  超时: 60s
+  重试: 2
+```
+
+### 验证失败判定
+
+```python
+def is_verification_failed(result):
+    # 明确失败
+    if result.exit_code != 0:
+        return True
+    # 输出包含错误标记
+    if any(err in result.stdout for err in ["FAIL", "Error", "error:"]):
+        return True
+    # 预期内容缺失
+    if expected_pattern and expected_pattern not in result.stdout:
+        return True
+    return False
+```
+
+## 第三步：失败回退策略
+
+### 回退策略矩阵
+
+| 失败类型 | 策略 | 行动 |
+|----------|------|------|
+| 编译错误 | Codex 重试 | 附加错误信息，让 Codex 修复 |
+| 测试失败 | Codex 重试 | 附加失败用例，让 Codex 修复 |
+| 逻辑错误 | Claude 介入 | Claude 分析根因，重新规划 |
+| 超时 | 重试 1 次 | 增加超时时间重试 |
+| 连续 2 次失败 | Claude 接管 | 停止 Codex，Claude 完全接管 |
+
+### 回退流程
+
+```
+Codex 执行子任务
+        │
+        ▼
+    验证结果
+        │
+    ┌───┴───┐
+    │       │
+   通过    失败
+    │       │
+    ▼       ▼
+  继续   ┌─────────────────┐
+  下个   │ 失败次数 < 2?   │
+  任务   └─────────────────┘
+              │         │
+             是        否
+              │         │
+              ▼         ▼
+        ┌─────────┐  ┌─────────┐
+        │ Codex   │  │ Claude  │
+        │ 重试    │  │ 接管    │
+        │ +错误   │  │ 分析    │
+        │  信息   │  │ 根因    │
+        └─────────┘  └─────────┘
+```
+
+### 重试 Prompt 模板
+
+```
+上次执行失败。
+
+错误信息:
+{error_output}
+
+失败的验证命令:
+{verification_command}
+
+请修复问题后重新执行。注意：
+1. 仔细阅读错误信息
+2. 只修改必要的部分
+3. 确保通过验证命令
+```
+
+## 第四步：并发分派策略
+
+### 依赖分析
+
+```python
+def analyze_dependencies(subtasks):
+    """
+    分析子任务依赖关系，返回执行批次
+    """
+    # 构建依赖图
+    graph = build_dependency_graph(subtasks)
+
+    # 拓扑排序，分层
+    batches = []
+    while graph.has_nodes():
+        # 无依赖的任务可并发执行
+        ready = [t for t in graph.nodes if graph.in_degree(t) == 0]
+        batches.append(ready)
+        graph.remove_nodes(ready)
+
+    return batches
+```
+
+### 并发执行规则
+
+| 条件 | 并发 | 原因 |
+|------|------|------|
+| 无依赖 | ✅ 并发 | 可独立执行 |
+| 不同文件 | ✅ 并发 | 无冲突 |
+| 同文件不同函数 | ⚠️ 串行 | 可能冲突 |
+| 有显式依赖 | ❌ 串行 | 必须等待 |
+| 共享状态 | ❌ 串行 | 避免竞态 |
+
+### 并发分派示例
+
+```python
+# 假设有 5 个子任务
+# 依赖关系: 3 依赖 1, 4 依赖 2, 5 依赖 3 和 4
+
+batches = [
+    [task_1, task_2],  # 第一批：并发执行
+    [task_3, task_4],  # 第二批：等第一批完成后并发
+    [task_5]           # 第三批：等第二批完成
+]
+
+# Claude 分派代码
+for batch in batches:
+    # 同一批次内的任务并发执行
+    # 使用单个消息包含多个 Task 调用
+    Task(subagent_type="codex-executor", prompt=task_1.prompt)
+    Task(subagent_type="codex-executor", prompt=task_2.prompt)
+    # 等待本批次全部完成
+    # 验证结果
+    # 处理失败
+```
+
+### 并发分派 Prompt 格式
+
+当需要并发执行多个独立任务时，在**单个消息**中调用多个 Task：
+
+```
+我将并发执行以下独立任务：
+
+批次 1 (并发):
+- 任务 1: {描述}
+- 任务 2: {描述}
+
+[同时调用多个 Task tool]
+```
+
+## 第五步：分派输出格式
+
+### 分派报告
+
+```markdown
+## 🔀 任务分派报告
+
+### 原始任务
+{original_task}
+
+### 拆分结果
+
+| # | 子任务 | 文件 | 验证命令 | 依赖 |
+|---|--------|------|----------|------|
+| 1 | {desc} | {file} | {verify} | - |
+| 2 | {desc} | {file} | {verify} | 1 |
+| 3 | {desc} | {file} | {verify} | 1 |
+
+### 执行计划
+
+```
+批次 1 (并发): [任务 1]
+批次 2 (并发): [任务 2, 任务 3]
+```
+
+### 失败回退
+- 编译失败: Codex 重试 (最多 2 次)
+- 测试失败: Codex 重试 + 错误信息
+- 连续失败: Claude 接管分析
+
+---
+开始执行...
+```
+
+## 委托模板
+
+### 标准 Codex 任务模板
+
+```
+## 任务
+{task_description}
+
+## 上下文
+- 项目: {project_path}
+- 目标文件: {target_file}
+- 相关文件: {related_files}
+
+## 要求
+{requirements}
+
+## 验证
+执行完成后，运行以下命令验证：
+```bash
+{verification_command}
+```
+
+预期结果: {expected_output}
+
+## 约束
+- 只修改目标文件
+- 保持代码风格一致
+- 不引入新依赖（除非必要）
+```
+
+### 重试任务模板
+
+```
+## 任务 (重试)
+{task_description}
+
+## 上次失败原因
+{error_message}
+
+## 失败的验证输出
+```
+{verification_output}
+```
+
+## 修复要求
+1. 分析上述错误
+2. 定位问题根因
+3. 实现修复
+4. 确保验证通过
+
+## 验证命令
+{verification_command}
+```
+
+## 完整示例
+
+### 示例：实现用户认证模块
+
+**输入**: "实现用户注册和登录功能"
+
+**第一步 - 拆分**:
+```yaml
+子任务:
+  - id: 1
+    描述: 创建 User 数据模型
+    文件: src/models/user.ts
+    验证: "tsc --noEmit src/models/user.ts"
+    依赖: []
+
+  - id: 2
+    描述: 实现 hashPassword 工具函数
+    文件: src/utils/crypto.ts
+    验证: "npm test -- --grep 'hashPassword'"
+    依赖: []
+
+  - id: 3
+    描述: 实现 UserService.register()
+    文件: src/services/user.ts
+    验证: "npm test -- --grep 'register'"
+    依赖: [1, 2]
+
+  - id: 4
+    描述: 实现 UserService.login()
+    文件: src/services/user.ts
+    验证: "npm test -- --grep 'login'"
+    依赖: [1, 2]
+
+  - id: 5
+    描述: 实现 POST /api/register 端点
+    文件: src/routes/auth.ts
+    验证: "curl -s -X POST localhost:3000/api/register -H 'Content-Type: application/json' -d '{\"email\":\"test@test.com\",\"password\":\"123456\"}' | jq .success"
+    依赖: [3]
+
+  - id: 6
+    描述: 实现 POST /api/login 端点
+    文件: src/routes/auth.ts
+    验证: "curl -s -X POST localhost:3000/api/login -H 'Content-Type: application/json' -d '{\"email\":\"test@test.com\",\"password\":\"123456\"}' | jq .token"
+    依赖: [4]
+```
+
+**第二步 - 依赖分析**:
+```
+批次 1 (并发): [任务 1, 任务 2]  # 无依赖，可并发
+批次 2 (并发): [任务 3, 任务 4]  # 依赖批次 1
+批次 3 (并发): [任务 5, 任务 6]  # 依赖批次 2
+```
+
+**第三步 - 执行**:
+```python
+# 批次 1：并发执行
+Task(subagent_type="codex-executor", prompt="创建 User 模型...")
+Task(subagent_type="codex-executor", prompt="实现 hashPassword...")
+# 等待 + 验证
+
+# 批次 2：并发执行
+Task(subagent_type="codex-executor", prompt="实现 register...")
+Task(subagent_type="codex-executor", prompt="实现 login...")
+# 等待 + 验证
+
+# 批次 3：并发执行
+Task(subagent_type="codex-executor", prompt="实现 /api/register...")
+Task(subagent_type="codex-executor", prompt="实现 /api/login...")
+# 等待 + 验证
+```
+
+## 注意事项
+
+1. **必须拆分**: 复杂任务必须拆分，禁止直接分派
+2. **必须验证**: 每个子任务必须有验证命令，禁止无验证分派
+3. **优先并发**: 无依赖任务必须并发执行，提高效率
+4. **及时回退**: 连续失败立即停止，Claude 介入分析
+5. **状态隔离**: 并发任务不能共享可变状态
+6. **用户可见**: 显示完整分派报告，保持透明

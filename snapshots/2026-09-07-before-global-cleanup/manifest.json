@@ -1,0 +1,2730 @@
+[
+  {
+    "path": "/Users/bit/.codex/skills/academic-researcher",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/academic-researcher"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/academic-writing",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/academic-writing"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/adaptyv",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/adaptyv",
+    "broken": false,
+    "snapshot": "contents/.codex/adaptyv"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/aeon",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/aeon",
+    "broken": false,
+    "snapshot": "contents/.codex/aeon"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/ai-vibe-writing-skills",
+    "link": "/Users/bit/.claude/skills/ai-vibe-writing-skills",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/alphafold-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/alphafold-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/anndata",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/anndata",
+    "broken": false,
+    "snapshot": "contents/.codex/anndata"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/arboreto",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/arboreto",
+    "broken": false,
+    "snapshot": "contents/.codex/arboreto"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/article-linker",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/article-linker"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/arxiv-search",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/arxiv-search"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/astropy",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/astropy",
+    "broken": false,
+    "snapshot": "contents/.codex/astropy"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/benchling-integration",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/benchling-integration",
+    "broken": false,
+    "snapshot": "contents/.codex/benchling-integration"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/biopython",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/biopython",
+    "broken": false,
+    "snapshot": "contents/.codex/biopython"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/biorxiv-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/biorxiv-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/bioservices",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/bioservices",
+    "broken": false,
+    "snapshot": "contents/.codex/bioservices"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/brenda-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/brenda-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/cellxgene-census",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/cellxgene-census",
+    "broken": false,
+    "snapshot": "contents/.codex/cellxgene-census"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/chembl-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/chembl-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/cirq",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/cirq",
+    "broken": false,
+    "snapshot": "contents/.codex/cirq"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/citation-management",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/citation-management",
+    "broken": false,
+    "snapshot": "contents/.codex/citation-management"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/claude-history-ingest",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/claude-history-ingest"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/clinical-decision-support",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/clinical-decision-support",
+    "broken": false,
+    "snapshot": "contents/.codex/clinical-decision-support"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/clinical-reports",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/clinical-reports",
+    "broken": false,
+    "snapshot": "contents/.codex/clinical-reports"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/clinicaltrials-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/clinicaltrials-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/clinpgx-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/clinpgx-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/clinvar-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/clinvar-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/cobrapy",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/cobrapy",
+    "broken": false,
+    "snapshot": "contents/.codex/cobrapy"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/codex-cli-runner",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/codex-cli-runner"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/codex-history-ingest",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/codex-history-ingest"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/codex-parser",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/codex-parser"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/collaborating-with-codex",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/collaborating-with-codex"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/collaborating-with-gemini",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/collaborating-with-gemini"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/collaborating-with-kimi",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/collaborating-with-kimi"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/continuous-learning",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/continuous-learning"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/continuous-learning-v2",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/continuous-learning-v2"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/copilot-history-ingest",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/copilot-history-ingest"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/cosmic-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/cosmic-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/cross-linker",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/cross-linker"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/daily-update",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/daily-update"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/dask",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/dask",
+    "broken": false,
+    "snapshot": "contents/.codex/dask"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/datacommons-client",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/datacommons-client",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/datamol",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/datamol",
+    "broken": false,
+    "snapshot": "contents/.codex/datamol"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/deepchem",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/deepchem",
+    "broken": false,
+    "snapshot": "contents/.codex/deepchem"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/deeptools",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/deeptools",
+    "broken": false,
+    "snapshot": "contents/.codex/deeptools"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/denario",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/denario",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/diffdock",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/diffdock",
+    "broken": false,
+    "snapshot": "contents/.codex/diffdock"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/dnanexus-integration",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/dnanexus-integration",
+    "broken": false,
+    "snapshot": "contents/.codex/dnanexus-integration"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/do-plan",
+    "link": "/Users/bit/.claude/plugins/marketplaces/thedotmack/openclaw/skills/do-plan",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/docx",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/docx"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/drugbank-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/drugbank-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/ena-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/ena-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/ensembl-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/ensembl-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/esm",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/esm",
+    "broken": false,
+    "snapshot": "contents/.codex/esm"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/etetoolkit",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/etetoolkit",
+    "broken": false,
+    "snapshot": "contents/.codex/etetoolkit"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/exploratory-data-analysis",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/exploratory-data-analysis",
+    "broken": false,
+    "snapshot": "contents/.codex/exploratory-data-analysis"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/fda-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/fda-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/feynman",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/feynman"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/flowio",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/flowio",
+    "broken": false,
+    "snapshot": "contents/.codex/flowio"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/fluidsim",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/fluidsim",
+    "broken": false,
+    "snapshot": "contents/.codex/fluidsim"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/fred-economic-data",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/fred-economic-data",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/gene-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/gene-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/generate-image",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/generate-image",
+    "broken": false,
+    "snapshot": "contents/.codex/generate-image"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/geniml",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/geniml",
+    "broken": false,
+    "snapshot": "contents/.codex/geniml"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/geo-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/geo-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/geopandas",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/geopandas",
+    "broken": false,
+    "snapshot": "contents/.codex/geopandas"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/get-available-resources",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/get-available-resources",
+    "broken": false,
+    "snapshot": "contents/.codex/get-available-resources"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/gget",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/gget",
+    "broken": false,
+    "snapshot": "contents/.codex/gget"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/graph-colorize",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/graph-colorize"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/gtars",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/gtars",
+    "broken": false,
+    "snapshot": "contents/.codex/gtars"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/gwas-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/gwas-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/hatch-pet",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/hatch-pet"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/hermes-history-ingest",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/hermes-history-ingest"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/histolab",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/histolab",
+    "broken": false,
+    "snapshot": "contents/.codex/histolab"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/hmdb-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/hmdb-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/hypogenic",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/hypogenic",
+    "broken": false,
+    "snapshot": "contents/.codex/hypogenic"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/hypothesis-generation",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/hypothesis-generation",
+    "broken": false,
+    "snapshot": "contents/.codex/hypothesis-generation"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/imaging-data-commons",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/imaging-data-commons",
+    "broken": false,
+    "snapshot": "contents/.codex/imaging-data-commons"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/impl-validator",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/impl-validator"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/infographics",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/infographics",
+    "broken": false,
+    "snapshot": "contents/.codex/infographics"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/iso-13485-certification",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/iso-13485-certification",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/kegg-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/kegg-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/labarchive-integration",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/labarchive-integration",
+    "broken": false,
+    "snapshot": "contents/.codex/labarchive-integration"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/lamindb",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/lamindb",
+    "broken": false,
+    "snapshot": "contents/.codex/lamindb"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/latchbio-integration",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/latchbio-integration",
+    "broken": false,
+    "snapshot": "contents/.codex/latchbio-integration"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/latex-posters",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/latex-posters",
+    "broken": false,
+    "snapshot": "contents/.codex/latex-posters"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/latex-sentence-surgery",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/latex-sentence-surgery"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/literature-review",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/literature-review",
+    "broken": false,
+    "snapshot": "contents/.codex/literature-review"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/llm-wiki",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/llm-wiki"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/make-plan",
+    "link": "/Users/bit/.claude/plugins/marketplaces/thedotmack/openclaw/skills/make-plan",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/market-research-reports",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/market-research-reports",
+    "broken": false,
+    "snapshot": "contents/.codex/market-research-reports"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/markitdown",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/markitdown",
+    "broken": false,
+    "snapshot": "contents/.codex/markitdown"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/matchms",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/matchms",
+    "broken": false,
+    "snapshot": "contents/.codex/matchms"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/matlab",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/matlab",
+    "broken": false,
+    "snapshot": "contents/.codex/matlab"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/matplotlib",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/matplotlib",
+    "broken": false,
+    "snapshot": "contents/.codex/matplotlib"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/medchem",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/medchem",
+    "broken": false,
+    "snapshot": "contents/.codex/medchem"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/mem-search",
+    "link": "/Users/bit/.claude/plugins/marketplaces/thedotmack/plugin/skills/mem-search",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/metabolomics-workbench-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/metabolomics-workbench-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/ml-paper-writing",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/ml-paper-writing"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/modal",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/modal",
+    "broken": false,
+    "snapshot": "contents/.codex/modal"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/molfeat",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/molfeat",
+    "broken": false,
+    "snapshot": "contents/.codex/molfeat"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/networkx",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/networkx",
+    "broken": false,
+    "snapshot": "contents/.codex/networkx"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/neurokit2",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/neurokit2",
+    "broken": false,
+    "snapshot": "contents/.codex/neurokit2"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/neuropixels-analysis",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/neuropixels-analysis",
+    "broken": false,
+    "snapshot": "contents/.codex/neuropixels-analysis"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/offer-k-dense-web",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/offer-k-dense-web",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/omero-integration",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/omero-integration",
+    "broken": false,
+    "snapshot": "contents/.codex/omero-integration"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/openalex-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/openalex-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/openclaw",
+    "link": "/Users/bit/.claude/plugins/marketplaces/thedotmack/openclaw",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/openclaw-history-ingest",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/openclaw-history-ingest"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/opentargets-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/opentargets-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/opentrons-integration",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/opentrons-integration",
+    "broken": false,
+    "snapshot": "contents/.codex/opentrons-integration"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/paper-2-web",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/paper-2-web",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/paper-mapping",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/paper-mapping"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/paper-readbook",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/paper-readbook"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/paragraph-move-analysis",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/paragraph-move-analysis"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/pathml",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/pathml",
+    "broken": false,
+    "snapshot": "contents/.codex/pathml"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/pdb-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/pdb-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/pdf",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/pdf"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/pdf2md-academic",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/pdf2md-academic"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/peer-review",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/peer-review",
+    "broken": false,
+    "snapshot": "contents/.codex/peer-review"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/pennylane",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/pennylane",
+    "broken": false,
+    "snapshot": "contents/.codex/pennylane"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/perplexity-search",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/perplexity-search",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/pi-history-ingest",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/pi-history-ingest"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/plan-writing",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/plan-writing"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/planning-with-files",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/planning-with-files"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/plotly",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/plotly",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/polars",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/polars",
+    "broken": false,
+    "snapshot": "contents/.codex/polars"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/pptx",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/pptx",
+    "broken": false,
+    "snapshot": "contents/.codex/pptx"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/pptx-posters",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/pptx-posters",
+    "broken": false,
+    "snapshot": "contents/.codex/pptx-posters"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/project-guidelines-example",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/project-guidelines-example"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/protocolsio-integration",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/protocolsio-integration",
+    "broken": false,
+    "snapshot": "contents/.codex/protocolsio-integration"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/pubchem-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/pubchem-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/pubmed-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/pubmed-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/pufferlib",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/pufferlib",
+    "broken": false,
+    "snapshot": "contents/.codex/pufferlib"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/pydeseq2",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/pydeseq2",
+    "broken": false,
+    "snapshot": "contents/.codex/pydeseq2"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/pydicom",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/pydicom",
+    "broken": false,
+    "snapshot": "contents/.codex/pydicom"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/pyhealth",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/pyhealth",
+    "broken": false,
+    "snapshot": "contents/.codex/pyhealth"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/pylabrobot",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/pylabrobot",
+    "broken": false,
+    "snapshot": "contents/.codex/pylabrobot"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/pymatgen",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/pymatgen",
+    "broken": false,
+    "snapshot": "contents/.codex/pymatgen"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/pymc",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/pymc",
+    "broken": false,
+    "snapshot": "contents/.codex/pymc"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/pymoo",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/pymoo",
+    "broken": false,
+    "snapshot": "contents/.codex/pymoo"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/pyopenms",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/pyopenms",
+    "broken": false,
+    "snapshot": "contents/.codex/pyopenms"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/pysam",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/pysam",
+    "broken": false,
+    "snapshot": "contents/.codex/pysam"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/pytdc",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/pytdc",
+    "broken": false,
+    "snapshot": "contents/.codex/pytdc"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/pytorch-lightning",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/pytorch-lightning",
+    "broken": false,
+    "snapshot": "contents/.codex/pytorch-lightning"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/qiskit",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/qiskit",
+    "broken": false,
+    "snapshot": "contents/.codex/qiskit"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/qutip",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/qutip",
+    "broken": false,
+    "snapshot": "contents/.codex/qutip"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/rdkit",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/rdkit",
+    "broken": false,
+    "snapshot": "contents/.codex/rdkit"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/reactome-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/reactome-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/rename-pdf",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/rename-pdf"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/research-grants",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/research-grants",
+    "broken": false,
+    "snapshot": "contents/.codex/research-grants"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/research-lookup",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/research-lookup",
+    "broken": false,
+    "snapshot": "contents/.codex/research-lookup"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/research-paper-writer",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/research-paper-writer"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/rowan",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/rowan",
+    "broken": false,
+    "snapshot": "contents/.codex/rowan"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/scanpy",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/scanpy",
+    "broken": false,
+    "snapshot": "contents/.codex/scanpy"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/scholar-evaluation",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/scholar-evaluation",
+    "broken": false,
+    "snapshot": "contents/.codex/scholar-evaluation"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/scientific-brainstorming",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/scientific-brainstorming",
+    "broken": false,
+    "snapshot": "contents/.codex/scientific-brainstorming"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/scientific-critical-thinking",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/scientific-critical-thinking",
+    "broken": false,
+    "snapshot": "contents/.codex/scientific-critical-thinking"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/scientific-schematics",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/scientific-schematics",
+    "broken": false,
+    "snapshot": "contents/.codex/scientific-schematics"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/scientific-slides",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/scientific-slides",
+    "broken": false,
+    "snapshot": "contents/.codex/scientific-slides"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/scientific-visualization",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/scientific-visualization",
+    "broken": false,
+    "snapshot": "contents/.codex/scientific-visualization"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/scientific-writing",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/scientific-writing"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/scikit-bio",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/scikit-bio",
+    "broken": false,
+    "snapshot": "contents/.codex/scikit-bio"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/scikit-learn",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/scikit-learn",
+    "broken": false,
+    "snapshot": "contents/.codex/scikit-learn"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/scikit-survival",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/scikit-survival",
+    "broken": false,
+    "snapshot": "contents/.codex/scikit-survival"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/scvi-tools",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/scvi-tools",
+    "broken": false,
+    "snapshot": "contents/.codex/scvi-tools"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/seaborn",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/seaborn",
+    "broken": false,
+    "snapshot": "contents/.codex/seaborn"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/section-logic-polisher",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/section-logic-polisher"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/shap",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/shap",
+    "broken": false,
+    "snapshot": "contents/.codex/shap"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/simpy",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/simpy",
+    "broken": false,
+    "snapshot": "contents/.codex/simpy"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/skill-authoring",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/skill-authoring"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/skill-catalog",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/skill-catalog"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/skill-retrospective",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/skill-retrospective"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/skill-snapshot",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/skill-snapshot"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/slack-gif-creator",
+    "link": "/Users/bit/.claude/plugins/marketplaces/anthropic-agent-skills/skills/slack-gif-creator",
+    "broken": false,
+    "snapshot": "contents/.codex/slack-gif-creator"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/stable-baselines3",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/stable-baselines3",
+    "broken": false,
+    "snapshot": "contents/.codex/stable-baselines3"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/statistical-analysis",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/statistical-analysis",
+    "broken": false,
+    "snapshot": "contents/.codex/statistical-analysis"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/statsmodels",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/statsmodels",
+    "broken": false,
+    "snapshot": "contents/.codex/statsmodels"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/string-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/string-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/style-harmonizer",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/style-harmonizer"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/sub-agents",
+    "link": "../../.agents/skills/sub-agents",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/subsection-polisher",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/subsection-polisher"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/swun-thesis-docx-banshi1",
+    "link": "../../.agents/skills/swun-thesis-docx-banshi1",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/sympy",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/sympy",
+    "broken": false,
+    "snapshot": "contents/.codex/sympy"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/sync-notebooklm-kb",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/sync-notebooklm-kb"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/tag-taxonomy",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/tag-taxonomy"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/task-dispatcher",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/task-dispatcher"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/template",
+    "link": "/Users/bit/.claude/plugins/marketplaces/anthropic-agent-skills/template",
+    "broken": false,
+    "snapshot": "contents/.codex/template"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/thesis-rewrite-review-orchestrator",
+    "link": "/Users/bit/.claude/skills/thesis-rewrite-review-orchestrator",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/torch_geometric",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/torch_geometric",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/torchdrug",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/torchdrug",
+    "broken": false,
+    "snapshot": "contents/.codex/torchdrug"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/transformers",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/transformers",
+    "broken": false,
+    "snapshot": "contents/.codex/transformers"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/treatment-plans",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/treatment-plans",
+    "broken": false,
+    "snapshot": "contents/.codex/treatment-plans"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/umap-learn",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/umap-learn",
+    "broken": false,
+    "snapshot": "contents/.codex/umap-learn"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/uniprot-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/uniprot-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/uspto-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/uspto-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.codex/skills/vaex",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/vaex",
+    "broken": false,
+    "snapshot": "contents/.codex/vaex"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/vault-skill-factory",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/vault-skill-factory"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/venue-templates",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/venue-templates",
+    "broken": false,
+    "snapshot": "contents/.codex/venue-templates"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/wiki-agent",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/wiki-agent"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/wiki-capture",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/wiki-capture"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/wiki-context-pack",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/wiki-context-pack"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/wiki-dashboard",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/wiki-dashboard"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/wiki-dedup",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/wiki-dedup"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/wiki-digest",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/wiki-digest"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/wiki-export",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/wiki-export"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/wiki-history-ingest",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/wiki-history-ingest"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/wiki-import",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/wiki-import"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/wiki-ingest",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/wiki-ingest"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/wiki-lint",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/wiki-lint"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/wiki-narrate",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/wiki-narrate"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/wiki-query",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/wiki-query"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/wiki-rebuild",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/wiki-rebuild"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/wiki-research",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/wiki-research"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/wiki-setup",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/wiki-setup"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/wiki-stage-commit",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/wiki-stage-commit"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/wiki-status",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/wiki-status"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/wiki-switch",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/wiki-switch"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/wiki-synthesize",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/wiki-synthesize"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/wiki-update",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/wiki-update"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/word-to-tex",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.codex/word-to-tex"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/xlsx",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/xlsx",
+    "broken": false,
+    "snapshot": "contents/.codex/xlsx"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/zarr-python",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/skills/zarr-python",
+    "broken": false,
+    "snapshot": "contents/.codex/zarr-python"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/zinc-database",
+    "link": "/Users/bit/.claude/plugins/marketplaces/claude-scientific-skills/scientific-skills/zinc-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/academic-researcher",
+    "link": "/Users/bit/.codex/skills/academic-researcher",
+    "broken": false,
+    "snapshot": "contents/.agents/academic-researcher"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/academic-writing",
+    "link": "/Users/bit/.codex/skills/academic-writing",
+    "broken": false,
+    "snapshot": "contents/.agents/academic-writing"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/adaptyv",
+    "link": "/Users/bit/.codex/skills/adaptyv",
+    "broken": false,
+    "snapshot": "contents/.agents/adaptyv"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/aeon",
+    "link": "/Users/bit/.codex/skills/aeon",
+    "broken": false,
+    "snapshot": "contents/.agents/aeon"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/ai-vibe-writing-skills",
+    "link": "/Users/bit/.codex/skills/ai-vibe-writing-skills",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/alphafold-database",
+    "link": "/Users/bit/.codex/skills/alphafold-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/anndata",
+    "link": "/Users/bit/.codex/skills/anndata",
+    "broken": false,
+    "snapshot": "contents/.agents/anndata"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/arboreto",
+    "link": "/Users/bit/.codex/skills/arboreto",
+    "broken": false,
+    "snapshot": "contents/.agents/arboreto"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/article-linker",
+    "link": "/Users/bit/.codex/skills/article-linker",
+    "broken": false,
+    "snapshot": "contents/.agents/article-linker"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/arxiv-search",
+    "link": "/Users/bit/.codex/skills/arxiv-search",
+    "broken": false,
+    "snapshot": "contents/.agents/arxiv-search"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/astropy",
+    "link": "/Users/bit/.codex/skills/astropy",
+    "broken": false,
+    "snapshot": "contents/.agents/astropy"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/benchling-integration",
+    "link": "/Users/bit/.codex/skills/benchling-integration",
+    "broken": false,
+    "snapshot": "contents/.agents/benchling-integration"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/biopython",
+    "link": "/Users/bit/.codex/skills/biopython",
+    "broken": false,
+    "snapshot": "contents/.agents/biopython"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/biorxiv-database",
+    "link": "/Users/bit/.codex/skills/biorxiv-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/bioservices",
+    "link": "/Users/bit/.codex/skills/bioservices",
+    "broken": false,
+    "snapshot": "contents/.agents/bioservices"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/brenda-database",
+    "link": "/Users/bit/.codex/skills/brenda-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/cellxgene-census",
+    "link": "/Users/bit/.codex/skills/cellxgene-census",
+    "broken": false,
+    "snapshot": "contents/.agents/cellxgene-census"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/chembl-database",
+    "link": "/Users/bit/.codex/skills/chembl-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/cirq",
+    "link": "/Users/bit/.codex/skills/cirq",
+    "broken": false,
+    "snapshot": "contents/.agents/cirq"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/citation-management",
+    "link": "/Users/bit/.codex/skills/citation-management",
+    "broken": false,
+    "snapshot": "contents/.agents/citation-management"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/claude-handoff",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.agents/claude-handoff"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/clinical-decision-support",
+    "link": "/Users/bit/.codex/skills/clinical-decision-support",
+    "broken": false,
+    "snapshot": "contents/.agents/clinical-decision-support"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/clinical-reports",
+    "link": "/Users/bit/.codex/skills/clinical-reports",
+    "broken": false,
+    "snapshot": "contents/.agents/clinical-reports"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/clinicaltrials-database",
+    "link": "/Users/bit/.codex/skills/clinicaltrials-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/clinpgx-database",
+    "link": "/Users/bit/.codex/skills/clinpgx-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/clinvar-database",
+    "link": "/Users/bit/.codex/skills/clinvar-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/cobrapy",
+    "link": "/Users/bit/.codex/skills/cobrapy",
+    "broken": false,
+    "snapshot": "contents/.agents/cobrapy"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/code-review",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.agents/code-review"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/codebase-design",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.agents/codebase-design"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/codex-cli-runner",
+    "link": "/Users/bit/.codex/skills/codex-cli-runner",
+    "broken": false,
+    "snapshot": "contents/.agents/codex-cli-runner"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/codex-parser",
+    "link": "/Users/bit/.codex/skills/codex-parser",
+    "broken": false,
+    "snapshot": "contents/.agents/codex-parser"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/collaborating-with-codex",
+    "link": "/Users/bit/.codex/skills/collaborating-with-codex",
+    "broken": false,
+    "snapshot": "contents/.agents/collaborating-with-codex"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/collaborating-with-gemini",
+    "link": "/Users/bit/.codex/skills/collaborating-with-gemini",
+    "broken": false,
+    "snapshot": "contents/.agents/collaborating-with-gemini"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/collaborating-with-kimi",
+    "link": "/Users/bit/.codex/skills/collaborating-with-kimi",
+    "broken": false,
+    "snapshot": "contents/.agents/collaborating-with-kimi"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/continuous-learning",
+    "link": "/Users/bit/.codex/skills/continuous-learning",
+    "broken": false,
+    "snapshot": "contents/.agents/continuous-learning"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/continuous-learning-v2",
+    "link": "/Users/bit/.codex/skills/continuous-learning-v2",
+    "broken": false,
+    "snapshot": "contents/.agents/continuous-learning-v2"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/cosmic-database",
+    "link": "/Users/bit/.codex/skills/cosmic-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/dask",
+    "link": "/Users/bit/.codex/skills/dask",
+    "broken": false,
+    "snapshot": "contents/.agents/dask"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/datacommons-client",
+    "link": "/Users/bit/.codex/skills/datacommons-client",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/datamol",
+    "link": "/Users/bit/.codex/skills/datamol",
+    "broken": false,
+    "snapshot": "contents/.agents/datamol"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/deepchem",
+    "link": "/Users/bit/.codex/skills/deepchem",
+    "broken": false,
+    "snapshot": "contents/.agents/deepchem"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/deepresearch",
+    "link": "/Users/bit/.codex/skills/deep-research",
+    "broken": false,
+    "snapshot": "contents/.agents/deepresearch"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/deeptools",
+    "link": "/Users/bit/.codex/skills/deeptools",
+    "broken": false,
+    "snapshot": "contents/.agents/deeptools"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/denario",
+    "link": "/Users/bit/.codex/skills/denario",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/diagnosing-bugs",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.agents/diagnosing-bugs"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/diffdock",
+    "link": "/Users/bit/.codex/skills/diffdock",
+    "broken": false,
+    "snapshot": "contents/.agents/diffdock"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/dnanexus-integration",
+    "link": "/Users/bit/.codex/skills/dnanexus-integration",
+    "broken": false,
+    "snapshot": "contents/.agents/dnanexus-integration"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/do-plan",
+    "link": "/Users/bit/.codex/skills/do-plan",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/doc",
+    "link": "/Users/bit/.codex/skills/doc",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/docx",
+    "link": "/Users/bit/.codex/skills/docx",
+    "broken": false,
+    "snapshot": "contents/.agents/docx"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/drugbank-database",
+    "link": "/Users/bit/.codex/skills/drugbank-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/ena-database",
+    "link": "/Users/bit/.codex/skills/ena-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/ensembl-database",
+    "link": "/Users/bit/.codex/skills/ensembl-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/esm",
+    "link": "/Users/bit/.codex/skills/esm",
+    "broken": false,
+    "snapshot": "contents/.agents/esm"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/etetoolkit",
+    "link": "/Users/bit/.codex/skills/etetoolkit",
+    "broken": false,
+    "snapshot": "contents/.agents/etetoolkit"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/exploratory-data-analysis",
+    "link": "/Users/bit/.codex/skills/exploratory-data-analysis",
+    "broken": false,
+    "snapshot": "contents/.agents/exploratory-data-analysis"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/fda-database",
+    "link": "/Users/bit/.codex/skills/fda-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/feynman",
+    "link": "/Users/bit/.codex/skills/feynman",
+    "broken": false,
+    "snapshot": "contents/.agents/feynman"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/flowio",
+    "link": "/Users/bit/.codex/skills/flowio",
+    "broken": false,
+    "snapshot": "contents/.agents/flowio"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/fluidsim",
+    "link": "/Users/bit/.codex/skills/fluidsim",
+    "broken": false,
+    "snapshot": "contents/.agents/fluidsim"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/fred-economic-data",
+    "link": "/Users/bit/.codex/skills/fred-economic-data",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/gene-database",
+    "link": "/Users/bit/.codex/skills/gene-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/generate-image",
+    "link": "/Users/bit/.codex/skills/generate-image",
+    "broken": false,
+    "snapshot": "contents/.agents/generate-image"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/geniml",
+    "link": "/Users/bit/.codex/skills/geniml",
+    "broken": false,
+    "snapshot": "contents/.agents/geniml"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/geo-database",
+    "link": "/Users/bit/.codex/skills/geo-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/geopandas",
+    "link": "/Users/bit/.codex/skills/geopandas",
+    "broken": false,
+    "snapshot": "contents/.agents/geopandas"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/get-available-resources",
+    "link": "/Users/bit/.codex/skills/get-available-resources",
+    "broken": false,
+    "snapshot": "contents/.agents/get-available-resources"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/gget",
+    "link": "/Users/bit/.codex/skills/gget",
+    "broken": false,
+    "snapshot": "contents/.agents/gget"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/gtars",
+    "link": "/Users/bit/.codex/skills/gtars",
+    "broken": false,
+    "snapshot": "contents/.agents/gtars"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/gwas-database",
+    "link": "/Users/bit/.codex/skills/gwas-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/handoff",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.agents/handoff"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/hatch-pet",
+    "link": "/Users/bit/.codex/skills/hatch-pet",
+    "broken": false,
+    "snapshot": "contents/.agents/hatch-pet"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/histolab",
+    "link": "/Users/bit/.codex/skills/histolab",
+    "broken": false,
+    "snapshot": "contents/.agents/histolab"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/hmdb-database",
+    "link": "/Users/bit/.codex/skills/hmdb-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/hypogenic",
+    "link": "/Users/bit/.codex/skills/hypogenic",
+    "broken": false,
+    "snapshot": "contents/.agents/hypogenic"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/hypothesis-generation",
+    "link": "/Users/bit/.codex/skills/hypothesis-generation",
+    "broken": false,
+    "snapshot": "contents/.agents/hypothesis-generation"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/imaging-data-commons",
+    "link": "/Users/bit/.codex/skills/imaging-data-commons",
+    "broken": false,
+    "snapshot": "contents/.agents/imaging-data-commons"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/infographics",
+    "link": "/Users/bit/.codex/skills/infographics",
+    "broken": false,
+    "snapshot": "contents/.agents/infographics"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/iso-13485-certification",
+    "link": "/Users/bit/.codex/skills/iso-13485-certification",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/kegg-database",
+    "link": "/Users/bit/.codex/skills/kegg-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/labarchive-integration",
+    "link": "/Users/bit/.codex/skills/labarchive-integration",
+    "broken": false,
+    "snapshot": "contents/.agents/labarchive-integration"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/lamindb",
+    "link": "/Users/bit/.codex/skills/lamindb",
+    "broken": false,
+    "snapshot": "contents/.agents/lamindb"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/latchbio-integration",
+    "link": "/Users/bit/.codex/skills/latchbio-integration",
+    "broken": false,
+    "snapshot": "contents/.agents/latchbio-integration"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/latex-figure-table-layout",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.agents/latex-figure-table-layout"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/latex-posters",
+    "link": "/Users/bit/.codex/skills/latex-posters",
+    "broken": false,
+    "snapshot": "contents/.agents/latex-posters"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/latex-sentence-surgery",
+    "link": "/Users/bit/.codex/skills/latex-sentence-surgery",
+    "broken": false,
+    "snapshot": "contents/.agents/latex-sentence-surgery"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/literature-review",
+    "link": "/Users/bit/.codex/skills/literature-review",
+    "broken": false,
+    "snapshot": "contents/.agents/literature-review"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/make-plan",
+    "link": "/Users/bit/.codex/skills/make-plan",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/market-research-reports",
+    "link": "/Users/bit/.codex/skills/market-research-reports",
+    "broken": false,
+    "snapshot": "contents/.agents/market-research-reports"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/markitdown",
+    "link": "/Users/bit/.codex/skills/markitdown",
+    "broken": false,
+    "snapshot": "contents/.agents/markitdown"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/matchms",
+    "link": "/Users/bit/.codex/skills/matchms",
+    "broken": false,
+    "snapshot": "contents/.agents/matchms"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/matlab",
+    "link": "/Users/bit/.codex/skills/matlab",
+    "broken": false,
+    "snapshot": "contents/.agents/matlab"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/matplotlib",
+    "link": "/Users/bit/.codex/skills/matplotlib",
+    "broken": false,
+    "snapshot": "contents/.agents/matplotlib"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/medchem",
+    "link": "/Users/bit/.codex/skills/medchem",
+    "broken": false,
+    "snapshot": "contents/.agents/medchem"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/mem-search",
+    "link": "/Users/bit/.codex/skills/mem-search",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/metabolomics-workbench-database",
+    "link": "/Users/bit/.codex/skills/metabolomics-workbench-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/ml-paper-writing",
+    "link": "/Users/bit/.codex/skills/ml-paper-writing",
+    "broken": false,
+    "snapshot": "contents/.agents/ml-paper-writing"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/modal",
+    "link": "/Users/bit/.codex/skills/modal",
+    "broken": false,
+    "snapshot": "contents/.agents/modal"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/molfeat",
+    "link": "/Users/bit/.codex/skills/molfeat",
+    "broken": false,
+    "snapshot": "contents/.agents/molfeat"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/networkx",
+    "link": "/Users/bit/.codex/skills/networkx",
+    "broken": false,
+    "snapshot": "contents/.agents/networkx"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/neurokit2",
+    "link": "/Users/bit/.codex/skills/neurokit2",
+    "broken": false,
+    "snapshot": "contents/.agents/neurokit2"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/neuropixels-analysis",
+    "link": "/Users/bit/.codex/skills/neuropixels-analysis",
+    "broken": false,
+    "snapshot": "contents/.agents/neuropixels-analysis"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/offer-k-dense-web",
+    "link": "/Users/bit/.codex/skills/offer-k-dense-web",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/omero-integration",
+    "link": "/Users/bit/.codex/skills/omero-integration",
+    "broken": false,
+    "snapshot": "contents/.agents/omero-integration"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/openalex-database",
+    "link": "/Users/bit/.codex/skills/openalex-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/openclaw",
+    "link": "/Users/bit/.codex/skills/openclaw",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/opentargets-database",
+    "link": "/Users/bit/.codex/skills/opentargets-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/opentrons-integration",
+    "link": "/Users/bit/.codex/skills/opentrons-integration",
+    "broken": false,
+    "snapshot": "contents/.agents/opentrons-integration"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/paper-2-web",
+    "link": "/Users/bit/.codex/skills/paper-2-web",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/paper-mapping",
+    "link": "/Users/bit/.codex/skills/paper-mapping",
+    "broken": false,
+    "snapshot": "contents/.agents/paper-mapping"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/paper-readbook",
+    "link": "/Users/bit/.codex/skills/paper-readbook",
+    "broken": false,
+    "snapshot": "contents/.agents/paper-readbook"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/paper-wiki",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.agents/paper-wiki"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/paragraph-move-analysis",
+    "link": "/Users/bit/.codex/skills/paragraph-move-analysis",
+    "broken": false,
+    "snapshot": "contents/.agents/paragraph-move-analysis"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/pathml",
+    "link": "/Users/bit/.codex/skills/pathml",
+    "broken": false,
+    "snapshot": "contents/.agents/pathml"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/pdb-database",
+    "link": "/Users/bit/.codex/skills/pdb-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/pdf",
+    "link": "/Users/bit/.codex/skills/pdf",
+    "broken": false,
+    "snapshot": "contents/.agents/pdf"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/pdf2md-academic",
+    "link": "/Users/bit/.codex/skills/pdf2md-academic",
+    "broken": false,
+    "snapshot": "contents/.agents/pdf2md-academic"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/peer-review",
+    "link": "/Users/bit/.codex/skills/peer-review",
+    "broken": false,
+    "snapshot": "contents/.agents/peer-review"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/pennylane",
+    "link": "/Users/bit/.codex/skills/pennylane",
+    "broken": false,
+    "snapshot": "contents/.agents/pennylane"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/perplexity-search",
+    "link": "/Users/bit/.codex/skills/perplexity-search",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/plan-writing",
+    "link": "/Users/bit/.codex/skills/plan-writing",
+    "broken": false,
+    "snapshot": "contents/.agents/plan-writing"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/planning-with-files",
+    "link": "/Users/bit/.codex/skills/planning-with-files",
+    "broken": false,
+    "snapshot": "contents/.agents/planning-with-files"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/plotly",
+    "link": "/Users/bit/.codex/skills/plotly",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/polars",
+    "link": "/Users/bit/.codex/skills/polars",
+    "broken": false,
+    "snapshot": "contents/.agents/polars"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/pptx",
+    "link": "/Users/bit/.codex/skills/pptx",
+    "broken": false,
+    "snapshot": "contents/.agents/pptx"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/pptx-posters",
+    "link": "/Users/bit/.codex/skills/pptx-posters",
+    "broken": false,
+    "snapshot": "contents/.agents/pptx-posters"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/project-guidelines-example",
+    "link": "/Users/bit/.codex/skills/project-guidelines-example",
+    "broken": false,
+    "snapshot": "contents/.agents/project-guidelines-example"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/protocolsio-integration",
+    "link": "/Users/bit/.codex/skills/protocolsio-integration",
+    "broken": false,
+    "snapshot": "contents/.agents/protocolsio-integration"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/pubchem-database",
+    "link": "/Users/bit/.codex/skills/pubchem-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/pubmed-database",
+    "link": "/Users/bit/.codex/skills/pubmed-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/pufferlib",
+    "link": "/Users/bit/.codex/skills/pufferlib",
+    "broken": false,
+    "snapshot": "contents/.agents/pufferlib"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/pydeseq2",
+    "link": "/Users/bit/.codex/skills/pydeseq2",
+    "broken": false,
+    "snapshot": "contents/.agents/pydeseq2"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/pydicom",
+    "link": "/Users/bit/.codex/skills/pydicom",
+    "broken": false,
+    "snapshot": "contents/.agents/pydicom"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/pyhealth",
+    "link": "/Users/bit/.codex/skills/pyhealth",
+    "broken": false,
+    "snapshot": "contents/.agents/pyhealth"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/pylabrobot",
+    "link": "/Users/bit/.codex/skills/pylabrobot",
+    "broken": false,
+    "snapshot": "contents/.agents/pylabrobot"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/pymatgen",
+    "link": "/Users/bit/.codex/skills/pymatgen",
+    "broken": false,
+    "snapshot": "contents/.agents/pymatgen"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/pymc",
+    "link": "/Users/bit/.codex/skills/pymc",
+    "broken": false,
+    "snapshot": "contents/.agents/pymc"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/pymoo",
+    "link": "/Users/bit/.codex/skills/pymoo",
+    "broken": false,
+    "snapshot": "contents/.agents/pymoo"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/pyopenms",
+    "link": "/Users/bit/.codex/skills/pyopenms",
+    "broken": false,
+    "snapshot": "contents/.agents/pyopenms"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/pysam",
+    "link": "/Users/bit/.codex/skills/pysam",
+    "broken": false,
+    "snapshot": "contents/.agents/pysam"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/pytdc",
+    "link": "/Users/bit/.codex/skills/pytdc",
+    "broken": false,
+    "snapshot": "contents/.agents/pytdc"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/pytorch-lightning",
+    "link": "/Users/bit/.codex/skills/pytorch-lightning",
+    "broken": false,
+    "snapshot": "contents/.agents/pytorch-lightning"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/qiskit",
+    "link": "/Users/bit/.codex/skills/qiskit",
+    "broken": false,
+    "snapshot": "contents/.agents/qiskit"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/qutip",
+    "link": "/Users/bit/.codex/skills/qutip",
+    "broken": false,
+    "snapshot": "contents/.agents/qutip"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/rdkit",
+    "link": "/Users/bit/.codex/skills/rdkit",
+    "broken": false,
+    "snapshot": "contents/.agents/rdkit"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/reactome-database",
+    "link": "/Users/bit/.codex/skills/reactome-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/rename-pdf",
+    "link": "/Users/bit/.codex/skills/rename-pdf",
+    "broken": false,
+    "snapshot": "contents/.agents/rename-pdf"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/research-grants",
+    "link": "/Users/bit/.codex/skills/research-grants",
+    "broken": false,
+    "snapshot": "contents/.agents/research-grants"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/research-lookup",
+    "link": "/Users/bit/.codex/skills/research-lookup",
+    "broken": false,
+    "snapshot": "contents/.agents/research-lookup"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/research-paper-writer",
+    "link": "/Users/bit/.codex/skills/research-paper-writer",
+    "broken": false,
+    "snapshot": "contents/.agents/research-paper-writer"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/rowan",
+    "link": "/Users/bit/.codex/skills/rowan",
+    "broken": false,
+    "snapshot": "contents/.agents/rowan"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/scanpy",
+    "link": "/Users/bit/.codex/skills/scanpy",
+    "broken": false,
+    "snapshot": "contents/.agents/scanpy"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/scholar-evaluation",
+    "link": "/Users/bit/.codex/skills/scholar-evaluation",
+    "broken": false,
+    "snapshot": "contents/.agents/scholar-evaluation"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/scientific-brainstorming",
+    "link": "/Users/bit/.codex/skills/scientific-brainstorming",
+    "broken": false,
+    "snapshot": "contents/.agents/scientific-brainstorming"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/scientific-critical-thinking",
+    "link": "/Users/bit/.codex/skills/scientific-critical-thinking",
+    "broken": false,
+    "snapshot": "contents/.agents/scientific-critical-thinking"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/scientific-schematics",
+    "link": "/Users/bit/.codex/skills/scientific-schematics",
+    "broken": false,
+    "snapshot": "contents/.agents/scientific-schematics"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/scientific-slides",
+    "link": "/Users/bit/.codex/skills/scientific-slides",
+    "broken": false,
+    "snapshot": "contents/.agents/scientific-slides"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/scientific-visualization",
+    "link": "/Users/bit/.codex/skills/scientific-visualization",
+    "broken": false,
+    "snapshot": "contents/.agents/scientific-visualization"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/scientific-writing",
+    "link": "/Users/bit/.codex/skills/scientific-writing",
+    "broken": false,
+    "snapshot": "contents/.agents/scientific-writing"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/scikit-bio",
+    "link": "/Users/bit/.codex/skills/scikit-bio",
+    "broken": false,
+    "snapshot": "contents/.agents/scikit-bio"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/scikit-learn",
+    "link": "/Users/bit/.codex/skills/scikit-learn",
+    "broken": false,
+    "snapshot": "contents/.agents/scikit-learn"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/scikit-survival",
+    "link": "/Users/bit/.codex/skills/scikit-survival",
+    "broken": false,
+    "snapshot": "contents/.agents/scikit-survival"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/scvi-tools",
+    "link": "/Users/bit/.codex/skills/scvi-tools",
+    "broken": false,
+    "snapshot": "contents/.agents/scvi-tools"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/seaborn",
+    "link": "/Users/bit/.codex/skills/seaborn",
+    "broken": false,
+    "snapshot": "contents/.agents/seaborn"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/second-brain",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.agents/second-brain"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/second-brain-ingest",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.agents/second-brain-ingest"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/second-brain-lint",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.agents/second-brain-lint"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/second-brain-query",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.agents/second-brain-query"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/section-logic-polisher",
+    "link": "/Users/bit/.codex/skills/section-logic-polisher",
+    "broken": false,
+    "snapshot": "contents/.agents/section-logic-polisher"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/shap",
+    "link": "/Users/bit/.codex/skills/shap",
+    "broken": false,
+    "snapshot": "contents/.agents/shap"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/simpy",
+    "link": "/Users/bit/.codex/skills/simpy",
+    "broken": false,
+    "snapshot": "contents/.agents/simpy"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/skill-authoring",
+    "link": "/Users/bit/.codex/skills/skill-authoring",
+    "broken": false,
+    "snapshot": "contents/.agents/skill-authoring"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/skill-catalog",
+    "link": "/Users/bit/.codex/skills/skill-catalog",
+    "broken": false,
+    "snapshot": "contents/.agents/skill-catalog"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/skill-retrospective",
+    "link": "/Users/bit/.codex/skills/skill-retrospective",
+    "broken": false,
+    "snapshot": "contents/.agents/skill-retrospective"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/skill-snapshot",
+    "link": "/Users/bit/.codex/skills/skill-snapshot",
+    "broken": false,
+    "snapshot": "contents/.agents/skill-snapshot"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/slack-gif-creator",
+    "link": "/Users/bit/.codex/skills/slack-gif-creator",
+    "broken": false,
+    "snapshot": "contents/.agents/slack-gif-creator"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/stable-baselines3",
+    "link": "/Users/bit/.codex/skills/stable-baselines3",
+    "broken": false,
+    "snapshot": "contents/.agents/stable-baselines3"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/statistical-analysis",
+    "link": "/Users/bit/.codex/skills/statistical-analysis",
+    "broken": false,
+    "snapshot": "contents/.agents/statistical-analysis"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/statsmodels",
+    "link": "/Users/bit/.codex/skills/statsmodels",
+    "broken": false,
+    "snapshot": "contents/.agents/statsmodels"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/string-database",
+    "link": "/Users/bit/.codex/skills/string-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/style-harmonizer",
+    "link": "/Users/bit/.codex/skills/style-harmonizer",
+    "broken": false,
+    "snapshot": "contents/.agents/style-harmonizer"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/sub-agents",
+    "link": "/Users/bit/.codex/skills/sub-agents",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/subsection-polisher",
+    "link": "/Users/bit/.codex/skills/subsection-polisher",
+    "broken": false,
+    "snapshot": "contents/.agents/subsection-polisher"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/swun-thesis-docx-banshi1",
+    "link": "/Users/bit/.codex/skills/swun-thesis-docx-banshi1",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/sympy",
+    "link": "/Users/bit/.codex/skills/sympy",
+    "broken": false,
+    "snapshot": "contents/.agents/sympy"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/sync-notebooklm-kb",
+    "link": "/Users/bit/.codex/skills/sync-notebooklm-kb",
+    "broken": false,
+    "snapshot": "contents/.agents/sync-notebooklm-kb"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/task-dispatcher",
+    "link": "/Users/bit/.codex/skills/task-dispatcher",
+    "broken": false,
+    "snapshot": "contents/.agents/task-dispatcher"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/tdd",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.agents/tdd"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/template",
+    "link": "/Users/bit/.codex/skills/template",
+    "broken": false,
+    "snapshot": "contents/.agents/template"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/thesis-rewrite-review-orchestrator",
+    "link": "/Users/bit/.codex/skills/thesis-rewrite-review-orchestrator",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/torch_geometric",
+    "link": "/Users/bit/.codex/skills/torch_geometric",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/torchdrug",
+    "link": "/Users/bit/.codex/skills/torchdrug",
+    "broken": false,
+    "snapshot": "contents/.agents/torchdrug"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/transformers",
+    "link": "/Users/bit/.codex/skills/transformers",
+    "broken": false,
+    "snapshot": "contents/.agents/transformers"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/treatment-plans",
+    "link": "/Users/bit/.codex/skills/treatment-plans",
+    "broken": false,
+    "snapshot": "contents/.agents/treatment-plans"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/umap-learn",
+    "link": "/Users/bit/.codex/skills/umap-learn",
+    "broken": false,
+    "snapshot": "contents/.agents/umap-learn"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/uniprot-database",
+    "link": "/Users/bit/.codex/skills/uniprot-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/uspto-database",
+    "link": "/Users/bit/.codex/skills/uspto-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.agents/skills/vaex",
+    "link": "/Users/bit/.codex/skills/vaex",
+    "broken": false,
+    "snapshot": "contents/.agents/vaex"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/venue-templates",
+    "link": "/Users/bit/.codex/skills/venue-templates",
+    "broken": false,
+    "snapshot": "contents/.agents/venue-templates"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/word-to-tex",
+    "link": "/Users/bit/.codex/skills/word-to-tex",
+    "broken": false,
+    "snapshot": "contents/.agents/word-to-tex"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/xlsx",
+    "link": "/Users/bit/.codex/skills/xlsx",
+    "broken": false,
+    "snapshot": "contents/.agents/xlsx"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/zarr-python",
+    "link": "/Users/bit/.codex/skills/zarr-python",
+    "broken": false,
+    "snapshot": "contents/.agents/zarr-python"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/zinc-database",
+    "link": "/Users/bit/.codex/skills/zinc-database",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.claude/skills/academic-researcher",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/academic-researcher"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/academic-writing",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/academic-writing"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/agent-orchestration",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/agent-orchestration"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/agentic-workflow-orchestration",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/agentic-workflow-orchestration"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/arxiv-search",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/arxiv-search"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/autonomous-orchestrator",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/autonomous-orchestrator"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/brainstorming",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/brainstorming"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/collaborating-with-codex",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/collaborating-with-codex"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/collaborating-with-gemini",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/collaborating-with-gemini"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/collaborating-with-kimi",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/collaborating-with-kimi"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/council",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/council"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/deep-research.bak-claude-20260724",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/deep-research.bak-claude-20260724"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/deepresearch",
+    "link": "/Users/bit/.codex/skills/deep-research",
+    "broken": false,
+    "snapshot": "contents/.claude/deepresearch"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/docx",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/docx"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/executing-plans",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/executing-plans"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/latex-figure-table-layout",
+    "link": "../../.agents/skills/latex-figure-table-layout",
+    "broken": false,
+    "snapshot": "contents/.claude/latex-figure-table-layout"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/latex-thesis-zh",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/latex-thesis-zh"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/manuscript-review",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/manuscript-review"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/ml-paper-writing",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/ml-paper-writing"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/openalex-database",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/openalex-database"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/orchestrator",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/orchestrator"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/pdf",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/pdf"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/planning-workflow",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/planning-workflow"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/pptx",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/pptx"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/requesting-code-review",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/requesting-code-review"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/research-paper-writer",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/research-paper-writer"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/sci-hub-download",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/sci-hub-download"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/scientific-writing",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/scientific-writing"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/section-logic-polisher",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/section-logic-polisher"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/self-improvement",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/self-improvement"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/semantic-scholar",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/semantic-scholar"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/skill-catalog",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/skill-catalog"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/skill-consolidator",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/skill-consolidator"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/skill-evolution",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/skill-evolution"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/skill-manager",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/skill-manager"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/skill-snapshot",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/skill-snapshot"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/style-harmonizer",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/style-harmonizer"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/sub-agents",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/sub-agents"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/subsection-polisher",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/subsection-polisher"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/superpowers",
+    "link": "/Users/bit/.codex/superpowers/skills",
+    "broken": true
+  },
+  {
+    "path": "/Users/bit/.claude/skills/swun-thesis-docx-banshi1",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/swun-thesis-docx-banshi1"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/systematic-debugging",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/systematic-debugging"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/test-driven-development",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/test-driven-development"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/writing-plans",
+    "link": null,
+    "broken": false,
+    "snapshot": "contents/.claude/writing-plans"
+  }
+]

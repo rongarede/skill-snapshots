@@ -1,0 +1,14 @@
+{
+  "skills": ["orchestrator"],
+  "query": "/orchestrator",
+  "files": [],
+  "expected_behavior": [
+    "Agent dispatches to the full orchestration guide due to empty arguments after the skill name",
+    "Agent applies the Decomposition Gate (Section 0) to the current request context",
+    "Agent performs all 6 gate steps: DECOMPOSE actions, CLASSIFY independent vs dependent, MAXIMIZE parallelism opportunities, CONFLICT CHECK for same-file edits, DISPATCH via Pattern E (teams + nested waves) by default, TRACK via TaskCreate",
+    "Agent identifies the fast path for single-action requests and skips to single session if applicable",
+    "Agent identifies the explore-first path if decomposition requires exploration before classification",
+    "Agent selects the highest applicable tier from the Tier Selection table (Team+waves > Subagent wave > Single session)",
+    "Agent defaults to Pattern E (TeamCreate with nested subagent waves) as the dispatch target unless the task has exactly 1 action or is single-domain with no coordination needed"
+  ]
+}

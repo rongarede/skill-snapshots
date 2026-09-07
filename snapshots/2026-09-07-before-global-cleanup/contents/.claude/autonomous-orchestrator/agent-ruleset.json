@@ -1,0 +1,5 @@
+{
+  "source": "github:metyatech/agent-rules@HEAD",
+  "global": true,
+  "domains": []
+}

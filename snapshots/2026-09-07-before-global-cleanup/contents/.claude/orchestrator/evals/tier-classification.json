@@ -1,0 +1,12 @@
+{
+  "skills": ["orchestrator"],
+  "query": "/orchestrator tier",
+  "files": [],
+  "expected_behavior": [
+    "Agent dispatches to 'tier' mode based on the keyword in arguments",
+    "Agent displays the Tier Selection table with three tiers: Team+nested waves (Pattern E), Subagent wave, Single session",
+    "Agent explains the criteria for each tier: 2+ independent streams — THE DEFAULT — for team+nested waves (Pattern E), 2+ actions single domain with no coordination and no context pressure for subagent waves, exactly 1 action for single session",
+    "Agent includes model guidance: opus everywhere, no exceptions, never downgrade for any reason",
+    "Agent emphasizes the mandatory rule: always select the highest tier whose criteria are met, never reduce tier to save cost"
+  ]
+}
