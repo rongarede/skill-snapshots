@@ -1,0 +1,202 @@
+[
+  {
+    "path": "/Users/bit/.codex/skills/algorithmic-art",
+    "snapshot": "contents/.codex/algorithmic-art",
+    "link": "/Users/bit/.claude/plugins/marketplaces/anthropic-agent-skills/skills/algorithmic-art"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/brand-guidelines",
+    "snapshot": "contents/.codex/brand-guidelines",
+    "link": "/Users/bit/.claude/plugins/marketplaces/anthropic-agent-skills/skills/brand-guidelines"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/theme-factory",
+    "snapshot": "contents/.codex/theme-factory",
+    "link": "/Users/bit/.claude/plugins/marketplaces/anthropic-agent-skills/skills/theme-factory"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/web-artifacts-builder",
+    "snapshot": "contents/.codex/web-artifacts-builder",
+    "link": "/Users/bit/.claude/plugins/marketplaces/anthropic-agent-skills/skills/web-artifacts-builder"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/bug-record",
+    "snapshot": "contents/.codex/bug-record",
+    "link": null
+  },
+  {
+    "path": "/Users/bit/.codex/skills/changelog",
+    "snapshot": "contents/.codex/changelog",
+    "link": null
+  },
+  {
+    "path": "/Users/bit/.codex/skills/diagram-indexer",
+    "snapshot": "contents/.codex/diagram-indexer",
+    "link": null
+  },
+  {
+    "path": "/Users/bit/.codex/skills/tech-scout",
+    "snapshot": "contents/.codex/tech-scout",
+    "link": null
+  },
+  {
+    "path": "/Users/bit/.codex/skills/web-fetch-fallback",
+    "snapshot": "contents/.codex/web-fetch-fallback",
+    "link": null
+  },
+  {
+    "path": "/Users/bit/.codex/skills/rss-daily-digest",
+    "snapshot": "contents/.codex/rss-daily-digest",
+    "link": null
+  },
+  {
+    "path": "/Users/bit/.codex/skills/memory-bridge",
+    "snapshot": "contents/.codex/memory-bridge",
+    "link": null
+  },
+  {
+    "path": "/Users/bit/.codex/skills/session-brain",
+    "snapshot": "contents/.codex/session-brain",
+    "link": null
+  },
+  {
+    "path": "/Users/bit/.codex/skills/session-search",
+    "snapshot": "contents/.codex/session-search",
+    "link": null
+  },
+  {
+    "path": "/Users/bit/.codex/skills/nb-query",
+    "snapshot": "contents/.codex/nb-query",
+    "link": null
+  },
+  {
+    "path": "/Users/bit/.codex/skills/notebooklm",
+    "snapshot": "contents/.codex/notebooklm",
+    "link": null
+  },
+  {
+    "path": "/Users/bit/.codex/skills/adhd-daily-planner",
+    "snapshot": "contents/.codex/adhd-daily-planner",
+    "link": null
+  },
+  {
+    "path": "/Users/bit/.codex/skills/task-management",
+    "snapshot": "contents/.codex/task-management",
+    "link": null
+  },
+  {
+    "path": "/Users/bit/.codex/skills/internal-comms",
+    "snapshot": "contents/.codex/internal-comms",
+    "link": "/Users/bit/.claude/plugins/marketplaces/anthropic-agent-skills/skills/internal-comms"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/doc-coauthoring",
+    "snapshot": "contents/.codex/doc-coauthoring",
+    "link": "/Users/bit/.claude/plugins/marketplaces/anthropic-agent-skills/skills/doc-coauthoring"
+  },
+  {
+    "path": "/Users/bit/.codex/skills/obsidian-layout-adjustment",
+    "snapshot": "contents/.codex/obsidian-layout-adjustment",
+    "link": null
+  },
+  {
+    "path": "/Users/bit/.agents/skills/algorithmic-art",
+    "snapshot": "contents/.agents/algorithmic-art",
+    "link": "/Users/bit/.codex/skills/algorithmic-art"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/brand-guidelines",
+    "snapshot": "contents/.agents/brand-guidelines",
+    "link": "/Users/bit/.codex/skills/brand-guidelines"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/theme-factory",
+    "snapshot": "contents/.agents/theme-factory",
+    "link": "/Users/bit/.codex/skills/theme-factory"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/web-artifacts-builder",
+    "snapshot": "contents/.agents/web-artifacts-builder",
+    "link": "/Users/bit/.codex/skills/web-artifacts-builder"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/bug-record",
+    "snapshot": "contents/.agents/bug-record",
+    "link": "/Users/bit/.codex/skills/bug-record"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/changelog",
+    "snapshot": "contents/.agents/changelog",
+    "link": "/Users/bit/.codex/skills/changelog"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/diagram-indexer",
+    "snapshot": "contents/.agents/diagram-indexer",
+    "link": "/Users/bit/.codex/skills/diagram-indexer"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/tech-scout",
+    "snapshot": "contents/.agents/tech-scout",
+    "link": "/Users/bit/.codex/skills/tech-scout"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/web-fetch-fallback",
+    "snapshot": "contents/.agents/web-fetch-fallback",
+    "link": "/Users/bit/.codex/skills/web-fetch-fallback"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/rss-daily-digest",
+    "snapshot": "contents/.agents/rss-daily-digest",
+    "link": "/Users/bit/.codex/skills/rss-daily-digest"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/nb-query",
+    "snapshot": "contents/.agents/nb-query",
+    "link": "/Users/bit/.codex/skills/nb-query"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/notebooklm",
+    "snapshot": "contents/.agents/notebooklm",
+    "link": "/Users/bit/.codex/skills/notebooklm"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/adhd-daily-planner",
+    "snapshot": "contents/.agents/adhd-daily-planner",
+    "link": "/Users/bit/.codex/skills/adhd-daily-planner"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/task-management",
+    "snapshot": "contents/.agents/task-management",
+    "link": "/Users/bit/.codex/skills/task-management"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/internal-comms",
+    "snapshot": "contents/.agents/internal-comms",
+    "link": "/Users/bit/.codex/skills/internal-comms"
+  },
+  {
+    "path": "/Users/bit/.agents/skills/doc-coauthoring",
+    "snapshot": "contents/.agents/doc-coauthoring",
+    "link": "/Users/bit/.codex/skills/doc-coauthoring"
+  },
+  {
+    "path": "/Users/bit/.claude/skills/bug-record",
+    "snapshot": "contents/.claude/bug-record",
+    "link": null
+  },
+  {
+    "path": "/Users/bit/.claude/skills/changelog",
+    "snapshot": "contents/.claude/changelog",
+    "link": null
+  },
+  {
+    "path": "/Users/bit/.claude/skills/nb-query",
+    "snapshot": "contents/.claude/nb-query",
+    "link": null
+  },
+  {
+    "path": "/Users/bit/.claude/skills/notebooklm",
+    "snapshot": "contents/.claude/notebooklm",
+    "link": null
+  }
+]
